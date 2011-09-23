@@ -1,0 +1,24 @@
+TODO 
+
+High:
+* Refactoring
+* Do all the required stuffs of the XEP
+  - Add code to handle registration in a room
+  - Add code to handle for asking to get voiced
+  - ...
+
+Medium:
+* Add in support for ad-hoc commands (XEP-0050)
+  - Useful for clearing history
+* Add in support for MySQL logging
+
+Others:
+(Not in any order)
+
+* Add in user-definable room destruction delay
+
+* profanity filter?
+  - May look into adding this as an external loadable module
+
+* Multiple service handling
+  - Allow server 'divisions' dependant on requested server jid

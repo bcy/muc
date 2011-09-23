@@ -1,0 +1,68 @@
+6. Entity Use Cases (100%)
+  6.1 Discovering Component Support for MUC : Yes
+  6.2 Discovering Rooms : Yes
+  6.3 Querying for Room Information : Yes
+  6.4 Querying for Room Items : Yes, only available for jid inside the room
+  6.5 Querying a Room Occupant : Yes, configurable for each room
+  6.6 Discovering Client Support for MUC : Not a component feature
+7. Occupant Use Cases (85%)
+  7.1.1 Groupchat 1.0 Protocol : Yes, but the error is just bad request
+  7.1.2 Basic MUC Protocol : Yes
+  7.1.3 Presence Broadcast : Yes
+  7.1.4 Default Roles : Yes
+  7.1.5 Non-Anonymous Rooms : Yes
+  7.1.6 Semi-Anonymous Rooms : Yes
+  7.1.7 Password-Protected Rooms : Yes
+  7.1.8 Members-Only Rooms : Yes
+  7.1.9 Banned Users : Yes
+  7.1.10 Nickname Conflict : Yes
+  7.1.11 Max Users : Yes
+  7.1.12 Locked Room : Yes
+  7.1.13 Nonexistent Room : Yes
+  7.1.14 Room Logging : Yes
+  7.1.15 Discussion History : Yes
+  7.1.16 Managing Discussion History : Yes
+  7.2 Exiting a Room : Yes
+  7.3 Changing Nickname : Yes
+  7.4 Changing Availability Status : Yes
+  7.5 Inviting Another User to a Room : Yes
+  7.6 Converting a One-to-One Chat Into a Conference : Yes
+  7.7 Occupant Modification of the Room Subject : Yes
+  7.8 Sending a Private Message : Yes
+  7.9 Sending a Message to All Occupants : Yes
+  7.10 Registering with a Room : No
+  7.11 Discovering Reserved Room Nickname : Yes
+  7.12 Requesting Voice : No
+8. Moderator Use Cases (83%)
+  8.1 Modifying the Room Subject : Yes
+  8.2 Kicking an Occupant : Yes
+  8.3 Granting Voice to a Visitor : Yes
+  8.4 Revoking Voice from a Participant : Yes
+  8.5 Modifying the Voice List : Yes
+  8.6 Approving Voice Requests : No
+9. Admin Use Cases (88%/100%)
+  9.1 Banning a User : Yes
+  9.2 Modifying the Ban List : Yes
+  9.3 Granting Membership : Yes
+  9.4 Revoking Membership : Yes
+  9.5 Modifying the Member List : Yes
+  9.6 Granting Moderator Privileges : Yes
+  9.7 Revoking Moderator Privileges : Yes
+  9.8 Modifying the Moderator List : Yes
+  9.9 Approving Registration Requests : No
+10. Owner Use Cases (100%)
+  10.1 Creating a Room
+    10.1.2 Creating an Instant Room : Yes
+    10.1.3 Creating a Reserved Room : Yes
+    10.1.4 Requesting a Unique Room Name : Yes
+  10.2 Subsequent Room Configuration : Yes
+    10.2.1 Notification of Configuration Changes : Yes (but don't send 104 on every change)
+  10.3 Granting Ownership Privileges : Yes
+  10.4 Revoking Ownership Privileges : Yes
+  10.5 Modifying the Owner List : Yes 
+  10.6 Granting Administrative Privileges : Yes
+  10.7 Revoking Administrative Privileges : Yes
+  10.8 Modifying the Admin List : Yes
+  10.9 Destroying a Room : Yes
+12. Internationalization Considerations : Not at the moment
+
