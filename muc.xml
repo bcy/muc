@@ -1,14 +1,14 @@
 <jcr>
   <name>muclinker.localhost</name> <!-- the jid of your component -->
-  <host>conference.localhost</host> <!-- this should be the same as above -->
+  <host>muclinker.localhost</host> <!-- this should be the same as above -->
   <ip>127.0.0.1</ip> <!-- adress of the jabber server -->
   <port>31518</port>  <!-- port used to connect the service to the jabber server -->
   <secret>secret</secret> <!-- secret shared with the jabber server -->
-  <spool>/Users/zhenkai/Develop/usr/local/var/spool/chat.localhost</spool> <!-- directory containing the rooms data -->
-  <logdir>/Users/zhenkai/Develop/usr/local/var/syslogs</logdir> <!-- directory containing the debug log (the file is called mu-conference.log) -->
-  <pidfile>/Users/zhenkai/Develop/usr/local/var/mu-conference.pid</pidfile> <!-- file that will contain the PID of the process -->
+  <spool>/home/bcy/var/spool/chat.localhost</spool> <!-- directory containing the rooms data -->
+  <logdir>/home/bcy/var/log/</logdir> <!-- directory containing the debug log (the file is called mu-conference.log) -->
+  <pidfile>/home/bcy/var/mu-conference.pid</pidfile> <!-- file that will contain the PID of the process -->
   
-  <loglevel>124</loglevel> <!-- log verbosity, 255 for very verbose, 0 for quiet -->
+  <loglevel>255</loglevel> <!-- log verbosity, 255 for very verbose, 0 for quiet -->
 
     <conference xmlns="jabber:config:conference">
       <public/> <!-- rooms are public when created, comment to make them private by default -->
@@ -18,7 +18,7 @@
         <URL>http://foo.bar/</URL>
       </vCard>
       <history>40</history> <!-- maximum numbers of history lines send when joining a room -->
-      <logdir>/Users/zhenkai/Develop/usr/local/var/logs/</logdir> <!-- where to store the room logs, comment to disable logging -->
+      <logdir>/home/bcy/var/log/</logdir> <!-- where to store the room logs, comment to disable logging -->
       <!--logsubdirs/--> <!-- uncomment to stores the room logs in subdirs (for example 2007/08/02) -->
       <stylesheet>../style.css</stylesheet> <!--URL of the log stylesheet -->
       <!-- default text to send to legacy clients, will also be used in the logs -->

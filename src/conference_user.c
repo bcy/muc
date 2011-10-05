@@ -270,6 +270,7 @@ void _con_user_enter(gpointer key, gpointer data, gpointer arg)
     xmlnode_hide(element);
 
   deliver(dpacket_new(node), NULL);
+  /* bcy: create NDN packet of presence */
 }
 
 void con_user_enter(cnu user, char *nick, int created)
