@@ -1,5 +1,6 @@
 /* bcy: NDN related operations */
 #include "ndn.h"
+#include <../../ccnx-0.4.1/apps/wireshark/ccn/Makefile.in>
 
 struct ndn_thread *nthread;
 
@@ -104,25 +105,51 @@ ndn_run(gpointer data)
 }
 
 static int
-create_presence_interest()
+create_presence_interest(char *roomid, GQueue *exclusion_list)
+{
+  struct ccn_charbuf *interest;
+  struct ccn_charbuf **excl = NULL;
+  
+  interest = ccn_charbuf_create();
+  if (interest == NULL)
+  {
+    log_error(NAME, "ccn_charbuf_create failed");
+    return 1;
+  }
+  ccn_name_from_uri(interest, "/ndn/xmpp/muc/");
+  ccn_name_append_str(interest, roomid);
+  ccn_name_append_str(interest, "presence");
+  
+  if (g_queue_is_empty(exclusion_list))
+  {
+    int res = ccn_express_interest(nthread->ccn, interest, nthread->in_content_presence, NULL);
+    if (res < 0)
+    {
+      log_error(NAME, "ccn_express_interest failed");
+      return 1;
+    }
+    ccn_destroy(&interest);
+    return 0;
+  }
+  
+  excl = calloc(sizeof(struct ccn_charbuf) * g_queue_get_length(exclusion_list));
+  return 0;
+}
+
+static int
+create_presence_content(char *name, char *data)
 {
   return 0;
 }
 
 static int
-create_presence_content()
+create_message_interest(char *name, int seq)
 {
   return 0;
 }
 
 static int
-create_message_interest()
-{
-  return 0;
-}
-
-static int
-create_message_content()
+create_message_content(char *name, char *data)
 {
   return 0;
 }
@@ -153,7 +180,6 @@ init_ndn_thread(struct ndn_thread *pthread)
   pthread->in_interest_message->p = &incoming_interest_meesage;
   
   pthread->content_table = g_hashtable_new(NULL, NULL);
-  pthread->exclusion_list = g_queue_new();
   pthread->nthread = g_thread_create(&ndn_run, (gpointer)ccn, TRUE, NULL);
   
   pthread->create_message_content = &create_message_content;
