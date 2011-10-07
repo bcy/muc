@@ -29,6 +29,7 @@
 
 #include <ccn/ccn.h>
 #include <ccn/uri.h>
+#include <ccn/bloom.h>
 #include <ccn/charbuf.h>
 
 #define NAME			"MU-Conference"
@@ -356,13 +357,12 @@ void sql_remove_affiliate(mysql sql,cnr room,jid userid);
 struct ndn_thread {
   struct ccn *ccn;
   GThread *nthread;
-  GHashTable *room_table;
   
-  int (*parse_ndn_packet());
-  int (*create_presence_interest());
-  int (*create_message_interest());
-  int (*create_presence_content());
-  int (*create_message_content());
+  int (*parse_ndn_packet)();
+  int (*create_presence_interest)();
+  int (*create_message_interest)();
+  int (*create_presence_content)();
+  int (*create_message_content)();
 };
 
 enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);

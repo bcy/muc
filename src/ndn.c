@@ -3,6 +3,22 @@
 
 struct ndn_thread *nthread;
 
+/*
+ * This appends a tagged, valid, fully-saturated Bloom filter, useful for
+ * excluding everything between two 'fenceposts' in an Exclude construct.
+ */
+static void
+append_bf_all(struct ccn_charbuf *c)
+{
+    unsigned char bf_all[9] = { 3, 1, 'A', 0, 0, 0, 0, 0, 0xFF };
+    const struct ccn_bloom_wire *b = ccn_bloom_validate_wire(bf_all, sizeof(bf_all));
+    if (b == NULL) abort();
+    ccn_charbuf_append_tt(c, CCN_DTAG_Bloom, CCN_DTAG);
+    ccn_charbuf_append_tt(c, sizeof(bf_all), CCN_BLOB);
+    ccn_charbuf_append(c, bf_all, sizeof(bf_all));
+    ccn_charbuf_append_closer(c);
+}
+
 enum ccn_upcall_res
 incoming_interest_meesage(
   struct ccn_closure *selfp,
@@ -100,7 +116,7 @@ ndn_run(gpointer data)
 {
   struct ccn *ccn = (struct ccn*) data;
   int res = ccn_run(ccn, 0);
-  return res;
+  return (gpointer)res;
 }
 
 static int /* for qsort */
@@ -128,10 +144,12 @@ copy_from_list(struct ccn_charbuf **res, GQueue *list)
 }
 
 static int
-create_presence_interest(char *roomid, GQueue *exclusion_list)
+create_presence_interest(cnu user, GQueue *exclusion_list)
 {
   struct ccn_charbuf *interest;
   struct ccn_charbuf **excl = NULL;
+  int begin, i;
+  gboolean excludeLow, excludeHigh;
   
   interest = ccn_charbuf_create();
   if (interest == NULL)
@@ -140,12 +158,12 @@ create_presence_interest(char *roomid, GQueue *exclusion_list)
     return 1;
   }
   ccn_name_from_uri(interest, "/ndn/xmpp/muc/");
-  ccn_name_append_str(interest, roomid);
+  ccn_name_append_str(interest, jid_full(user->room->id));
   ccn_name_append_str(interest, "presence");
   
   if (g_queue_is_empty(exclusion_list))
   {
-    int res = ccn_express_interest(nthread->ccn, interest, nthread->in_content_presence, NULL);
+    int res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, NULL);
     if (res < 0)
     {
       log_error(NAME, "ccn_express_interest failed");
@@ -155,17 +173,17 @@ create_presence_interest(char *roomid, GQueue *exclusion_list)
     return 0;
   }
   
-  excl = calloc(sizeof(struct ccn_charbuf) * g_queue_get_length(exclusion_list));
+  excl = calloc(1, sizeof(struct ccn_charbuf) * g_queue_get_length(exclusion_list));
   copy_from_list(excl, exclusion_list);
   qsort(excl, g_queue_get_length(exclusion_list), sizeof(struct ccn_charbuf), &namecompare);
   
-  int begin = 0;
-  bool excludeLow = false;
-  bool excludeHigh = true;
+  begin = 0;
+  excludeLow = FALSE;
+  excludeHigh = TRUE;
   while (begin < g_queue_get_length(exclusion_list))
   {
     if (begin != 0)
-      excludeLow = true;
+      excludeLow = TRUE;
     
     struct ccn_charbuf *templ = ccn_charbuf_create();
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
@@ -190,14 +208,14 @@ create_presence_interest(char *roomid, GQueue *exclusion_list)
     }
     
     if (begin == g_queue_get_length(exclusion_list))
-      excludeHigh = false;
+      excludeHigh = FALSE;
 
     if (excludeHigh)
       append_bf_all(templ);
     
     ccn_charbuf_append_closer(templ); // </Exclude>
     ccn_charbuf_append_closer(templ); // </Interest> 
-    int res = ccn_express_interest(ccn, interest, nthread->in_content_presence, templ);
+    int res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, templ);
     if (res < 0)
     {
       log_error(NAME, "ccn_express_interest failed!");
@@ -208,7 +226,7 @@ create_presence_interest(char *roomid, GQueue *exclusion_list)
   }
   
   ccn_charbuf_destroy(&interest);
-  for (int i = 0; i < g_queue_get_length(exclusion_list); i++)
+  for (i = 0; i < g_queue_get_length(exclusion_list); i++)
     ccn_charbuf_destroy(&excl[i]); 
 
   free(excl);
@@ -242,7 +260,7 @@ create_presence_content(char *name, char *data)
     sp.template_ccnb->length--;
   }
   
-  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, 10);
+  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%d", 10);
   sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
   ccn_charbuf_append_closer(sp.template_ccnb);
   
@@ -255,9 +273,9 @@ create_presence_content(char *name, char *data)
     return 1;
   }
   
-  g_hash_table_insert(nthread->content_table, content_name, data);
+  //g_hash_table_insert(nthread->content_table, content_name, data);
   
-  res = ccn_put(ccn, temp->buf, temp->length);
+  res = ccn_put(nthread->ccn, temp->buf, temp->length);
   if (res < 0)
   {
     log_error(NAME, "ccn_put failed");
@@ -273,10 +291,11 @@ create_presence_content(char *name, char *data)
 }
 
 static int
-create_message_interest(char *name, int seq)
+create_message_interest(cnu user, char *name, int seq)
 {
   struct ccn_charbuf *interest;
   int res;
+  char str_seq[10];
   
   interest = ccn_charbuf_create();
   if (interest == NULL)
@@ -284,12 +303,13 @@ create_message_interest(char *name, int seq)
     log_error(NAME, "ccn_charbuf_create failed");
     return 1;
   }
-  ccn_name_from_uri(interest, "/ndn/xmpp/muc/");
-  ccn_name_append_str(interest, roomid);
+  ccn_name_from_uri(interest, "/ndn/xmpp/muc");
+  ccn_name_append_str(interest, jid_full(user->room->id));
   ccn_name_append_str(interest, "message");
-  ccn_name_append_numeric(interest, seq);
+  itoa(seq, str_seq);
+  ccn_name_append_str(interest, str_seq);
   
-  res = ccn_express_interest(nthread->ccn, interest, nthread->in_content_presence, NULL);
+  res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, NULL);
   if (res < 0)
   {
     log_error(NAME, "ccn_express_interest failed");
@@ -301,7 +321,7 @@ create_message_interest(char *name, int seq)
 }
 
 static int
-create_message_content(char *name, int seq, char *data)
+create_message_content(cnu user, int seq, char *data)
 {
   struct ccn_charbuf *pname, *temp;
   struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
@@ -310,7 +330,7 @@ create_message_content(char *name, int seq, char *data)
   char *seq_char = calloc(1, sizeof(char) * 10);
   
   strcpy(content_name, "/ndn/xmpp/muc/");
-  strcat(content_name, name);
+  strcat(content_name, jid_full(user->room->id));
   strcat(content_name, "/message/");
   itoa(seq, seq_char);
   strcat(content_name, seq_char);
@@ -329,7 +349,7 @@ create_message_content(char *name, int seq, char *data)
     sp.template_ccnb->length--;
   }
   
-  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, 10);
+  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%d", 10);
   sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
   ccn_charbuf_append_closer(sp.template_ccnb);
   
@@ -342,9 +362,8 @@ create_message_content(char *name, int seq, char *data)
     return 1;
   }
   
-  g_hash_table_lookup(nthread->room_table, name);
   
-  res = ccn_put(ccn, temp->buf, temp->length);
+  res = ccn_put(nthread->ccn, temp->buf, temp->length);
   if (res < 0)
   {
     log_error(NAME, "ccn_put failed");
@@ -376,8 +395,7 @@ init_ndn_thread(struct ndn_thread *pthread)
     return 1;
   }
     
-  pthread->room_table = g_hash_table_new(NULL, NULL);
-  pthread->nthread = g_thread_create(&ndn_run, (gpointer)ccn, TRUE, NULL);
+  pthread->nthread = g_thread_create(&ndn_run, (gpointer)pthread->ccn, TRUE, NULL);
   
   pthread->create_message_content = &create_message_content;
   pthread->create_presence_content = &create_presence_content;

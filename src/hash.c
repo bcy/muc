@@ -30,7 +30,7 @@ void ght_remove_pkt(gpointer data)
 {
   struct ccn_charbuf *node = (struct ccn_charbuf *)data;
   log_debug(NAME, " Auto-removing packet");
-  ccn_charbuf_destroy(node);
+  ccn_charbuf_destroy(&node);
 }
 
 void ght_remove_cnu(gpointer data)
