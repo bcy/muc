@@ -71,6 +71,20 @@ cnu con_user_new(cnr room, jid id)
     /* Auto-add to participant list if moderated and participant type is default */
     add_role(room->participant, user);
   }
+  
+  /*bcy: ccn_closure initialization*/
+  user->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  user->in_content_presence->data = user;
+  user->in_content_presence->p = &incoming_content_presence;
+  user->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  user->in_interest_presence->data = user;
+  user->in_interest_presence->p = &incoming_interest_presence;
+  user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  user->in_content_message->data = user;
+  user->in_content_message->p = &incoming_content_message;
+  user->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  user->in_interest_message->data = user;
+  user->in_interest_message->p = &incoming_interest_meesage;
 
   return user;
 }

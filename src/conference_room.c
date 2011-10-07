@@ -1518,6 +1518,9 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   sql_insert_room_config(master->sql, room);
   sql_add_room_lists(master->sql, room);
 #endif
+  
+  room->presence = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
+  room->message = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
 
   return room;
 }

@@ -11,7 +11,7 @@ LDFLAGS:=-L.
 #LIBS:=$(LIBS) -lmemusage
 #LIBS:=$(LIBS) -lmcheck
 
-conference_OBJECTS=libjcomp.a conference.o conference_room.o conference_user.o utils.o xdata.o admin.o roles.o xdb.o hash.o iq.o main.o mysql.o 
+conference_OBJECTS=libjcomp.a conference.o conference_room.o conference_user.o utils.o xdata.o admin.o roles.o xdb.o hash.o iq.o main.o mysql.o ndn.o
 
 all: mu-conference
 

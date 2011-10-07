@@ -27,6 +27,10 @@
 #include "hash.h"
 #include "ns.h"
 
+#include <ccn/ccn.h>
+#include <ccn/uri.h>
+#include <ccn/charbuf.h>
+
 #define NAME			"MU-Conference"
 #undef VERSION
 #define VERSION 		"0.8"
@@ -175,6 +179,9 @@ typedef struct cnr_struct
     FILE *logfile; 		/* for logging of this room */
     int logformat;		/* For log format */
     GQueue *queue;		/* used to remove zombie users  */
+    
+    GHashTable *presence;	/* bcy: storage of generated presence packets */ 
+    GHashTable *message;	/* bcy: storage of generated message packets */
 } *cnr, _cnr;
 
 /* conference user */
@@ -190,6 +197,11 @@ struct cnu_struct
     int packets; 		/* number of packets from this user */
     int legacy;			/* To denote gc clients */
     int leaving;		/* To flag user is leaving the room */
+    
+    struct ccn_closure *in_interest_presence;
+    struct ccn_closure *in_interest_message;
+    struct ccn_closure *in_content_presence;
+    struct ccn_closure *in_content_message;
 };
 
 /* conference room history */
@@ -340,3 +352,20 @@ void sql_destroy_room(mysql sql, char * room_jid);
 void sql_add_affiliate(mysql sql,cnr room,char * userid,int affil);
 void sql_remove_affiliate(mysql sql,cnr room,jid userid);
 #endif
+
+struct ndn_thread {
+  struct ccn *ccn;
+  GThread *nthread;
+  GHashTable *room_table;
+  
+  int (*parse_ndn_packet());
+  int (*create_presence_interest());
+  int (*create_message_interest());
+  int (*create_presence_content());
+  int (*create_message_content());
+};
+
+enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
