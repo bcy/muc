@@ -10,13 +10,42 @@ struct ndn_thread *nthread;
 static void
 append_bf_all(struct ccn_charbuf *c)
 {
-    unsigned char bf_all[9] = { 3, 1, 'A', 0, 0, 0, 0, 0, 0xFF };
-    const struct ccn_bloom_wire *b = ccn_bloom_validate_wire(bf_all, sizeof(bf_all));
-    if (b == NULL) abort();
-    ccn_charbuf_append_tt(c, CCN_DTAG_Bloom, CCN_DTAG);
-    ccn_charbuf_append_tt(c, sizeof(bf_all), CCN_BLOB);
-    ccn_charbuf_append(c, bf_all, sizeof(bf_all));
-    ccn_charbuf_append_closer(c);
+  unsigned char bf_all[9] = { 3, 1, 'A', 0, 0, 0, 0, 0, 0xFF };
+  const struct ccn_bloom_wire *b = ccn_bloom_validate_wire(bf_all, sizeof(bf_all));
+  if (b == NULL) abort();
+  ccn_charbuf_append_tt(c, CCN_DTAG_Bloom, CCN_DTAG);
+  ccn_charbuf_append_tt(c, sizeof(bf_all), CCN_BLOB);
+  ccn_charbuf_append(c, bf_all, sizeof(bf_all));
+  ccn_charbuf_append_closer(c);
+}
+
+static void
+fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf *comps)
+{
+  unsigned char *comp_str;
+  size_t size;
+  int n = comps->n;
+  int i;
+  
+  name[0] = '\0';
+  for (i = 0; i < n - 2; i++)
+  {
+    strcat(name, "/");
+    if (ccn_name_comp_get(ccnb, comps, i, &comp_str, &size) == 0)
+    {
+      comp_str[size] = '\0';
+      strcat(name, comp_str);
+    }
+  }  
+}
+
+static void
+send_presence(gpointer key, gpointer value, gpointer user_data)
+{
+  struct ccn *ccn = (struct ccn*) user_data;
+  struct ccn_charbuf *content = (struct ccn_charbuf*) value;
+  
+  ccn_put(ccn, content->buf, content->length);
 }
 
 enum ccn_upcall_res
@@ -25,18 +54,38 @@ incoming_interest_meesage(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
+  cnu user = (cnu) selfp->data;
+  cnr room = user->room;
+  char *name;
+  struct ccn_charbuf *content = NULL;
+  
   switch (kind) {
     case CCN_UPCALL_FINAL:
-      break;
+      return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST:
       break;
       
     default:
-      break;
+      return CCN_UPCALL_RESULT_OK;
   }
   
-  return CCN_UPCALL_RESULT_OK;
+  name = calloc(1, sizeof(char) * info->interest_comps->buf[info->interest_comps->n - 1]);
+  
+  fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
+  
+  if ((content = g_hash_table_lookup(room->message, name)) != NULL)
+  {
+    ccn_put(info->h, content->buf, content->length);
+    return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
+  }
+  else if ((content = g_hash_table_lookup(room->message_latest, name)) != NULL)
+  {
+    ccn_put(info->h, content->buf, content->length);
+    return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
+  }
+  else
+    return CCN_UPCALL_RESULT_OK;
 }
 
 enum ccn_upcall_res
@@ -45,17 +94,36 @@ incoming_interest_presence(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
+  cnu user = (cnu) selfp->data;
+  cnr room = (cnr) user->room;
+  char *name;
+  struct ccn_charbuf *content;
+  char *roomname;
+  
   switch (kind) {
     case CCN_UPCALL_FINAL:
-      break;
+      return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST:
       break;
       
     default:
-      break;
+      return CCN_UPCALL_RESULT_OK;
   }
   
+  name = calloc(1, sizeof(char) * info->interest_comps->buf[info->interest_comps->n - 1]);
+  fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
+  
+  roomname = calloc(1, sizeof(char) * 100);
+  strcpy(roomname, "ndn/xmpp/muc/");
+  strcat(roomname, jid_full(room->id));
+  strcat(roomname, "/presence");
+  
+  if (strcmp(roomname, name) == 0)
+  {
+    g_hash_table_foreach(room->presence, send_presence, info->h);
+  }
+    
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -91,6 +159,7 @@ incoming_content_presence(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
+  cnu user = (cnu) selfp->data;
   switch (kind) {
     case CCN_UPCALL_FINAL:
       break;
@@ -157,7 +226,7 @@ create_presence_interest(cnu user, GQueue *exclusion_list)
     log_error(NAME, "ccn_charbuf_create failed");
     return 1;
   }
-  ccn_name_from_uri(interest, "/ndn/xmpp/muc/");
+  ccn_name_from_uri(interest, "/ndn/xmpp/muc");
   ccn_name_append_str(interest, jid_full(user->room->id));
   ccn_name_append_str(interest, "presence");
   

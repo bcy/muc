@@ -181,8 +181,9 @@ typedef struct cnr_struct
     int logformat;		/* For log format */
     GQueue *queue;		/* used to remove zombie users  */
     
-    GHashTable *presence;	/* bcy: storage of generated presence packets */ 
+    GHashTable *presence;	/* bcy: storage of generated presence packets */
     GHashTable *message;	/* bcy: storage of generated message packets */
+    GHashTable *message_latest; /* bcy: storage of latest message packets of each user */
 } *cnr, _cnr;
 
 /* conference user */
@@ -203,6 +204,7 @@ struct cnu_struct
     struct ccn_closure *in_interest_message;
     struct ccn_closure *in_content_presence;
     struct ccn_closure *in_content_message;
+    char *name_prefix;
 };
 
 /* conference room history */
@@ -340,7 +342,7 @@ void iq_populate_browse(xmlnode item);
 /* Functions in mysql.c */
 mysql sql_mysql_init(cni master, xmlnode config);
 int sql_mysql_connect(mysql mysql);
-void sql_mysql_close(mysql mysql);
+void sql_mysql_close(mysql mysql);deliver(dpacket_new(node), NULL);
 void sql_clear_all(mysql sql);
 void sql_update_nb_users(mysql sql, cnr room);
 void sql_update_field(mysql sql, const char * roomId,const char* field, const char * value);
