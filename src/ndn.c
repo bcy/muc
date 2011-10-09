@@ -12,7 +12,8 @@ append_bf_all(struct ccn_charbuf *c)
 {
   unsigned char bf_all[9] = { 3, 1, 'A', 0, 0, 0, 0, 0, 0xFF };
   const struct ccn_bloom_wire *b = ccn_bloom_validate_wire(bf_all, sizeof(bf_all));
-  if (b == NULL) abort();
+  if (b == NULL)
+    abort();
   ccn_charbuf_append_tt(c, CCN_DTAG_Bloom, CCN_DTAG);
   ccn_charbuf_append_tt(c, sizeof(bf_all), CCN_BLOB);
   ccn_charbuf_append(c, bf_all, sizeof(bf_all));
@@ -36,7 +37,43 @@ fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf 
       comp_str[size] = '\0';
       strcat(name, comp_str);
     }
-  }  
+  }
+}
+
+static void
+init_keystore()
+{
+  int res;
+  
+  if (nthread->keystore == NULL)
+  {
+    struct ccn_charbuf *temp = ccn_charbuf_create();
+    nthread->keystore = ccn_keystore_create();
+    ccn_charbuf_putf(temp, "%s/.ccnx/.ccnx_keystore", getenv("HOME"));
+    res = ccn_keystore_init(nthread->keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
+    if (res != 0)
+    {
+      log_error(NAME, "Failed to initialize keystore %s", ccn_charbuf_as_string(temp));
+      exit(1);
+    }
+    ccn_charbuf_destroy(&temp);
+  }
+}
+
+static int
+ccn_create_keylocator(struct ccn_charbuf *c, const struct ccn_pkey *k)
+{
+    int res;
+    ccn_charbuf_append_tt(c, CCN_DTAG_KeyLocator, CCN_DTAG);
+    ccn_charbuf_append_tt(c, CCN_DTAG_Key, CCN_DTAG);
+    res = ccn_append_pubkey_blob(c, k);
+    if (res < 0)
+        return (res);
+    else {
+        ccn_charbuf_append_closer(c); /* </Key> */
+        ccn_charbuf_append_closer(c); /* </KeyLocator> */
+    }
+    return (0);
 }
 
 static void
@@ -97,7 +134,6 @@ incoming_interest_presence(
   cnu user = (cnu) selfp->data;
   cnr room = (cnr) user->room;
   char *name;
-  struct ccn_charbuf *content;
   char *roomname;
   
   switch (kind) {
@@ -341,9 +377,7 @@ create_presence_content(char *name, char *data)
     log_error(NAME, "ccn_sign_content failed");
     return 1;
   }
-  
-  //g_hash_table_insert(nthread->content_table, content_name, data);
-  
+    
   res = ccn_put(nthread->ccn, temp->buf, temp->length);
   if (res < 0)
   {
@@ -392,8 +426,10 @@ create_message_interest(cnu user, char *name, int seq)
 static int
 create_message_content(cnu user, int seq, char *data)
 {
-  struct ccn_charbuf *pname, *temp;
-  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
+  struct ccn_charbuf *pname;
+  struct ccn_charbuf *signed_info;
+  struct ccn_charbuf *keylocator;
+  struct ccn_charbuf *content;
   int res;
   char *content_name = calloc(1, sizeof(char) * 50);
   char *seq_char = calloc(1, sizeof(char) * 10);
@@ -406,7 +442,11 @@ create_message_content(cnu user, int seq, char *data)
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
+  /*
+  struct ccn_charbuf *temp;
+  
   sp.type = CCN_CONTENT_DATA;
+  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
   
   if (sp.template_ccnb == NULL)
   {
@@ -431,7 +471,6 @@ create_message_content(cnu user, int seq, char *data)
     return 1;
   }
   
-  
   res = ccn_put(nthread->ccn, temp->buf, temp->length);
   if (res < 0)
   {
@@ -442,6 +481,35 @@ create_message_content(cnu user, int seq, char *data)
   ccn_charbuf_destroy(&pname);
   ccn_charbuf_destroy(&temp);
   ccn_charbuf_destroy(&sp.template_ccnb);
+  */
+  
+  keylocator = ccn_charbuf_create();
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(nthread->keystore));
+  res = ccn_signed_info_create(signed_info,
+		/*pubkeyid*/ ccn_keystore_public_key_digest(nthread->keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(nthread->keystore),
+		/*datetime*/ NULL,
+		/*type*/ CCN_CONTENT_DATA,
+		/*freshness*/ 10,
+		/*finalblockid*/ NULL,
+		/*keylocator*/ keylocator);
+	
+  if (res < 0)
+  {
+    log_error(NAME, "FAILED TO CREATE signed_info (res == %d)", res);
+    return 1;
+  }
+  
+  content = ccn_charbuf_create();
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data), 
+			NULL, ccn_keystore_private_key(nthread->keystore));
+  ccn_put(nthread->ccn, content->buf, content->length);
+  
+  ccn_charbuf_destroy(&signed_info);
+  ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&content);
+  
   free(content_name);
   free(seq_char);
   
@@ -463,15 +531,16 @@ init_ndn_thread(struct ndn_thread *pthread)
     log_error(NAME, "Memory allocation error!");
     return 1;
   }
-    
-  pthread->nthread = g_thread_create(&ndn_run, (gpointer)pthread->ccn, TRUE, NULL);
+  
+  init_keystore();
   
   pthread->create_message_content = &create_message_content;
   pthread->create_presence_content = &create_presence_content;
   pthread->create_presence_interest = &create_presence_interest;
   pthread->create_message_interest = &create_message_interest;
-  
   pthread->parse_ndn_packet = &parse_ndn_packet;
+  
+  pthread->nthread = g_thread_create(&ndn_run, (gpointer)pthread->ccn, TRUE, NULL);
   
   return 0;
 }

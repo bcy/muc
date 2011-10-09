@@ -30,6 +30,7 @@
 #include <ccn/ccn.h>
 #include <ccn/uri.h>
 #include <ccn/bloom.h>
+#include <ccn/keystore.h>
 #include <ccn/charbuf.h>
 
 #define NAME			"MU-Conference"
@@ -359,6 +360,7 @@ void sql_remove_affiliate(mysql sql,cnr room,jid userid);
 struct ndn_thread {
   struct ccn *ccn;
   GThread *nthread;
+  struct ccn_keystore *keystore;
   
   int (*parse_ndn_packet)();
   int (*create_presence_interest)();
