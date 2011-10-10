@@ -85,13 +85,6 @@ send_presence(gpointer key, gpointer value, gpointer user_data)
   ccn_put(ccn, content->buf, content->length);
 }
 
-static void
-remove_element(gpointer data)
-{
-  struct exclusion_element *element = (struct exclusion_element*) data;
-  g_queue_remove(element->list, element);
-}
-
 enum ccn_upcall_res
 incoming_interest_meesage(
   struct ccn_closure *selfp,
@@ -179,6 +172,8 @@ incoming_content_message(
   cnu user = (cnu) selfp->data;
   cnr room = (cnr) user->room;
   cni interface = (cni) room->master;
+  char *name, *seq_str;
+  int seq, size;
   
   switch (kind) {
     case CCN_UPCALL_FINAL:
@@ -198,7 +193,17 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);  
+  con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
+  
+  name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n]);
+  fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
+  
+  seq_str = calloc(1, sizeof(char) * 10);
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &seq_str, &size);
+  seq = atoi(seq_str);
+  seq++;
+  
+  nthread->create_message_interest(user, name, seq);
 }
 
 enum ccn_upcall_res
@@ -231,15 +236,11 @@ incoming_content_presence(
   
   struct exclusion_element *element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
   
-  info->content_ccnb;
   //element->name = calloc(1, sizeof(char) * strlen(
-  element->list = user->exclusion_list;
-  element->timer = g_timer_new();
-
-  g_queue_push_head(user->exclusion_list, element);
-  g_timer_start(element->timer);
   
-  //g_signal_connect(NULL, "clear", remove_element, element);
+  element->timer = g_timer_new();
+  g_queue_push_head(user->exclusion_list, element);
+  g_timer_start(element->timer);  
   
   con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
 }
@@ -261,27 +262,44 @@ namecompare(const void *a, const void *b)
   return ans;
 }
 
-static void
+static int
 copy_from_list(struct ccn_charbuf **res, GQueue *list)
 {
   GQueue *duplica = g_queue_copy(list);
-  char *element;
+  struct exclusion_element *element;
   int idx = 0;
   while ((element = g_queue_pop_head(duplica)) != NULL)
   {
     struct ccn_charbuf *temp = ccn_charbuf_create();
     ccn_name_init(temp);
-    ccn_name_append_str(temp, element);
+    ccn_name_append_str(temp, element->name);
     res[idx++] = temp;
   }
+  return idx;
 }
+
+static void
+check_delete(gpointer data, gpointer user_data)
+{
+  struct exclusion_element *element = (struct exclusion_element*) data;
+  GQueue *list = (GQueue*) user_data;
+  gulong duration;
+  
+  g_timer_elapsed(element->timer, &duration);
+  if (duration >= 10000000)
+  {
+    g_timer_destroy(element->timer);
+    g_queue_remove(list, data);
+  }    
+}
+  
 
 static int
 create_presence_interest(cnu user, GQueue *exclusion_list)
 {
   struct ccn_charbuf *interest;
   struct ccn_charbuf **excl = NULL;
-  int begin, i;
+  int begin, i, length;
   gboolean excludeLow, excludeHigh;
   
   interest = ccn_charbuf_create();
@@ -306,18 +324,20 @@ create_presence_interest(cnu user, GQueue *exclusion_list)
     return 0;
   }
   
+  g_queue_foreach(exclusion_list, check_delete, exclusion_list);
+  
   excl = calloc(1, sizeof(struct ccn_charbuf) * g_queue_get_length(exclusion_list));
-  copy_from_list(excl, exclusion_list);
-  qsort(excl, g_queue_get_length(exclusion_list), sizeof(struct ccn_charbuf), &namecompare);
+  length = copy_from_list(excl, exclusion_list);
+  qsort(excl, length, sizeof(struct ccn_charbuf), &namecompare);
   
   begin = 0;
   excludeLow = FALSE;
   excludeHigh = TRUE;
-  while (begin < g_queue_get_length(exclusion_list))
+  while (begin < length)
   {
     if (begin != 0)
       excludeLow = TRUE;
-    
+        
     struct ccn_charbuf *templ = ccn_charbuf_create();
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG); // <Name>
@@ -327,7 +347,7 @@ create_presence_interest(cnu user, GQueue *exclusion_list)
     if (excludeLow)
       append_bf_all(templ);
     
-    for (; begin < g_queue_get_length(exclusion_list); begin++)
+    for (; begin < length; begin++)
     {
       struct ccn_charbuf *comp = excl[begin];
       if (comp->length < 4)
@@ -340,7 +360,7 @@ create_presence_interest(cnu user, GQueue *exclusion_list)
       ccn_charbuf_append(templ, comp->buf + 1, comp->length - 2);
     }
     
-    if (begin == g_queue_get_length(exclusion_list))
+    if (begin == length)
       excludeHigh = FALSE;
 
     if (excludeHigh)
@@ -359,7 +379,7 @@ create_presence_interest(cnu user, GQueue *exclusion_list)
   }
   
   ccn_charbuf_destroy(&interest);
-  for (i = 0; i < g_queue_get_length(exclusion_list); i++)
+  for (i = 0; i < length; i++)
     ccn_charbuf_destroy(&excl[i]); 
 
   free(excl);

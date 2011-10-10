@@ -213,7 +213,6 @@ struct exclusion_element
 {
     char *name;
     GTimer *timer;
-    GQueue *list;
 };
 
 /* conference room history */
