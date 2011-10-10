@@ -206,6 +206,14 @@ struct cnu_struct
     struct ccn_closure *in_content_presence;
     struct ccn_closure *in_content_message;
     char *name_prefix;
+    GQueue *exclusion_list;
+};
+
+struct exclusion_element
+{
+    char *name;
+    GTimer *timer;
+    GQueue *list;
 };
 
 /* conference room history */
@@ -363,10 +371,10 @@ struct ndn_thread {
   struct ccn_keystore *keystore;
   
   int (*parse_ndn_packet)();
-  int (*create_presence_interest)();
-  int (*create_message_interest)();
-  int (*create_presence_content)();
-  int (*create_message_content)();
+  int (*create_presence_interest)(cnu user, GQueue *exclusion_list);
+  int (*create_message_interest)(cnu user, char *name, int seq);
+  int (*create_presence_content)(char *name, char *data);
+  int (*create_message_content)(cnu user, int seq, char *data);
 };
 
 enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);

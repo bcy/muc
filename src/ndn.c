@@ -85,6 +85,13 @@ send_presence(gpointer key, gpointer value, gpointer user_data)
   ccn_put(ccn, content->buf, content->length);
 }
 
+static void
+remove_element(gpointer data)
+{
+  struct exclusion_element *element = (struct exclusion_element*) data;
+  g_queue_remove(element->list, element);
+}
+
 enum ccn_upcall_res
 incoming_interest_meesage(
   struct ccn_closure *selfp,
@@ -169,24 +176,29 @@ incoming_content_message(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
+  cnu user = (cnu) selfp->data;
+  cnr room = (cnr) user->room;
+  cni interface = (cni) room->master;
+  
   switch (kind) {
     case CCN_UPCALL_FINAL:
-      break;
+      return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      break;
+      return CCN_UPCALL_RESULT_REEXPRESS;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
-      break;
+      log_warn(NAME, "Content unverified");
+      return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT:
       break;
       
     default:
-      break;
+      return CCN_UPCALL_RESULT_OK;
   }
   
-  return CCN_UPCALL_RESULT_OK;
+  con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);  
 }
 
 enum ccn_upcall_res
@@ -196,24 +208,40 @@ incoming_content_presence(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
+  cnr room = (cnr) user->room;
+  cni interface = (cni) room->master;
+  
   switch (kind) {
     case CCN_UPCALL_FINAL:
-      break;
+      return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      break;
+      return CCN_UPCALL_RESULT_REEXPRESS;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
-      break;
+      log_warn(NAME, "unverified content");
+      return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT:
       break;
       
     default:
-      break;
+      return CCN_UPCALL_RESULT_OK;
   }
   
-  return CCN_UPCALL_RESULT_OK;
+  struct exclusion_element *element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
+  
+  info->content_ccnb;
+  //element->name = calloc(1, sizeof(char) * strlen(
+  element->list = user->exclusion_list;
+  element->timer = g_timer_new();
+
+  g_queue_push_head(user->exclusion_list, element);
+  g_timer_start(element->timer);
+  
+  //g_signal_connect(NULL, "clear", remove_element, element);
+  
+  con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
 }
 
 static gpointer
@@ -227,10 +255,10 @@ ndn_run(gpointer data)
 static int /* for qsort */
 namecompare(const void *a, const void *b)
 {
-    const struct ccn_charbuf *aa = *(const struct ccn_charbuf **)a;
-    const struct ccn_charbuf *bb = *(const struct ccn_charbuf **)b;
-    int ans = ccn_compare_names(aa->buf, aa->length, bb->buf, bb->length);
-    return ans;
+  const struct ccn_charbuf *aa = *(const struct ccn_charbuf **)a;
+  const struct ccn_charbuf *bb = *(const struct ccn_charbuf **)b;
+  int ans = ccn_compare_names(aa->buf, aa->length, bb->buf, bb->length);
+  return ans;
 }
 
 static void
@@ -342,19 +370,24 @@ create_presence_interest(cnu user, GQueue *exclusion_list)
 static int
 create_presence_content(char *name, char *data)
 {
-  struct ccn_charbuf *pname, *temp;
-  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
+  struct ccn_charbuf *pname;
+  struct ccn_charbuf *keylocator;
+  struct ccn_charbuf *content;
+  struct ccn_charbuf *signed_info;
   int res;
-  char *content_name = calloc(1, sizeof(char) * 50);
+  char *content_name = calloc(1, sizeof(char) * (strlen(name) + 50));
   
   strcpy(content_name, "/ndn/xmpp/muc/");
   strcat(content_name, name);
   strcat(content_name, "/presence");
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
+
+  /*
+  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
+  struct ccn_charbuf *temp;
   
-  sp.type = CCN_CONTENT_DATA;
-  
+  sp.type = CCN_CONTENT_DATA;  
   if (sp.template_ccnb == NULL)
   {
     sp.template_ccnb = ccn_charbuf_create();
@@ -388,6 +421,36 @@ create_presence_content(char *name, char *data)
   ccn_charbuf_destroy(&pname);
   ccn_charbuf_destroy(&temp);
   ccn_charbuf_destroy(&sp.template_ccnb);
+  
+  */
+  
+  keylocator = ccn_charbuf_create();
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(nthread->keystore));
+  res = ccn_signed_info_create(signed_info,
+		/*pubkeyid*/ ccn_keystore_public_key_digest(nthread->keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(nthread->keystore),
+		/*datetime*/ NULL,
+		/*type*/ CCN_CONTENT_DATA,
+		/*freshness*/ 10,
+		/*finalblockid*/ NULL,
+		/*keylocator*/ keylocator);
+	
+  if (res < 0)
+  {
+    log_error(NAME, "FAILED TO CREATE signed_info (res == %d)", res);
+    return 1;
+  }
+  
+  content = ccn_charbuf_create();
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data), 
+			NULL, ccn_keystore_private_key(nthread->keystore));
+  ccn_put(nthread->ccn, content->buf, content->length);
+  
+  ccn_charbuf_destroy(&signed_info);
+  ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&content);
+  
   free(content_name);
   
   return 0;

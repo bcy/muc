@@ -85,6 +85,8 @@ cnu con_user_new(cnr room, jid id)
   user->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   user->in_interest_message->data = user;
   user->in_interest_message->p = &incoming_interest_meesage;
+  
+  user->exclusion_list = g_queue_new();
 
   return user;
 }
@@ -258,6 +260,7 @@ void con_user_nick(cnu user, char *nick, xmlnode data)
 
 void _con_user_enter(gpointer key, gpointer data, gpointer arg)
 {
+  extern struct ndn_thread *nthread;
   cnu from = (cnu)data;
   cnu to = (cnu)arg;
   xmlnode node;
@@ -283,8 +286,9 @@ void _con_user_enter(gpointer key, gpointer data, gpointer arg)
   if(element)
     xmlnode_hide(element);
 
-  deliver(dpacket_new(node), NULL);
+  //deliver(dpacket_new(node), NULL);
   /* bcy: create NDN packet of presence */
+  nthread->create_presence_content(jid_full(from->localid), (char *)dpacket_new(node));
 }
 
 void con_user_enter(cnu user, char *nick, int created)
@@ -459,6 +463,9 @@ void con_user_enter(cnu user, char *nick, int created)
   /* Send 'non-anonymous' message if necessary */
   if(room->visible == 1)
     con_send_alert(user, NULL, NULL, STATUS_MUC_SHOWN_JID);
+  
+  /* bcy: exclusion list update */
+  
 }
 
 void con_user_process(cnu to, cnu from, jpacket jp)
