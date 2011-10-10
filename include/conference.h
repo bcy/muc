@@ -24,6 +24,7 @@
 #include <string.h>
 #include <glib.h>
 #include <time.h>
+#include <poll.h>
 #include "hash.h"
 #include "ns.h"
 
@@ -207,6 +208,7 @@ struct cnu_struct
     struct ccn_closure *in_content_message;
     char *name_prefix;
     GQueue *exclusion_list;
+    int message_seq;
 };
 
 struct exclusion_element
@@ -368,9 +370,10 @@ struct ndn_thread {
   struct ccn *ccn;
   GThread *nthread;
   struct ccn_keystore *keystore;
+  int bRunning;
   
   int (*parse_ndn_packet)();
-  int (*create_presence_interest)(cnu user, GQueue *exclusion_list);
+  int (*create_presence_interest)(cnu user);
   int (*create_message_interest)(cnu user, char *name, int seq);
   int (*create_presence_content)(char *name, char *data);
   int (*create_message_content)(cnu user, int seq, char *data);

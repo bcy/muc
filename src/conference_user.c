@@ -463,9 +463,6 @@ void con_user_enter(cnu user, char *nick, int created)
   /* Send 'non-anonymous' message if necessary */
   if(room->visible == 1)
     con_send_alert(user, NULL, NULL, STATUS_MUC_SHOWN_JID);
-  
-  /* bcy: exclusion list update */
-  
 }
 
 void con_user_process(cnu to, cnu from, jpacket jp)

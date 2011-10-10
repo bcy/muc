@@ -2,6 +2,7 @@
 #include "conference.h"
 
 struct ndn_thread *nthread;
+static struct pollfd pfds[1];
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -221,7 +222,8 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      return CCN_UPCALL_RESULT_REEXPRESS;
+      nthread->create_presence_interest(user);
+      return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
       log_warn(NAME, "unverified content");
@@ -236,7 +238,8 @@ incoming_content_presence(
   
   struct exclusion_element *element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
   
-  //element->name = calloc(1, sizeof(char) * strlen(
+  element->name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n]);
+  fetch_name_from_ccnb(element->name, info->content_ccnb, info->content_comps);
   
   element->timer = g_timer_new();
   g_queue_push_head(user->exclusion_list, element);
@@ -250,6 +253,17 @@ ndn_run(gpointer data)
 {
   struct ccn *ccn = (struct ccn*) data;
   int res = ccn_run(ccn, 0);
+  while (nthread->bRunning)
+  {
+    if (res >= 0)
+    {
+      int ret = poll(pfds, 1, 100);
+      if (ret >= 0)
+      {
+	res = ccn_run(ccn, 0);
+      }
+    }
+  }
   return (gpointer)res;
 }
 
@@ -295,8 +309,9 @@ check_delete(gpointer data, gpointer user_data)
   
 
 static int
-create_presence_interest(cnu user, GQueue *exclusion_list)
+create_presence_interest(cnu user)
 {
+  GQueue *exclusion_list = user->exclusion_list;
   struct ccn_charbuf *interest;
   struct ccn_charbuf **excl = NULL;
   int begin, i, length;
@@ -308,7 +323,7 @@ create_presence_interest(cnu user, GQueue *exclusion_list)
     log_error(NAME, "ccn_charbuf_create failed");
     return 1;
   }
-  ccn_name_from_uri(interest, "/ndn/xmpp/muc");
+  ccn_name_from_uri(interest, "/ndn/broadcast/xmpp/muc");
   ccn_name_append_str(interest, jid_full(user->room->id));
   ccn_name_append_str(interest, "presence");
   
@@ -623,6 +638,9 @@ init_ndn_thread(struct ndn_thread *pthread)
   pthread->create_message_interest = &create_message_interest;
   pthread->parse_ndn_packet = &parse_ndn_packet;
   
+  pthread->bRunning = 1;
+  pfds[0].fd = ccn_get_connection_fd(pthread->ccn);
+  pfds[0].events = POLLIN;
   pthread->nthread = g_thread_create(&ndn_run, (gpointer)pthread->ccn, TRUE, NULL);
   
   return 0;
