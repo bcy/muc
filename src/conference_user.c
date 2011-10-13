@@ -21,8 +21,17 @@
 #include "conference.h"
 extern int deliver__flag;
 
+gpointer express_message_interest(gpointer key, gpointer value, gpointer arg)
+{
+  extern struct ndn_thread *nthread;
+  cnu user = (cnu) arg;
+  cnu to = (cnu) value;
+  nthread->create_message_interest(user, to, -1);
+}
+
 cnu con_user_new(cnr room, jid id)
 {
+  extern struct ndn_thread *nthread;
   pool p;
   cnu user;
   char *key;
@@ -90,7 +99,11 @@ cnu con_user_new(cnr room, jid id)
   user->message_seq = 1;
   
   if ((strncmp(user->realid->server, "localhost", 9) == 0) || (strncmp(user->realid->server, "127.0.0.1", 9) == 0))
+  {
     user->remote = 0;
+    nthread->create_presence_interest(user);
+    g_hash_table_foreach(user->room->remote, express_message_interest, user);
+  }
   else
     user->remote = 1;
 
@@ -572,11 +585,14 @@ void con_user_process(cnu to, cnu from, jpacket jp)
 }
 
 void con_user_send(cnu to, cnu from, xmlnode node)
-{
+{  
   if(to == NULL || from == NULL || node == NULL)
   {
     return;
   }
+  
+  if (to->remote == 1)
+    return;
 
   xmlnode_put_attrib(node, "to", jid_full(to->realid));
 
@@ -701,5 +717,12 @@ void con_user_zap(cnu user, xmlnode data)
 
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
+  
+  free(user->in_content_message);
+  free(user->in_content_presence);
+  free(user->in_interest_message);
+  free(user->in_interest_presence);
+  free(user->name_prefix);
+  g_queue_free(user->exclusion_list);
 }
 

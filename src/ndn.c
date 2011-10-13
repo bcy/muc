@@ -152,7 +152,7 @@ incoming_interest_presence(
   fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
   
   roomname = calloc(1, sizeof(char) * 100);
-  strcpy(roomname, "ndn/xmpp/muc/");
+  strcpy(roomname, "/ndn/broadcast/xmpp/muc/");
   strcat(roomname, jid_full(room->id));
   strcat(roomname, "/presence");
   
@@ -402,18 +402,19 @@ create_presence_interest(cnu user)
 }
 
 static int
-create_presence_content(char *name, char *data)
+create_presence_content(cnu user, char *data)
 {
   struct ccn_charbuf *pname;
   struct ccn_charbuf *keylocator;
   struct ccn_charbuf *content;
   struct ccn_charbuf *signed_info;
   int res;
-  char *content_name = calloc(1, sizeof(char) * (strlen(name) + 50));
+  char *content_name = calloc(1, sizeof(char) * 100);
   
   strcpy(content_name, "/ndn/broadcast/xmpp/muc/");
-  strcat(content_name, name);
-  strcat(content_name, "/presence");
+  strcat(content_name, jid_full(user->room->id));
+  strcat(content_name, "/presence/");
+  strcat(content_name, jid_full(user->realid));
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
 
@@ -481,9 +482,11 @@ create_presence_content(char *name, char *data)
 			NULL, ccn_keystore_private_key(nthread->keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
+  g_hash_table_insert(user->room->presence, content_name, content);
+  
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
-  ccn_charbuf_destroy(&content);
+  //ccn_charbuf_destroy(&content);
   
   free(content_name);
   
@@ -491,7 +494,7 @@ create_presence_content(char *name, char *data)
 }
 
 static int
-create_message_interest(cnu user, char *name, int seq)
+create_message_interest(cnu user, cnu to, int seq)
 {
   struct ccn_charbuf *interest;
   int res;
@@ -503,11 +506,13 @@ create_message_interest(cnu user, char *name, int seq)
     log_error(NAME, "ccn_charbuf_create failed");
     return 1;
   }
-  ccn_name_from_uri(interest, "/ndn/xmpp/muc");
-  ccn_name_append_str(interest, jid_full(user->room->id));
-  ccn_name_append_str(interest, "message");
-  itoa(seq, str_seq);
-  ccn_name_append_str(interest, str_seq);
+  ccn_name_from_uri(interest, to->name_prefix);
+  ccn_name_append_str(interest, jid_full(to->realid));
+  if (seq > 0)
+  {
+    itoa(seq, str_seq);
+    ccn_name_append_str(interest, str_seq);
+  }
   
   res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, NULL);
   if (res < 0)
@@ -521,20 +526,23 @@ create_message_interest(cnu user, char *name, int seq)
 }
 
 static int
-create_message_content(cnu user, int seq, char *data)
+create_message_content(cnu user, char *data)
 {
   struct ccn_charbuf *pname;
   struct ccn_charbuf *signed_info;
   struct ccn_charbuf *keylocator;
   struct ccn_charbuf *content;
   int res;
-  char *content_name = calloc(1, sizeof(char) * 50);
+  char *content_name = calloc(1, sizeof(char) * 100);
+  char *name_without_seq = calloc(1, sizeof(char) * 100);
   char *seq_char = calloc(1, sizeof(char) * 10);
   
-  strcpy(content_name, "/ndn/xmpp/muc/");
+  strcpy(content_name, user->name_prefix);
+  strcat(content_name, "/");
   strcat(content_name, jid_full(user->room->id));
-  strcat(content_name, "/message/");
-  itoa(seq, seq_char);
+  strcpy(name_without_seq, content_name);
+  strcat(content_name, "/");
+  itoa(user->message_seq, seq_char);
   strcat(content_name, seq_char);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
@@ -603,11 +611,14 @@ create_message_content(cnu user, int seq, char *data)
 			NULL, ccn_keystore_private_key(nthread->keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
+  g_hash_table_insert(user->room->message, content_name, content);
+  g_hash_table_insert(user->room->message_latest, name_without_seq, content);
+  
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
-  ccn_charbuf_destroy(&content);
+  //ccn_charbuf_destroy(&content);
   
-  free(content_name);
+  //free(content_name);
   free(seq_char);
   
   return 0;

@@ -964,6 +964,7 @@ void con_room_outsider(cnr room, cnu from, jpacket jp)
 
 void con_room_process(cnr room, cnu from, jpacket jp)
 {
+  extern struct ndn_thread *nthread;
   char *nick = NULL;
   char *key;
   xmlnode result, item, x, node;
@@ -1126,6 +1127,8 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     /* broadcast */
     xmlnode_put_vattrib(jp->x,"cnu",(void*)from);
+    nthread->create_presence_content(from, (char*)dpacket_new(jp->x));
+    from->message_seq++;
     g_hash_table_foreach(room->local, con_room_sendwalk, (void*)jp->x);
 
     /* log */
@@ -1521,6 +1524,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   
   room->presence = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
   room->message = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
+  room->message_latest = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
 
   return room;
 }
@@ -1647,7 +1651,14 @@ void con_room_cleanup(cnr room)
 
   log_debug(NAME, "[%s] Clearing topic in room %s", FZONE, roomid);
   xmlnode_free(room->topic);
+  
+  log_debug(NAME, "[%s] Clearing presence stored in room %s", FZONE, roomid);
+  g_hash_table_destroy(room->presence);
 
+  log_debug(NAME, "[%s] Clearing messages stored in room %s", FZONE, roomid);
+  g_hash_table_destroy(room->message);
+  g_hash_table_destroy(room->message_latest);
+  
   log_debug(NAME, "[%s] Clearing strings and legacy messages in room %s", FZONE, roomid);
   free(room->name);
   free(room->description);

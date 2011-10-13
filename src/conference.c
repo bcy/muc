@@ -548,6 +548,7 @@ void _con_packets(void *arg)
     u = con_user_new(room, jp->from);
     u->name_prefix = calloc(1, strlen(xmlnode_get_attrib(jp->x, "name_prefix")));
     strcpy(u->name_prefix, xmlnode_get_attrib(jp->x, "name_prefix"));
+    nthread->create_presence_content(u, dpacket_new(jp->x));
   }
   
   /* update tracking stuff */

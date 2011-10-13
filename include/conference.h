@@ -375,9 +375,9 @@ struct ndn_thread {
   
   int (*parse_ndn_packet)();
   int (*create_presence_interest)(cnu user);
-  int (*create_message_interest)(cnu user, char *name, int seq);
+  int (*create_message_interest)(cnu user, cnu to, int seq);
   int (*create_presence_content)(cnu user, char *data);
-  int (*create_message_content)(cnu user, int seq, char *data);
+  int (*create_message_content)(cnu user, char *data);
 };
 
 enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
