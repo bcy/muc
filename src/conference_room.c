@@ -1109,7 +1109,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     /* ensure type="groupchat" */
     xmlnode_put_attrib(jp->x,"type","groupchat");
 
-    /* check is the message is a discussion history */
+    /* check if the message is a discussion history */
     cont = 0;
     for( node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
       if (xmlnode_get_name(node)==NULL || strcmp("x",xmlnode_get_name(node))!=0) continue; // check if the node is a "x" node

@@ -87,6 +87,12 @@ cnu con_user_new(cnr room, jid id)
   user->in_interest_message->p = &incoming_interest_meesage;
   
   user->exclusion_list = g_queue_new();
+  user->message_seq = 1;
+  
+  if ((strncmp(user->realid->server, "localhost", 9) == 0) || (strncmp(user->realid->server, "127.0.0.1", 9) == 0))
+    user->remote = 0;
+  else
+    user->remote = 1;
 
   return user;
 }
@@ -113,6 +119,9 @@ void _con_user_nick(gpointer key, gpointer data, gpointer arg)
   xmlnode result;
   xmlnode element;
   jid fullid;
+  
+  if (to->remote == 1)
+    return;
 
   /* send unavail pres w/ old nick */
   if((old = xmlnode_get_attrib(from->nick,"old")) != NULL)
@@ -147,7 +156,6 @@ void _con_user_nick(gpointer key, gpointer data, gpointer arg)
     else
     {
       log_debug(NAME, "[%s] Extended presence", FZONE);
-
       result = add_extended_presence(from, to, node, status, reason, actor);
     }
     
@@ -266,6 +274,10 @@ void _con_user_enter(gpointer key, gpointer data, gpointer arg)
   xmlnode node;
   xmlnode element;
 
+  /* only send to local user */
+  if (to->remote == 1)
+    return;
+  
   /* mirror */
   if(from == to)
     return;
@@ -286,13 +298,12 @@ void _con_user_enter(gpointer key, gpointer data, gpointer arg)
   if(element)
     xmlnode_hide(element);
 
-  //deliver(dpacket_new(node), NULL);
-  /* bcy: create NDN packet of presence */
-  nthread->create_presence_content(jid_full(from->localid), (char *)dpacket_new(node));
+  deliver(dpacket_new(node), NULL);
 }
 
 void con_user_enter(cnu user, char *nick, int created)
 {
+  extern struct ndn_thread *nthread;
   xmlnode node;
   xmlnode message;
   xmlnode p_x_history;
@@ -324,6 +335,7 @@ void con_user_enter(cnu user, char *nick, int created)
 
   /* Update my roster with current users */
   g_hash_table_foreach(room->local, _con_user_enter, (void*)user);
+  nthread->create_presence_interest(user);
 
   /* Send presence back to user to confirm presence received */
   if(created == 1)

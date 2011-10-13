@@ -209,6 +209,7 @@ struct cnu_struct
     char *name_prefix;
     GQueue *exclusion_list;
     int message_seq;
+    int remote;
 };
 
 struct exclusion_element
@@ -375,7 +376,7 @@ struct ndn_thread {
   int (*parse_ndn_packet)();
   int (*create_presence_interest)(cnu user);
   int (*create_message_interest)(cnu user, char *name, int seq);
-  int (*create_presence_content)(char *name, char *data);
+  int (*create_presence_content)(cnu user, char *data);
   int (*create_message_content)(cnu user, int seq, char *data);
 };
 

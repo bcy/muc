@@ -307,7 +307,6 @@ check_delete(gpointer data, gpointer user_data)
   }    
 }
   
-
 static int
 create_presence_interest(cnu user)
 {
@@ -412,7 +411,7 @@ create_presence_content(char *name, char *data)
   int res;
   char *content_name = calloc(1, sizeof(char) * (strlen(name) + 50));
   
-  strcpy(content_name, "/ndn/xmpp/muc/");
+  strcpy(content_name, "/ndn/broadcast/xmpp/muc/");
   strcat(content_name, name);
   strcat(content_name, "/presence");
   pname = ccn_charbuf_create();

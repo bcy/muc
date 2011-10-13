@@ -370,6 +370,7 @@ void con_server(cni master, jpacket jp)
 
 void _con_packets(void *arg)
 {
+  extern struct ndn_thread *nthread;
   jpacket jp = (jpacket)arg;
   cni master = (cni)jp->aux1;
   cnr room;
@@ -543,8 +544,12 @@ void _con_packets(void *arg)
 
   /* sending available presence will automatically get you a generic user, if you don't have one */
   if(u == NULL && priority >= 0)
+  {
     u = con_user_new(room, jp->from);
-
+    u->name_prefix = calloc(1, strlen(xmlnode_get_attrib(jp->x, "name_prefix")));
+    strcpy(u->name_prefix, xmlnode_get_attrib(jp->x, "name_prefix"));
+  }
+  
   /* update tracking stuff */
   room->last = now;
   room->packets++;
@@ -849,6 +854,14 @@ result con_packets(instance i, dpacket dp, void *arg)
     jutil_error(jp->x, TERROR_BAD);
     deliver(dpacket_new(jp->x),NULL);
     return r_DONE;
+  }
+  
+  if (jp->type == JPACKET_PRESENCE)
+  {
+    if (xmlnode_get_attrib(jp->x, "name_prefix") == NULL)
+    {
+      xmlnode_put_attrib(jp->x, "name_prefix", "/some/place");
+    }  
   }
 
   /* we want things processed in order, and don't like re-entrancy! */
