@@ -545,9 +545,7 @@ void _con_packets(void *arg)
   /* sending available presence will automatically get you a generic user, if you don't have one */
   if(u == NULL && priority >= 0)
   {
-    u = con_user_new(room, jp->from);
-    u->name_prefix = calloc(1, strlen(xmlnode_get_attrib(jp->x, "name_prefix")));
-    strcpy(u->name_prefix, xmlnode_get_attrib(jp->x, "name_prefix"));
+    u = con_user_new(room, jp->from, xmlnode_get_attrib(jp->x, "name_prefix"));
     nthread->create_presence_content(u, (char *)dpacket_new(jp->x));
   }
   
@@ -898,6 +896,7 @@ void _con_shutdown_rooms(gpointer key, gpointer data, gpointer arg)
 /** Called to clean up system on shutdown */
 void con_shutdown(void *arg)
 {
+  extern struct ndn_thread *nthread;
   cni master = (cni)arg;
 
   if(master->shutdown == 1)
@@ -933,6 +932,11 @@ void con_shutdown(void *arg)
     sql_mysql_close(master->sql);
   }
 #endif
+
+  nthread->bRunning = 0;
+  ccn_destroy(&nthread->ccn);
+  ccn_keystore_destroy(&nthread->keystore);
+  free(nthread);
 
   log_debug(NAME, "[%s] SHUTDOWN: Sequence completed", FZONE);
 }
@@ -1078,7 +1082,6 @@ result con_beat_update(void *arg)
 /*** everything starts here ***/
 void conference(instance i, xmlnode x)
 {
-  extern struct ndn_thread *nthread;
   extern jcr_instance jcr;
   cni master;
   xmlnode cfg;
@@ -1188,11 +1191,10 @@ void conference(instance i, xmlnode x)
   }
 #endif
 
-  init_ndn_thread(nthread);
-  nthread->thread = g_thread_create(&ndn_run, (gpointer)nthread, TRUE, NULL);
+  init_ndn_thread();
   
   register_phandler(i, o_DELIVER, con_packets, (void*)master);
-  register_shutdown(con_shutdown,(void *) master);
+  register_shutdown(con_shutdown, (void *) master);
   g_timeout_add(60000, (GSourceFunc)con_beat_update, (void *)master);
 
   pool_free(tp);

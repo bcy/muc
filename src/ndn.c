@@ -205,7 +205,7 @@ incoming_content_message(
   seq = atoi(seq_str);
   seq++;
   
-  nthread->create_message_interest(user, name, seq);
+  create_message_interest(user, name, seq);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -225,7 +225,7 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      nthread->create_presence_interest(user);
+      create_presence_interest(user);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
@@ -256,11 +256,10 @@ incoming_content_presence(
 gpointer
 ndn_run(gpointer data)
 {
-  struct ndn_thread *pthread = (struct ndn_thread *) data;
-  struct ccn *ccn = pthread->ccn;
+  struct ccn *ccn = nthread->ccn;
   int res = ccn_run(ccn, 0);
   
-  while (pthread->bRunning)
+  while (nthread->bRunning)
   {
     if (res >= 0)
     {
@@ -315,7 +314,7 @@ check_delete(gpointer data, gpointer user_data)
   }    
 }
   
-static int
+int
 create_presence_interest(cnu user)
 {
   GQueue *exclusion_list = user->exclusion_list;
@@ -409,7 +408,7 @@ create_presence_interest(cnu user)
   return 0;
 }
 
-static int
+int
 create_presence_content(cnu user, char *data)
 {
   struct ccn_charbuf *pname;
@@ -501,7 +500,7 @@ create_presence_content(cnu user, char *data)
   return 0;
 }
 
-static int
+int
 create_message_interest(cnu user, char *name, int seq)
 {
   struct ccn_charbuf *interest;
@@ -532,7 +531,7 @@ create_message_interest(cnu user, char *name, int seq)
   return 0;
 }
 
-static int
+int
 create_message_content(cnu user, char *data)
 {
   struct ccn_charbuf *pname;
@@ -632,34 +631,38 @@ create_message_content(cnu user, char *data)
 }
 
 int
-init_ndn_thread(struct ndn_thread *pthread)
+init_ndn_thread()
 {
-  pthread = (struct ndn_thread*) calloc(1, sizeof(struct ndn_thread));
-  if (pthread == NULL)
+  GError *err;
+  
+  nthread = (struct ndn_thread*) calloc(1, sizeof(struct ndn_thread));
+  if (nthread == NULL)
   {
     log_error(NAME, "Memory allocation error!");
     return 1;
   }
   
-  pthread->ccn = NULL;
-  pthread->ccn = ccn_create();
-  if (pthread->ccn == NULL || ccn_connect(pthread->ccn, NULL) == -1)
+  nthread->ccn = NULL;
+  nthread->ccn = ccn_create();
+  if (nthread->ccn == NULL || ccn_connect(nthread->ccn, NULL) == -1)
   {
     log_error(NAME, "Failed to initialize ccn agent connection");
     return 1;
   }
 
-  pthread->keystore = NULL;
-  init_keystore(pthread->keystore);
-  
-  pthread->create_message_content = &create_message_content;
-  pthread->create_presence_content = &create_presence_content;
-  pthread->create_presence_interest = &create_presence_interest;
-  pthread->create_message_interest = &create_message_interest;
-  
-  pthread->bRunning = 1;
-  pfds[0].fd = ccn_get_connection_fd(pthread->ccn);
+  nthread->keystore = NULL;
+  init_keystore(nthread->keystore);
+    
+  nthread->bRunning = 1;
+  pfds[0].fd = ccn_get_connection_fd(nthread->ccn);
   pfds[0].events = POLLIN;
   
+  if ((nthread->thread = g_thread_create(&ndn_run, NULL, FALSE, &err)) == NULL)
+  {
+    log_error(NAME, "NDN thread create failed: %s", err->message);
+    g_error_free(err);
+  }
+  log_debug(NAME, "NDN thread created");
+
   return 0;
 }

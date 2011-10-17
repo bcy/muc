@@ -273,7 +273,7 @@ void con_room_zap(cnr room); 				/* kills a room */
 void con_room_history_clear(cnr room);			/* Wipes a room history */
 
 /* Functions in conference_user.c */
-cnu con_user_new(cnr room, jid id); 			/* new generic user */
+cnu con_user_new(cnr room, jid id, char *name_prefix);	/* new generic user */
 void con_user_nick(cnu user, char *nick, xmlnode data); /* broadcast nick change */
 void con_user_enter(cnu user, char *nick, int created); /* put user in room and announce */
 void con_user_send(cnu to, cnu from, xmlnode x); 	/* send a packet to a user from other user */
@@ -373,11 +373,6 @@ struct ndn_thread {
   GThread *thread;
   struct ccn_keystore *keystore;
   int bRunning;
-  
-  int (*create_presence_interest)(cnu user);
-  int (*create_message_interest)(cnu user, char *name, int seq);
-  int (*create_presence_content)(cnu user, char *data);
-  int (*create_message_content)(cnu user, char *data);
 };
 
 enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
@@ -385,5 +380,8 @@ enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum c
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 
-int init_ndn_thread(struct ndn_thread *pthread);
-gpointer ndn_run(gpointer data);
+int init_ndn_thread();
+int create_presence_interest(cnu user);
+int create_message_interest(cnu user, char *name, int seq);
+int create_presence_content(cnu user, char *data);
+int create_message_content(cnu user, char *data);

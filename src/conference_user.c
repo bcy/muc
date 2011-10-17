@@ -26,10 +26,10 @@ void express_message_interest(gpointer key, gpointer value, gpointer arg)
   extern struct ndn_thread *nthread;
   cnu user = (cnu) arg;
   char *name = (char *) value;
-  nthread->create_message_interest(user, name, -1);
+  create_message_interest(user, name, -1);
 }
 
-cnu con_user_new(cnr room, jid id)
+cnu con_user_new(cnr room, jid id, char *name_prefix)
 {
   extern struct ndn_thread *nthread;
   pool p;
@@ -98,11 +98,13 @@ cnu con_user_new(cnr room, jid id)
   
   user->exclusion_list = g_queue_new();
   user->message_seq = 1;
+  user->name_prefix = calloc(1, sizeof(char) * strlen(name_prefix));
+  strcpy(user->name_prefix, name_prefix);
   
   if ((strncmp(user->realid->server, "localhost", 9) == 0) || (strncmp(user->realid->server, "127.0.0.1", 9) == 0))
   {
     user->remote = 0;
-    nthread->create_presence_interest(user);
+    create_presence_interest(user);
     name = calloc(1, sizeof(char) * 100);
     strcpy(name, user->name_prefix);
     strcat(name, "/");
@@ -353,7 +355,7 @@ void con_user_enter(cnu user, char *nick, int created)
 
   /* Update my roster with current users */
   g_hash_table_foreach(room->local, _con_user_enter, (void*)user);
-  nthread->create_presence_interest(user);
+  create_presence_interest(user);
 
   /* Send presence back to user to confirm presence received */
   if(created == 1)
