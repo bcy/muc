@@ -370,7 +370,6 @@ void con_server(cni master, jpacket jp)
 
 void _con_packets(void *arg)
 {
-  extern struct ndn_thread *nthread;
   jpacket jp = (jpacket)arg;
   cni master = (cni)jp->aux1;
   cnr room;
@@ -420,7 +419,7 @@ void _con_packets(void *arg)
     }
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__GET && NSCHECK(jp->iq, NS_MUC_OWNER))
     {
-      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
+      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, xmlnode_get_attrib(jp->x, "name_prefix"));
 
       xdata_room_config(room,g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from))),1,jp->x);
 
@@ -431,7 +430,7 @@ void _con_packets(void *arg)
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__SET && NSCHECK(jp->iq, NS_MUC_OWNER) && xmlnode_get_tag(jp->iq,"x?xmlns=jabber:x:data"))
     {
       //create instant room
-      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
+      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, xmlnode_get_attrib(jp->x, "name_prefix"));
       //instant room are always non browsable
       room->public=0;
      
@@ -458,9 +457,9 @@ void _con_packets(void *arg)
     else
     {
       if(master->dynamic == -1)
-        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1);
+        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1, xmlnode_get_attrib(jp->x, "name_prefix"));
       else
-        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
+        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, xmlnode_get_attrib(jp->x, "name_prefix"));
 
       /* fall through, so the presence goes to the room like normal */
       created = 1;
@@ -860,7 +859,7 @@ result con_packets(instance i, dpacket dp, void *arg)
     if (xmlnode_get_attrib(jp->x, "name_prefix") == NULL)
     {
       xmlnode_put_attrib(jp->x, "name_prefix", "/some/place");
-    }  
+    }
   }
 
   /* we want things processed in order, and don't like re-entrancy! */

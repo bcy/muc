@@ -41,26 +41,6 @@ fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf 
   }
 }
 
-static void
-init_keystore(struct ccn_keystore *keystore)
-{
-  int res;
-  
-  if (keystore == NULL)
-  {
-    struct ccn_charbuf *temp = ccn_charbuf_create();
-    keystore = ccn_keystore_create();
-    ccn_charbuf_putf(temp, "%s/.ccnx/.ccnx_keystore", getenv("HOME"));
-    res = ccn_keystore_init(keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
-    if (res != 0)
-    {
-      log_error(NAME, "Failed to initialize keystore %s", ccn_charbuf_as_string(temp));
-      exit(1);
-    }
-    ccn_charbuf_destroy(&temp);
-  }
-}
-
 static int
 ccn_create_keylocator(struct ccn_charbuf *c, const struct ccn_pkey *k)
 {
@@ -152,9 +132,8 @@ incoming_interest_presence(
   fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
   
   roomname = calloc(1, sizeof(char) * 100);
-  strcpy(roomname, "/ndn/broadcast/xmpp/muc/");
+  strcpy(roomname, "/ndn/broadcast/xmpp-muc/");
   strcat(roomname, jid_full(room->id));
-  strcat(roomname, "/presence");
   
   if (strcmp(roomname, name) == 0)
   {
@@ -329,9 +308,8 @@ create_presence_interest(cnu user)
     log_error(NAME, "ccn_charbuf_create failed");
     return 1;
   }
-  ccn_name_from_uri(interest, "/ndn/broadcast/xmpp/muc");
+  ccn_name_from_uri(interest, "/ndn/broadcast/xmpp-muc");
   ccn_name_append_str(interest, jid_full(user->room->id));
-  ccn_name_append_str(interest, "presence");
   
   if (g_queue_is_empty(exclusion_list))
   {
@@ -418,9 +396,9 @@ create_presence_content(cnu user, char *data)
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
   
-  strcpy(content_name, "/ndn/broadcast/xmpp/muc/");
+  strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
   strcat(content_name, jid_full(user->room->id));
-  strcat(content_name, "/presence/");
+  strcat(content_name, "/");
   strcat(content_name, jid_full(user->realid));
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
@@ -466,6 +444,7 @@ create_presence_content(cnu user, char *data)
   
   */
   
+  signed_info = ccn_charbuf_create();
   keylocator = ccn_charbuf_create();
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(nthread->keystore));
   res = ccn_signed_info_create(signed_info,
@@ -523,7 +502,7 @@ create_message_interest(cnu user, char *name, int seq)
   res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, NULL);
   if (res < 0)
   {
-    log_error(NAME, "ccn_express_interest failed");
+    log_error(NAME, "ccn_express_interest %s failed", name);
     return 1;
   }
   
@@ -634,6 +613,8 @@ int
 init_ndn_thread()
 {
   GError *err;
+  struct ccn_charbuf *temp;
+  int res;
   
   nthread = (struct ndn_thread*) calloc(1, sizeof(struct ndn_thread));
   if (nthread == NULL)
@@ -650,8 +631,16 @@ init_ndn_thread()
     return 1;
   }
 
-  nthread->keystore = NULL;
-  init_keystore(nthread->keystore);
+  temp = ccn_charbuf_create();
+  nthread->keystore = ccn_keystore_create();
+  ccn_charbuf_putf(temp, "%s/.ccnx/.ccnx_keystore", getenv("HOME"));
+  res = ccn_keystore_init(nthread->keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
+  if (res != 0)
+  {
+    log_error(NAME, "Failed to initialize keystore %s", ccn_charbuf_as_string(temp));
+    return 1;
+  }
+  ccn_charbuf_destroy(&temp);
     
   nthread->bRunning = 1;
   pfds[0].fd = ccn_get_connection_fd(nthread->ccn);

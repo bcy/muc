@@ -258,7 +258,7 @@ void con_room_log_new(cnr room);			/* New Log */
 void con_room_log_close(cnr room);			/* Close logfile */
 void con_room_send_invite(cnu sender, xmlnode node);	/* Send invites */
 void con_room_forward_decline(cnr room, jpacket jp, xmlnode decline); /* Forward declines */
-cnr con_room_new(cni c, jid roomid, jid owner, char *name, char *secret, int private, int persist);
+cnr con_room_new(cni c, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix);
 							/* Set up a new room */
 void con_room_sendwalk(gpointer key, gpointer data, gpointer arg);
 							/* Used to send to all members of a room */

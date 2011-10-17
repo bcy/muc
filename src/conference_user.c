@@ -23,15 +23,14 @@ extern int deliver__flag;
 
 void express_message_interest(gpointer key, gpointer value, gpointer arg)
 {
-  extern struct ndn_thread *nthread;
-  cnu user = (cnu) arg;
-  char *name = (char *) value;
+  cnu user = (cnu) value;
+  char *name = (char *) arg;
+  log_debug(NAME, "[%s] creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
   create_message_interest(user, name, -1);
 }
 
 cnu con_user_new(cnr room, jid id, char *name_prefix)
 {
-  extern struct ndn_thread *nthread;
   pool p;
   cnu user;
   char *key;
@@ -96,6 +95,8 @@ cnu con_user_new(cnr room, jid id, char *name_prefix)
   user->in_interest_message->data = user;
   user->in_interest_message->p = &incoming_interest_meesage;
   
+  log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
+  
   user->exclusion_list = g_queue_new();
   user->message_seq = 1;
   user->name_prefix = calloc(1, sizeof(char) * strlen(name_prefix));
@@ -109,7 +110,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix)
     strcpy(name, user->name_prefix);
     strcat(name, "/");
     strcat(name, jid_full(user->realid));
-    g_hash_table_foreach(user->room->remote, express_message_interest, name);
+    g_hash_table_foreach(room->remote, express_message_interest, name);
   }
   else
     user->remote = 1;
@@ -288,7 +289,6 @@ void con_user_nick(cnu user, char *nick, xmlnode data)
 
 void _con_user_enter(gpointer key, gpointer data, gpointer arg)
 {
-  extern struct ndn_thread *nthread;
   cnu from = (cnu)data;
   cnu to = (cnu)arg;
   xmlnode node;
@@ -323,7 +323,6 @@ void _con_user_enter(gpointer key, gpointer data, gpointer arg)
 
 void con_user_enter(cnu user, char *nick, int created)
 {
-  extern struct ndn_thread *nthread;
   xmlnode node;
   xmlnode message;
   xmlnode p_x_history;

@@ -964,7 +964,6 @@ void con_room_outsider(cnr room, cnu from, jpacket jp)
 
 void con_room_process(cnr room, cnu from, jpacket jp)
 {
-  extern struct ndn_thread *nthread;
   char *nick = NULL;
   char *key;
   xmlnode result, item, x, node;
@@ -1418,7 +1417,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
 }
 
-cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist)
+cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix)
 {
   cnr room;
   pool p;
@@ -1496,7 +1495,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   /* Assign owner to room */
   if(owner != NULL)
   {
-    admin = (void*)con_user_new(room, owner, NULL);
+    admin = (void*)con_user_new(room, owner, name_prefix);
     add_roster(room, admin->realid);
 
     room->creator = jid_new(room->p, jid_full(jid_user(admin->realid)));
