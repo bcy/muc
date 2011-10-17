@@ -546,7 +546,7 @@ void _con_packets(void *arg)
   if(u == NULL && priority >= 0)
   {
     u = con_user_new(room, jp->from, xmlnode_get_attrib(jp->x, "name_prefix"));
-    nthread->create_presence_content(u, (char *)dpacket_new(jp->x));
+    create_presence_content(u, (char *)dpacket_new(jp->x));
   }
   
   /* update tracking stuff */

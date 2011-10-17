@@ -1127,7 +1127,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     /* broadcast */
     xmlnode_put_vattrib(jp->x,"cnu",(void*)from);
-    nthread->create_presence_content(from, (char*)dpacket_new(jp->x));
+    create_presence_content(from, (char*)dpacket_new(jp->x));
     from->message_seq++;
     g_hash_table_foreach(room->local, con_room_sendwalk, (void*)jp->x);
 
@@ -1496,7 +1496,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   /* Assign owner to room */
   if(owner != NULL)
   {
-    admin = (void*)con_user_new(room, owner);
+    admin = (void*)con_user_new(room, owner, NULL);
     add_roster(room, admin->realid);
 
     room->creator = jid_new(room->p, jid_full(jid_user(admin->realid)));
