@@ -32,6 +32,7 @@
 #include <ccn/uri.h>
 #include <ccn/bloom.h>
 #include <ccn/keystore.h>
+#include <ccn/signing.h>
 #include <ccn/charbuf.h>
 
 #define NAME			"MU-Conference"
@@ -369,13 +370,12 @@ void sql_remove_affiliate(mysql sql,cnr room,jid userid);
 
 struct ndn_thread {
   struct ccn *ccn;
-  GThread *nthread;
+  GThread *thread;
   struct ccn_keystore *keystore;
   int bRunning;
   
-  int (*parse_ndn_packet)();
   int (*create_presence_interest)(cnu user);
-  int (*create_message_interest)(cnu user, cnu to, int seq);
+  int (*create_message_interest)(cnu user, char *name, int seq);
   int (*create_presence_content)(cnu user, char *data);
   int (*create_message_content)(cnu user, char *data);
 };
@@ -384,3 +384,6 @@ enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum cc
 enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+
+int init_ndn_thread(struct ndn_thread *pthread);
+gpointer ndn_run(gpointer data);

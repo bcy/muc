@@ -548,7 +548,7 @@ void _con_packets(void *arg)
     u = con_user_new(room, jp->from);
     u->name_prefix = calloc(1, strlen(xmlnode_get_attrib(jp->x, "name_prefix")));
     strcpy(u->name_prefix, xmlnode_get_attrib(jp->x, "name_prefix"));
-    nthread->create_presence_content(u, dpacket_new(jp->x));
+    nthread->create_presence_content(u, (char *)dpacket_new(jp->x));
   }
   
   /* update tracking stuff */
@@ -1078,6 +1078,7 @@ result con_beat_update(void *arg)
 /*** everything starts here ***/
 void conference(instance i, xmlnode x)
 {
+  extern struct ndn_thread *nthread;
   extern jcr_instance jcr;
   cni master;
   xmlnode cfg;
@@ -1187,6 +1188,9 @@ void conference(instance i, xmlnode x)
   }
 #endif
 
+  init_ndn_thread(nthread);
+  nthread->thread = g_thread_create(&ndn_run, (gpointer)nthread, TRUE, NULL);
+  
   register_phandler(i, o_DELIVER, con_packets, (void*)master);
   register_shutdown(con_shutdown,(void *) master);
   g_timeout_add(60000, (GSourceFunc)con_beat_update, (void *)master);

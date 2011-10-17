@@ -24,7 +24,7 @@ append_bf_all(struct ccn_charbuf *c)
 static void
 fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf *comps)
 {
-  unsigned char *comp_str;
+  char *comp_str;
   size_t size;
   int n = comps->n;
   int i;
@@ -42,16 +42,16 @@ fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf 
 }
 
 static void
-init_keystore()
+init_keystore(struct ccn_keystore *keystore)
 {
   int res;
   
-  if (nthread->keystore == NULL)
+  if (keystore == NULL)
   {
     struct ccn_charbuf *temp = ccn_charbuf_create();
-    nthread->keystore = ccn_keystore_create();
+    keystore = ccn_keystore_create();
     ccn_charbuf_putf(temp, "%s/.ccnx/.ccnx_keystore", getenv("HOME"));
-    res = ccn_keystore_init(nthread->keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
+    res = ccn_keystore_init(keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
     if (res != 0)
     {
       log_error(NAME, "Failed to initialize keystore %s", ccn_charbuf_as_string(temp));
@@ -174,7 +174,8 @@ incoming_content_message(
   cnr room = (cnr) user->room;
   cni interface = (cni) room->master;
   char *name, *seq_str;
-  int seq, size;
+  int seq;
+  size_t size;
   
   switch (kind) {
     case CCN_UPCALL_FINAL:
@@ -205,6 +206,8 @@ incoming_content_message(
   seq++;
   
   nthread->create_message_interest(user, name, seq);
+  
+  return CCN_UPCALL_RESULT_OK;
 }
 
 enum ccn_upcall_res
@@ -246,14 +249,18 @@ incoming_content_presence(
   g_timer_start(element->timer);  
   
   con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
+  
+  return CCN_UPCALL_RESULT_OK;
 }
 
-static gpointer
+gpointer
 ndn_run(gpointer data)
 {
-  struct ccn *ccn = (struct ccn*) data;
+  struct ndn_thread *pthread = (struct ndn_thread *) data;
+  struct ccn *ccn = pthread->ccn;
   int res = ccn_run(ccn, 0);
-  while (nthread->bRunning)
+  
+  while (pthread->bRunning)
   {
     if (res >= 0)
     {
@@ -264,7 +271,8 @@ ndn_run(gpointer data)
       }
     }
   }
-  return (gpointer)res;
+  
+  return NULL;
 }
 
 static int /* for qsort */
@@ -494,7 +502,7 @@ create_presence_content(cnu user, char *data)
 }
 
 static int
-create_message_interest(cnu user, cnu to, int seq)
+create_message_interest(cnu user, char *name, int seq)
 {
   struct ccn_charbuf *interest;
   int res;
@@ -506,8 +514,7 @@ create_message_interest(cnu user, cnu to, int seq)
     log_error(NAME, "ccn_charbuf_create failed");
     return 1;
   }
-  ccn_name_from_uri(interest, to->name_prefix);
-  ccn_name_append_str(interest, jid_full(to->realid));
+  ccn_name_from_uri(interest, name);
   if (seq > 0)
   {
     itoa(seq, str_seq);
@@ -624,12 +631,6 @@ create_message_content(cnu user, char *data)
   return 0;
 }
 
-static int
-parse_ndn_packet()
-{
-  return 0;
-}
-
 int
 init_ndn_thread(struct ndn_thread *pthread)
 {
@@ -640,18 +641,25 @@ init_ndn_thread(struct ndn_thread *pthread)
     return 1;
   }
   
-  init_keystore();
+  pthread->ccn = NULL;
+  pthread->ccn = ccn_create();
+  if (pthread->ccn == NULL || ccn_connect(pthread->ccn, NULL) == -1)
+  {
+    log_error(NAME, "Failed to initialize ccn agent connection");
+    return 1;
+  }
+
+  pthread->keystore = NULL;
+  init_keystore(pthread->keystore);
   
   pthread->create_message_content = &create_message_content;
   pthread->create_presence_content = &create_presence_content;
   pthread->create_presence_interest = &create_presence_interest;
   pthread->create_message_interest = &create_message_interest;
-  pthread->parse_ndn_packet = &parse_ndn_packet;
   
   pthread->bRunning = 1;
   pfds[0].fd = ccn_get_connection_fd(pthread->ccn);
   pfds[0].events = POLLIN;
-  pthread->nthread = g_thread_create(&ndn_run, (gpointer)pthread->ccn, TRUE, NULL);
   
   return 0;
 }

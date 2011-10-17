@@ -21,12 +21,12 @@
 #include "conference.h"
 extern int deliver__flag;
 
-gpointer express_message_interest(gpointer key, gpointer value, gpointer arg)
+void express_message_interest(gpointer key, gpointer value, gpointer arg)
 {
   extern struct ndn_thread *nthread;
   cnu user = (cnu) arg;
-  cnu to = (cnu) value;
-  nthread->create_message_interest(user, to, -1);
+  char *name = (char *) value;
+  nthread->create_message_interest(user, name, -1);
 }
 
 cnu con_user_new(cnr room, jid id)
@@ -35,6 +35,7 @@ cnu con_user_new(cnr room, jid id)
   pool p;
   cnu user;
   char *key;
+  char *name;
 
   log_debug(NAME, "[%s] adding user %s to room %s", FZONE, jid_full(jid_fix(id)), jid_full(room->id));
 
@@ -102,7 +103,11 @@ cnu con_user_new(cnr room, jid id)
   {
     user->remote = 0;
     nthread->create_presence_interest(user);
-    g_hash_table_foreach(user->room->remote, express_message_interest, user);
+    name = calloc(1, sizeof(char) * 100);
+    strcpy(name, user->name_prefix);
+    strcat(name, "/");
+    strcat(name, jid_full(user->realid));
+    g_hash_table_foreach(user->room->remote, express_message_interest, name);
   }
   else
     user->remote = 1;
