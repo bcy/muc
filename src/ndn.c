@@ -3,6 +3,7 @@
 
 struct ndn_thread *nthread;
 static struct pollfd pfds[1];
+extern jcr_instance jcr;
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -150,10 +151,8 @@ incoming_content_message(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  cnr room = (cnr) user->room;
-  cni interface = (cni) room->master;
   char *name, *seq_str;
-  int seq;
+  int seq, len;
   size_t size;
   
   switch (kind) {
@@ -174,7 +173,9 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
+  len = 0; // content length need to be obtained
+  XML_Parse(jcr->parser, &info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], len, 0);
+  //con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
   
   name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n]);
   fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
@@ -196,8 +197,7 @@ incoming_content_presence(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  cnr room = (cnr) user->room;
-  cni interface = (cni) room->master;
+  int len;
   
   switch (kind) {
     case CCN_UPCALL_FINAL:
@@ -227,7 +227,9 @@ incoming_content_presence(
   g_queue_push_head(user->exclusion_list, element);
   g_timer_start(element->timer);  
   
-  con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
+  len = 0; // content length need to be obtained
+  XML_Parse(jcr->parser, &info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], len, 0);
+  //con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -458,10 +460,11 @@ create_presence_content(cnu user, char *data)
 	
   if (res < 0)
   {
-    log_error(NAME, "FAILED TO CREATE signed_info (res == %d)", res);
+    log_error(NAME, "[%s]: Failed to create signed_info (res == %d)", FZONE, res);
     return 1;
   }
   
+  log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
