@@ -545,6 +545,10 @@ void _con_packets(void *arg)
   if(u == NULL && priority >= 0)
   {
     u = con_user_new(room, jp->from, xmlnode_get_attrib(jp->x, "name_prefix"));
+  }
+  
+  if (jp->type == JPACKET_PRESENCE && u != NULL)
+  {
     create_presence_content(u, xmlnode2str(jp->x));
   }
   
@@ -932,10 +936,7 @@ void con_shutdown(void *arg)
   }
 #endif
 
-  nthread->bRunning = 0;
-  ccn_destroy(&nthread->ccn);
-  ccn_keystore_destroy(&nthread->keystore);
-  free(nthread);
+  stop_ndn_thread();
 
   log_debug(NAME, "[%s] SHUTDOWN: Sequence completed", FZONE);
 }
@@ -1091,7 +1092,7 @@ void conference(instance i, xmlnode x)
   time_t now = time(NULL);
 
   log_debug(NAME, "[%s] mu-conference loading  - Service ID: %s", FZONE, i->id);
-
+  
   /* Temporary pool for temporary jid creation */
   tp = pool_new();
 

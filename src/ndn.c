@@ -3,6 +3,7 @@
 
 struct ndn_thread *nthread;
 static struct pollfd pfds[1];
+static struct ccn_keystore *keystore;
 extern jcr_instance jcr;
 
 /*
@@ -163,7 +164,7 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_REEXPRESS;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
-      log_warn(NAME, "Content unverified");
+      log_warn(NAME, "[%s] Content unverified", FZONE);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT:
@@ -448,10 +449,10 @@ create_presence_content(cnu user, char *data)
   
   signed_info = ccn_charbuf_create();
   keylocator = ccn_charbuf_create();
-  ccn_create_keylocator(keylocator, ccn_keystore_public_key(nthread->keystore));
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
   res = ccn_signed_info_create(signed_info,
-		/*pubkeyid*/ ccn_keystore_public_key_digest(nthread->keystore),
-		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(nthread->keystore),
+		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
 		/*datetime*/ NULL,
 		/*type*/ CCN_CONTENT_DATA,
 		/*freshness*/ 10,
@@ -468,7 +469,7 @@ create_presence_content(cnu user, char *data)
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
-			NULL, ccn_keystore_private_key(nthread->keystore));
+			NULL, ccn_keystore_private_key(keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
   g_hash_table_insert(user->room->presence, content_name, content);
@@ -577,10 +578,10 @@ create_message_content(cnu user, char *data)
   */
   
   keylocator = ccn_charbuf_create();
-  ccn_create_keylocator(keylocator, ccn_keystore_public_key(nthread->keystore));
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
   res = ccn_signed_info_create(signed_info,
-		/*pubkeyid*/ ccn_keystore_public_key_digest(nthread->keystore),
-		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(nthread->keystore),
+		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
 		/*datetime*/ NULL,
 		/*type*/ CCN_CONTENT_DATA,
 		/*freshness*/ 10,
@@ -596,7 +597,7 @@ create_message_content(cnu user, char *data)
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
-			NULL, ccn_keystore_private_key(nthread->keystore));
+			NULL, ccn_keystore_private_key(keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
   g_hash_table_insert(user->room->message, content_name, content);
@@ -635,9 +636,9 @@ init_ndn_thread()
   }
 
   temp = ccn_charbuf_create();
-  nthread->keystore = ccn_keystore_create();
+  keystore = ccn_keystore_create();
   ccn_charbuf_putf(temp, "%s/.ccnx/.ccnx_keystore", getenv("HOME"));
-  res = ccn_keystore_init(nthread->keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
+  res = ccn_keystore_init(keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
   if (res != 0)
   {
     log_error(NAME, "Failed to initialize keystore %s", ccn_charbuf_as_string(temp));
@@ -657,4 +658,13 @@ init_ndn_thread()
   log_debug(NAME, "NDN thread created");
 
   return 0;
+}
+
+int
+stop_ndn_thread()
+{
+  nthread->bRunning = 0;
+  ccn_destroy(&nthread->ccn);
+  ccn_keystore_destroy(&keystore);
+  free(nthread);
 }

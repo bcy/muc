@@ -24,9 +24,22 @@ extern int deliver__flag;
 void express_message_interest(gpointer key, gpointer value, gpointer arg)
 {
   cnu user = (cnu) value;
-  char *name = (char *) arg;
-  log_debug(NAME, "[%s] creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
+  cnu new_user = (cnu) arg;
+  char *name = calloc(1, sizeof(char) * 100);
+  
+  strcpy(name, new_user->name_prefix);
+  strcat(name, "/");
+  strcat(name, jid_full(new_user->realid));
+    
+  log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
   create_message_interest(user, name, -1);
+
+  strcpy(name, user->name_prefix);
+  strcat(name, "/");
+  strcat(name, jid_full(user->realid));
+
+  log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(new_user->realid), name);
+  create_message_interest(new_user, name, -1);
 }
 
 cnu con_user_new(cnr room, jid id, char *name_prefix)
@@ -106,11 +119,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix)
   {
     user->remote = 0;
     create_presence_interest(user);
-    name = calloc(1, sizeof(char) * 100);
-    strcpy(name, user->name_prefix);
-    strcat(name, "/");
-    strcat(name, jid_full(user->realid));
-    g_hash_table_foreach(room->remote, express_message_interest, name);
+    g_hash_table_foreach(room->remote, express_message_interest, user);
   }
   else
     user->remote = 1;

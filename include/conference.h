@@ -371,7 +371,6 @@ void sql_remove_affiliate(mysql sql,cnr room,jid userid);
 struct ndn_thread {
   struct ccn *ccn;
   GThread *thread;
-  struct ccn_keystore *keystore;
   int bRunning;
 };
 
@@ -381,6 +380,7 @@ enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 
 int init_ndn_thread();
+int stop_ndn_thread();
 int create_presence_interest(cnu user);
 int create_message_interest(cnu user, char *name, int seq);
 int create_presence_content(cnu user, char *data);

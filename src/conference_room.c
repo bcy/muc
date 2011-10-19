@@ -1126,7 +1126,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     /* broadcast */
     xmlnode_put_vattrib(jp->x,"cnu",(void*)from);
-    create_presence_content(from, (char*)dpacket_new(jp->x));
+    create_message_content(from, xmlnode2str(jp->x));
     from->message_seq++;
     g_hash_table_foreach(room->local, con_room_sendwalk, (void*)jp->x);
 
