@@ -47,7 +47,6 @@ cnu con_user_new(cnr room, jid id, char *name_prefix)
   pool p;
   cnu user;
   char *key;
-  char *name;
 
   log_debug(NAME, "[%s] adding user %s to room %s", FZONE, jid_full(jid_fix(id)), jid_full(room->id));
 
@@ -618,6 +617,14 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
+void free_list(gpointer data, gpointer user_data)
+{
+  struct exclusion_element *element = (struct exclusion_element *) data;
+  g_timer_destroy(element->timer);
+  free(element->name);
+  free(element);
+}
+
 void con_user_zap(cnu user, xmlnode data)
 {
   cnr room;
@@ -738,6 +745,7 @@ void con_user_zap(cnu user, xmlnode data)
   free(user->in_interest_message);
   free(user->in_interest_presence);
   free(user->name_prefix);
+  g_queue_foreach(user->exclusion_list, &free_list, NULL);
   g_queue_free(user->exclusion_list);
 }
 

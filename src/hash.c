@@ -29,7 +29,7 @@ void ght_remove_key(gpointer data)
 void ght_remove_pkt(gpointer data)
 {
   struct ccn_charbuf *node = (struct ccn_charbuf *)data;
-  log_debug(NAME, " Auto-removing packet");
+  log_debug(NAME, "[%s] Auto-removing packet", FZONE);
   ccn_charbuf_destroy(&node);
 }
 

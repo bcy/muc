@@ -32,7 +32,7 @@ fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf 
   int i;
   
   name[0] = '\0';
-  for (i = 0; i < n - 2; i++)
+  for (i = 0; i < n - 1; i++)
   {
     strcat(name, "/");
     if (ccn_name_comp_get(ccnb, comps, i, &comp_str, &size) == 0)
@@ -153,8 +153,9 @@ incoming_content_message(
 {
   cnu user = (cnu) selfp->data;
   char *name, *seq_str;
-  int seq, len;
-  size_t size;
+  unsigned char *pcontent = NULL;
+  int seq;
+  size_t len, size;
   
   switch (kind) {
     case CCN_UPCALL_FINAL:
@@ -164,7 +165,7 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_REEXPRESS;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
-      log_warn(NAME, "[%s] Content unverified", FZONE);
+      log_warn(NAME, "[%s] Unverified message content received", FZONE);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT:
@@ -173,12 +174,11 @@ incoming_content_message(
     default:
       return CCN_UPCALL_RESULT_OK;
   }
+
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
+  XML_Parse(jcr->parser, pcontent, len, 0);
   
-  len = 0; // content length need to be obtained
-  XML_Parse(jcr->parser, &info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], len, 0);
-  //con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
-  
-  name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n]);
+  name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
   fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
   
   seq_str = calloc(1, sizeof(char) * 10);
@@ -198,7 +198,8 @@ incoming_content_presence(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  int len;
+  size_t len;
+  unsigned char *pcontent = NULL;
   
   switch (kind) {
     case CCN_UPCALL_FINAL:
@@ -209,7 +210,7 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
-      log_warn(NAME, "unverified content");
+      log_warn(NAME, "[%s] Unverified presence content received", FZONE);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT:
@@ -221,16 +222,14 @@ incoming_content_presence(
   
   struct exclusion_element *element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
   
-  element->name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n]);
+  element->name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
   fetch_name_from_ccnb(element->name, info->content_ccnb, info->content_comps);
   
   element->timer = g_timer_new();
   g_queue_push_head(user->exclusion_list, element);
-  g_timer_start(element->timer);  
   
-  len = 0; // content length need to be obtained
-  XML_Parse(jcr->parser, &info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], len, 0);
-  //con_packets(interface->i, info->content_ccnb[info->pco->offset[CCN_PCO_E_Content]], interface);
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
+  XML_Parse(jcr->parser, pcontent, len, 0);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -252,7 +251,7 @@ ndn_run(gpointer data)
       }
     }
   }
-  
+    
   return NULL;
 }
 
@@ -268,15 +267,16 @@ namecompare(const void *a, const void *b)
 static int
 copy_from_list(struct ccn_charbuf **res, GQueue *list)
 {
-  GQueue *duplica = g_queue_copy(list);
-  struct exclusion_element *element;
+  GList *iterator = list->head;
   int idx = 0;
-  while ((element = g_queue_pop_head(duplica)) != NULL)
+  while (iterator != NULL)
   {
+    struct exclusion_element *element = (struct exclusion_element *) iterator->data;
     struct ccn_charbuf *temp = ccn_charbuf_create();
     ccn_name_init(temp);
     ccn_name_append_str(temp, element->name);
     res[idx++] = temp;
+    iterator = iterator->next;
   }
   return idx;
 }
@@ -289,10 +289,12 @@ check_delete(gpointer data, gpointer user_data)
   gulong duration;
   
   g_timer_elapsed(element->timer, &duration);
-  if (duration >= 10000000)
+  if (duration >= 2000000)
   {
-    g_timer_destroy(element->timer);
     g_queue_remove(list, data);
+    g_timer_destroy(element->timer);
+    free(element->name);
+    free(element);
   }    
 }
   
@@ -330,7 +332,7 @@ create_presence_interest(cnu user)
   
   excl = calloc(1, sizeof(struct ccn_charbuf) * g_queue_get_length(exclusion_list));
   length = copy_from_list(excl, exclusion_list);
-  qsort(excl, length, sizeof(struct ccn_charbuf), &namecompare);
+  qsort(&excl[0], length, sizeof(excl[0]), &namecompare);
   
   begin = 0;
   excludeLow = FALSE;
@@ -478,7 +480,7 @@ create_presence_content(cnu user, char *data)
   ccn_charbuf_destroy(&pname);
   //ccn_charbuf_destroy(&content);
   
-  free(content_name);
+  //free(content_name);
   
   return 0;
 }
@@ -520,16 +522,16 @@ create_message_content(cnu user, char *data)
   struct ccn_charbuf *pname;
   struct ccn_charbuf *signed_info;
   struct ccn_charbuf *keylocator;
-  struct ccn_charbuf *content;
+  struct ccn_charbuf *content, *dup_content;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
-  char *name_without_seq = calloc(1, sizeof(char) * 100);
+  char *name_without_seq;
   char *seq_char = calloc(1, sizeof(char) * 10);
   
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
-  strcat(content_name, jid_full(user->room->id));
-  strcpy(name_without_seq, content_name);
+  strcat(content_name, jid_full(user->realid));
+  name_without_seq = j_strdup(content_name);
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);
   strcat(content_name, seq_char);
@@ -579,6 +581,7 @@ create_message_content(cnu user, char *data)
   
   keylocator = ccn_charbuf_create();
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
+  signed_info = ccn_charbuf_create();
   res = ccn_signed_info_create(signed_info,
 		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
 		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
@@ -600,13 +603,16 @@ create_message_content(cnu user, char *data)
 			NULL, ccn_keystore_private_key(keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
-  g_hash_table_insert(user->room->message, content_name, content);
-  g_hash_table_insert(user->room->message_latest, name_without_seq, content);
+  dup_content = ccn_charbuf_create();
+  ccn_charbuf_reset(dup_content);
+  ccn_charbuf_append_charbuf(dup_content, content);
   
+  g_hash_table_insert(user->room->message, content_name, content);
+  g_hash_table_insert(user->room->message_latest, name_without_seq, dup_content);
+    
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
   //ccn_charbuf_destroy(&content);
-  
   //free(content_name);
   free(seq_char);
   
@@ -623,7 +629,7 @@ init_ndn_thread()
   nthread = (struct ndn_thread*) calloc(1, sizeof(struct ndn_thread));
   if (nthread == NULL)
   {
-    log_error(NAME, "Memory allocation error!");
+    log_error(NAME, "[%s] Memory allocation error!", FZONE);
     return 1;
   }
   
@@ -631,7 +637,7 @@ init_ndn_thread()
   nthread->ccn = ccn_create();
   if (nthread->ccn == NULL || ccn_connect(nthread->ccn, NULL) == -1)
   {
-    log_error(NAME, "Failed to initialize ccn agent connection");
+    log_error(NAME, "[%s] Failed to initialize ccn agent connection", FZONE);
     return 1;
   }
 
@@ -641,7 +647,7 @@ init_ndn_thread()
   res = ccn_keystore_init(keystore, ccn_charbuf_as_string(temp), "Th1s1sn0t8g00dp8ssw0rd.");
   if (res != 0)
   {
-    log_error(NAME, "Failed to initialize keystore %s", ccn_charbuf_as_string(temp));
+    log_error(NAME, "[%s] Failed to initialize keystore %s", FZONE, ccn_charbuf_as_string(temp));
     return 1;
   }
   ccn_charbuf_destroy(&temp);
@@ -650,12 +656,12 @@ init_ndn_thread()
   pfds[0].fd = ccn_get_connection_fd(nthread->ccn);
   pfds[0].events = POLLIN;
   
-  if ((nthread->thread = g_thread_create(&ndn_run, NULL, FALSE, &err)) == NULL)
+  if ((nthread->thread = g_thread_create(&ndn_run, NULL, TRUE, &err)) == NULL)
   {
-    log_error(NAME, "NDN thread create failed: %s", err->message);
+    log_error(NAME, "[%s] NDN thread create failed: %s", FZONE, err->message);
     g_error_free(err);
   }
-  log_debug(NAME, "NDN thread created");
+  log_debug(NAME, "[%s] NDN thread created", FZONE);
 
   return 0;
 }
@@ -664,7 +670,11 @@ int
 stop_ndn_thread()
 {
   nthread->bRunning = 0;
+  g_thread_join(nthread->thread);
+  ccn_disconnect(nthread->ccn);
   ccn_destroy(&nthread->ccn);
   ccn_keystore_destroy(&keystore);
   free(nthread);
+  
+  return 0;
 }

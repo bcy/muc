@@ -862,7 +862,7 @@ result con_packets(instance i, dpacket dp, void *arg)
   {
     if (xmlnode_get_attrib(jp->x, "name_prefix") == NULL)
     {
-      xmlnode_put_attrib(jp->x, "name_prefix", "/some/place");
+      xmlnode_put_attrib(jp->x, "name_prefix", "/ndn/ucla.edu");
     }
   }
 
@@ -899,7 +899,6 @@ void _con_shutdown_rooms(gpointer key, gpointer data, gpointer arg)
 /** Called to clean up system on shutdown */
 void con_shutdown(void *arg)
 {
-  extern struct ndn_thread *nthread;
   cni master = (cni)arg;
 
   if(master->shutdown == 1)
