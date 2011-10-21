@@ -29,14 +29,14 @@ void express_message_interest(gpointer key, gpointer value, gpointer arg)
   
   strcpy(name, new_user->name_prefix);
   strcat(name, "/");
-  strcat(name, jid_full(new_user->realid));
+  strcat(name, jid_ns(new_user->realid));
     
   log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
   create_message_interest(user, name, -1);
 
   strcpy(name, user->name_prefix);
   strcat(name, "/");
-  strcat(name, jid_full(user->realid));
+  strcat(name, jid_ns(user->realid));
 
   log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(new_user->realid), name);
   create_message_interest(new_user, name, -1);

@@ -335,6 +335,7 @@ typedef struct jid_struct
 jid     jid_new(pool p, const char *idstr);            /* Creates a jabber id from the idstr */
 void    jid_set(jid id, char *str, int item);  /* Individually sets jid components */
 char*   jid_full(jid id);                      /* Builds a string type=user/resource@server from the jid data */
+char*   jid_ns(jid id);                        /* bcy: Builds a string user@server from the jid data */
 int     jid_cmp(jid a, jid b);                 /* Compares two jid's, returns 0 for perfect match */
 int     jid_cmpx(jid a, jid b, int parts);     /* Compares just the parts specified as JID_|JID_ */
 jid     jid_user(jid a);                       /* returns the same jid but just of the user@host part */

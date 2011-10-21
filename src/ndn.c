@@ -125,7 +125,7 @@ incoming_interest_presence(
       
     case CCN_UPCALL_INTEREST:
       break;
-      
+            
     default:
       return CCN_UPCALL_RESULT_OK;
   }
@@ -135,7 +135,7 @@ incoming_interest_presence(
   
   roomname = calloc(1, sizeof(char) * 100);
   strcpy(roomname, "/ndn/broadcast/xmpp-muc/");
-  strcat(roomname, jid_full(room->id));
+  strcat(roomname, jid_ns(room->id));
   
   if (strcmp(roomname, name) == 0)
   {
@@ -198,7 +198,7 @@ incoming_content_presence(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  size_t len;
+  size_t len, size;
   unsigned char *pcontent = NULL;
   
   switch (kind) {
@@ -222,15 +222,17 @@ incoming_content_presence(
   
   struct exclusion_element *element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
   
-  element->name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
-  fetch_name_from_ccnb(element->name, info->content_ccnb, info->content_comps);
+  element->name = calloc(1, sizeof(char) * 100);
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &element->name, &size);
   
   element->timer = g_timer_new();
   g_queue_push_head(user->exclusion_list, element);
   
+  create_presence_interest(user);
+  
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
   XML_Parse(jcr->parser, pcontent, len, 0);
-  
+    
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -314,7 +316,7 @@ create_presence_interest(cnu user)
     return 1;
   }
   ccn_name_from_uri(interest, "/ndn/broadcast/xmpp-muc");
-  ccn_name_append_str(interest, jid_full(user->room->id));
+  ccn_name_append_str(interest, jid_ns(user->room->id));
   
   if (g_queue_is_empty(exclusion_list))
   {
@@ -402,9 +404,9 @@ create_presence_content(cnu user, char *data)
   char *content_name = calloc(1, sizeof(char) * 100);
   
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
-  strcat(content_name, jid_full(user->room->id));
+  strcat(content_name, jid_ns(user->room->id));
   strcat(content_name, "/");
-  strcat(content_name, jid_full(user->realid));
+  strcat(content_name, jid_ns(user->realid));
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
 
@@ -530,7 +532,7 @@ create_message_content(cnu user, char *data)
   
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
-  strcat(content_name, jid_full(user->realid));
+  strcat(content_name, jid_ns(user->realid));
   name_without_seq = j_strdup(content_name);
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);
