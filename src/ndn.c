@@ -92,7 +92,8 @@ incoming_interest_meesage(
   char *name;
   struct ccn_charbuf *content = NULL;
   
-  switch (kind) {
+  switch (kind)
+  {
     case CCN_UPCALL_FINAL:
       return CCN_UPCALL_RESULT_OK;
       
@@ -130,9 +131,11 @@ incoming_interest_presence(
   cnu user = (cnu) selfp->data;
   cnr room = (cnr) user->room;
   char *name;
-  char *roomname;
+  char *hostname;
+  struct ccn_charbuf *content;
   
-  switch (kind) {
+  switch (kind)
+  {
     case CCN_UPCALL_FINAL:
       return CCN_UPCALL_RESULT_OK;
       
@@ -143,17 +146,19 @@ incoming_interest_presence(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  name = calloc(1, sizeof(char) * info->interest_comps->buf[info->interest_comps->n - 1]);
+  name = calloc(1, sizeof(char) * 100);
   fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
+    
+  hostname = calloc(1, sizeof(char) * 50);
   
-  roomname = calloc(1, sizeof(char) * 100);
-  strcpy(roomname, "/ndn/broadcast/xmpp-muc/");
-  strcat(roomname, jid_ns(room->id));
-  
-  if (strcmp(roomname, name) == 0)
-  {
-    g_hash_table_foreach(room->presence, send_presence, info->h);
-  }
+  gethostname(hostname, 50);
+  strcat(name, "/");
+  strcat(name, user->realid->user);
+  strcat(name, "@");
+  strcat(name, hostname);
+  content = g_hash_table_lookup(room->presence, name);
+  ccn_put(info->h, content->buf, content->length);
+  //g_hash_table_foreach(room->presence, send_presence, info->h);
     
   return CCN_UPCALL_RESULT_OK;
 }
@@ -170,7 +175,8 @@ incoming_content_message(
   int seq;
   size_t len, size;
   
-  switch (kind) {
+  switch (kind)
+  {
     case CCN_UPCALL_FINAL:
       return CCN_UPCALL_RESULT_OK;
       
@@ -216,9 +222,9 @@ incoming_content_presence(
   struct exclusion_element *element;
   char *name;
   char *hostname;
-  char *from;
   
-  switch (kind) {
+  switch (kind)
+  {
     case CCN_UPCALL_FINAL:
       return CCN_UPCALL_RESULT_OK;
       
@@ -423,6 +429,7 @@ int
 create_presence_content(cnu user, xmlnode x)
 {
   struct ccn_charbuf *pname;
+  struct ccn_charbuf *interest_filter;
   struct ccn_charbuf *keylocator;
   struct ccn_charbuf *content;
   struct ccn_charbuf *signed_info;
@@ -430,16 +437,16 @@ create_presence_content(cnu user, xmlnode x)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *hostname = calloc(1, sizeof(char) * 100);
   char *data;
+  char *from;
+  char *server;
   xmlnode dup_x = xmlnode_dup(x);
   
   gethostname(hostname, 50);
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
   strcat(content_name, jid_ns(user->room->id));
-  /*
-  strcat(content_name, user->room->id->user);
-  strcat(content_name, "@");
-  strcat(content_name, hostname);
-  */
+  interest_filter = ccn_charbuf_create();
+  ccn_name_from_uri(interest_filter, content_name);
+  
   strcat(content_name, "/");
   strcat(content_name, user->realid->user);
   strcat(content_name, "@");
@@ -447,47 +454,6 @@ create_presence_content(cnu user, xmlnode x)
   
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
-
-  /*
-  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
-  struct ccn_charbuf *temp;
-  
-  sp.type = CCN_CONTENT_DATA;  
-  if (sp.template_ccnb == NULL)
-  {
-    sp.template_ccnb = ccn_charbuf_create();
-    ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_SignedInfo, CCN_DTAG);
-  }
-  else if (sp.template_ccnb->length > 0)
-  {
-    sp.template_ccnb->length--;
-  }
-  
-  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%d", 10);
-  sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
-  ccn_charbuf_append_closer(sp.template_ccnb);
-  
-  temp = ccn_charbuf_create();
-  temp->length = 0;
-  res = ccn_sign_content(nthread->ccn, temp, pname, &sp, data, strlen(data));
-  if (res != 0)
-  {
-    log_error(NAME, "ccn_sign_content failed");
-    return 1;
-  }
-    
-  res = ccn_put(nthread->ccn, temp->buf, temp->length);
-  if (res < 0)
-  {
-    log_error(NAME, "ccn_put failed");
-    return 1;
-  }
-  
-  ccn_charbuf_destroy(&pname);
-  ccn_charbuf_destroy(&temp);
-  ccn_charbuf_destroy(&sp.template_ccnb);
-  
-  */
   
   signed_info = ccn_charbuf_create();
   keylocator = ccn_charbuf_create();
@@ -508,20 +474,26 @@ create_presence_content(cnu user, xmlnode x)
   }
   
   xmlnode_put_attrib(dup_x, "external_flag", "1");
+  from = xmlnode_get_attrib(dup_x, "from");
+  server = strstr(from, "@");
+  strcpy(server + 1, hostname);
+  xmlnode_put_attrib(dup_x, "from", from);
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
-  ccn_put(nthread->ccn, content->buf, content->length);
   
   g_hash_table_insert(user->room->presence, content_name, content);
-  
+
+  //ccn_put(nthread->ccn, content->buf, content->length);
+  ccn_set_interest_filter(nthread->ccn, interest_filter, user->in_interest_presence);
+
   ccn_charbuf_destroy(&signed_info);
+  ccn_charbuf_destroy(&interest_filter);
   ccn_charbuf_destroy(&pname);
-  //ccn_charbuf_destroy(&content);
-  
+  //ccn_charbuf_destroy(&content);  
   //free(content_name);
   
   return 0;
@@ -562,6 +534,7 @@ int
 create_message_content(cnu user, char *data)
 {
   struct ccn_charbuf *pname;
+  struct ccn_charbuf *interest_filter;
   struct ccn_charbuf *signed_info;
   struct ccn_charbuf *keylocator;
   struct ccn_charbuf *content, *dup_content;
@@ -581,49 +554,11 @@ create_message_content(cnu user, char *data)
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);
   strcat(content_name, seq_char);
+  
+  interest_filter = ccn_charbuf_create();
+  ccn_name_from_uri(interest_filter, name_without_seq);  
   pname = ccn_charbuf_create();
-  ccn_name_from_uri(pname, content_name);
-  
-  /*
-  struct ccn_charbuf *temp;
-  
-  sp.type = CCN_CONTENT_DATA;
-  struct ccn_signing_params sp = CCN_SIGNING_PARAMS_INIT;
-  
-  if (sp.template_ccnb == NULL)
-  {
-    sp.template_ccnb = ccn_charbuf_create();
-    ccn_charbuf_append_tt(sp.template_ccnb, CCN_DTAG_SignedInfo, CCN_DTAG);
-  }
-  else if (sp.template_ccnb->length > 0)
-  {
-    sp.template_ccnb->length--;
-  }
-  
-  ccnb_tagged_putf(sp.template_ccnb, CCN_DTAG_FreshnessSeconds, "%d", 10);
-  sp.sp_flags |= CCN_SP_TEMPL_FRESHNESS;
-  ccn_charbuf_append_closer(sp.template_ccnb);
-  
-  temp = ccn_charbuf_create();
-  temp->length = 0;
-  res = ccn_sign_content(nthread->ccn, temp, pname, &sp, data, strlen(data));
-  if (res != 0)
-  {
-    log_error(NAME, "ccn_sign_content failed");
-    return 1;
-  }
-  
-  res = ccn_put(nthread->ccn, temp->buf, temp->length);
-  if (res < 0)
-  {
-    log_error(NAME, "ccn_put failed");
-    return 1;
-  }
-  
-  ccn_charbuf_destroy(&pname);
-  ccn_charbuf_destroy(&temp);
-  ccn_charbuf_destroy(&sp.template_ccnb);
-  */
+  ccn_name_from_uri(pname, content_name);  
   
   keylocator = ccn_charbuf_create();
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
@@ -647,7 +582,6 @@ create_message_content(cnu user, char *data)
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
-  ccn_put(nthread->ccn, content->buf, content->length);
   
   dup_content = ccn_charbuf_create();
   ccn_charbuf_reset(dup_content);
@@ -655,9 +589,13 @@ create_message_content(cnu user, char *data)
   
   g_hash_table_insert(user->room->message, content_name, content);
   g_hash_table_insert(user->room->message_latest, name_without_seq, dup_content);
-    
+  
+  //ccn_put(nthread->ccn, content->buf, content->length);
+  ccn_set_interest_filter(nthread->ccn, interest_filter, user->in_interest_message);
+  
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&interest_filter);
   //ccn_charbuf_destroy(&content);
   //free(content_name);
   free(seq_char);
