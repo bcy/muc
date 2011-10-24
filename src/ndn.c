@@ -340,6 +340,7 @@ create_presence_interest(cnu user)
   struct ccn_charbuf **excl = NULL;
   int begin, i, length;
   gboolean excludeLow, excludeHigh;
+  char *interest_name = calloc(1, sizeof(char) * 50);
   
   interest = ccn_charbuf_create();
   if (interest == NULL)
@@ -347,9 +348,11 @@ create_presence_interest(cnu user)
     log_error(NAME, "ccn_charbuf_create failed");
     return 1;
   }
-  ccn_name_from_uri(interest, "/ndn/broadcast/xmpp-muc");
-  ccn_name_append_str(interest, jid_ns(user->room->id));
-  
+  strcpy(interest_name, "/ndn/broadcast/xmpp-muc/");
+  strcat(interest_name, user->room->id->user);
+  ccn_name_from_uri(interest, interest_name);
+  free(interest_name);
+    
   if (g_queue_is_empty(exclusion_list))
   {
     int res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, NULL);
@@ -443,7 +446,7 @@ create_presence_content(cnu user, xmlnode x)
   
   gethostname(hostname, 50);
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
-  strcat(content_name, jid_ns(user->room->id));
+  strcat(content_name, user->room->id->user);
   interest_filter = ccn_charbuf_create();
   ccn_name_from_uri(interest_filter, content_name);
   
