@@ -88,6 +88,10 @@ incoming_interest_meesage(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
+  
+  if (user == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
   cnr room = user->room;
   char *name;
   struct ccn_charbuf *content = NULL;
@@ -129,9 +133,11 @@ incoming_interest_presence(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  cnr room = (cnr) user->room;
+  
+  if (user == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
   char *name;
-  char *hostname;
   struct ccn_charbuf *content;
   
   switch (kind)
@@ -149,16 +155,11 @@ incoming_interest_presence(
   name = calloc(1, sizeof(char) * 100);
   fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
     
-  hostname = calloc(1, sizeof(char) * 50);
-  
-  gethostname(hostname, 50);
   strcat(name, "/");
-  strcat(name, user->realid->user);
-  strcat(name, "@");
-  strcat(name, hostname);
-  content = g_hash_table_lookup(room->presence, name);
-  ccn_put(info->h, content->buf, content->length);
-  //g_hash_table_foreach(room->presence, send_presence, info->h);
+  strcat(name, jid_ns(user->realid));
+  content = g_hash_table_lookup(user->room->presence, name);
+  if (content != NULL)
+    ccn_put(info->h, content->buf, content->length);
     
   return CCN_UPCALL_RESULT_OK;
 }
@@ -170,6 +171,10 @@ incoming_content_message(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
+  
+  if (user == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
   char *name, *seq_str;
   unsigned char *pcontent = NULL;
   int seq;
@@ -217,8 +222,12 @@ incoming_content_presence(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
+  
+  if (user == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
   size_t len, size;
-  unsigned char *pcontent = NULL;
+  char *pcontent = NULL;
   struct exclusion_element *element;
   char *name;
   char *hostname;
@@ -229,6 +238,7 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
+      //fprintf(stderr, "timed out\n");
       create_presence_interest(user);
       return CCN_UPCALL_RESULT_OK;
       
@@ -262,8 +272,10 @@ incoming_content_presence(
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
   hostname = calloc(1, sizeof(char) * 50);
   gethostname(hostname, 50);
-  if (j_strncmp(strchr(name, '@') + 1, hostname, strlen(hostname)) != 0)
+  if (j_strncmp(strstr(pcontent, "hostname") + 10, hostname, strlen(hostname)) != 0)
+  {
     XML_Parse(jcr->parser, pcontent, len, 0);
+  }
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -364,7 +376,7 @@ create_presence_interest(cnu user)
     ccn_charbuf_destroy(&interest);
     return 0;
   }
-  
+/*  
   g_queue_foreach(exclusion_list, check_delete, exclusion_list);
   
   excl = calloc(1, sizeof(struct ccn_charbuf) * g_queue_get_length(exclusion_list));
@@ -424,7 +436,7 @@ create_presence_interest(cnu user)
     ccn_charbuf_destroy(&excl[i]); 
 
   free(excl);
-  
+  */
   return 0;
 }
 
@@ -444,16 +456,13 @@ create_presence_content(cnu user, xmlnode x)
   char *server;
   xmlnode dup_x = xmlnode_dup(x);
   
-  gethostname(hostname, 50);
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
   strcat(content_name, user->room->id->user);
   interest_filter = ccn_charbuf_create();
   ccn_name_from_uri(interest_filter, content_name);
   
   strcat(content_name, "/");
-  strcat(content_name, user->realid->user);
-  strcat(content_name, "@");
-  strcat(content_name, hostname);
+  strcat(content_name, jid_ns(user->realid));
   
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
@@ -475,12 +484,11 @@ create_presence_content(cnu user, xmlnode x)
     log_error(NAME, "[%s]: Failed to create signed_info (res == %d)", FZONE, res);
     return 1;
   }
-  
+
+  gethostname(hostname, 50);
   xmlnode_put_attrib(dup_x, "external_flag", "1");
-  from = xmlnode_get_attrib(dup_x, "from");
-  server = strstr(from, "@");
-  strcpy(server + 1, hostname);
-  xmlnode_put_attrib(dup_x, "from", from);
+  xmlnode_put_attrib(dup_x, "hostname", hostname);
+  
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
@@ -543,16 +551,12 @@ create_message_content(cnu user, char *data)
   struct ccn_charbuf *content, *dup_content;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
-  char *hostname = calloc(1, sizeof(char) * 50);
   char *name_without_seq;
   char *seq_char = calloc(1, sizeof(char) * 10);
   
-  gethostname(hostname, 50);
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
-  strcat(content_name, user->realid->user);
-  strcat(content_name, "@");
-  strcat(content_name, hostname);
+  strcat(content_name, jid_ns(user->realid));
   name_without_seq = j_strdup(content_name);
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);

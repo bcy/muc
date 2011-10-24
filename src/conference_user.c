@@ -28,21 +28,24 @@ void express_message_interest(gpointer key, gpointer value, gpointer arg)
   char *name = calloc(1, sizeof(char) * 100);
   
   if (user->remote == 0)
-    return;
-  
-  strcpy(name, new_user->name_prefix);
-  strcat(name, "/");
-  strcat(name, jid_ns(new_user->realid));
+  {
+    strcpy(name, new_user->name_prefix);
+    strcat(name, "/");
+    strcat(name, jid_ns(new_user->realid));
     
-  log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
-  create_message_interest(user, name, -1);
-
-  strcpy(name, user->name_prefix);
-  strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
-
-  log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(new_user->realid), name);
-  create_message_interest(new_user, name, -1);
+    log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
+    create_message_interest(user, name, -1);
+  }
+  
+  if (new_user->remote == 0)
+  {
+    strcpy(name, user->name_prefix);
+    strcat(name, "/");
+    strcat(name, jid_ns(user->realid));
+    
+    log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(new_user->realid), name);
+    create_message_interest(new_user, name, -1);
+  }
 }
 
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
@@ -117,12 +120,9 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   user->name_prefix = strdup(name_prefix);
       user->remote = 0;
   user->remote = external;
-  if (external == 0)
-  {
-    //create_presence_interest(user);
-    g_hash_table_foreach(room->remote, express_message_interest, user);
-  }
   
+  //create_presence_interest(user);
+  g_hash_table_foreach(room->remote, express_message_interest, user);  
 
   return user;
 }
@@ -739,15 +739,19 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Un-alloc nick xmlnode", FZONE);
   xmlnode_free(user->nick);
 
-  log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
-  g_hash_table_remove(room->remote, jid_full(user->realid));
-  
+  /*
   free(user->in_content_message);
   free(user->in_content_presence);
   free(user->in_interest_message);
   free(user->in_interest_presence);
+  */
   free(user->name_prefix);
   g_queue_foreach(user->exclusion_list, &free_list, NULL);
   g_queue_free(user->exclusion_list);
+
+  log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
+  g_hash_table_remove(room->remote, jid_full(user->realid));
+  
+  user = NULL;
 }
 
