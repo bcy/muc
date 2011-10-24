@@ -100,12 +100,6 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   }
   
   /*bcy: ccn_closure initialization*/
-  user->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  user->in_content_presence->data = user;
-  user->in_content_presence->p = &incoming_content_presence;
-  user->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  user->in_interest_presence->data = user;
-  user->in_interest_presence->p = &incoming_interest_presence;
   user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   user->in_content_message->data = user;
   user->in_content_message->p = &incoming_content_message;
@@ -115,13 +109,11 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
   
-  user->exclusion_list = g_queue_new();
   user->message_seq = 1;
   user->name_prefix = strdup(name_prefix);
       user->remote = 0;
   user->remote = external;
   
-  //create_presence_interest(user);
   g_hash_table_foreach(room->remote, express_message_interest, user);  
 
   return user;
@@ -363,8 +355,6 @@ void con_user_enter(cnu user, char *nick, int created)
 
   /* Update my roster with current users */
   g_hash_table_foreach(room->local, _con_user_enter, (void*)user);
-  if (user->remote == 0)
-    create_presence_interest(user);
 
   /* Send presence back to user to confirm presence received */
   if(created == 1)
@@ -619,14 +609,6 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
-void free_list(gpointer data, gpointer user_data)
-{
-  struct exclusion_element *element = (struct exclusion_element *) data;
-  g_timer_destroy(element->timer);
-  free(element->name);
-  free(element);
-}
-
 void con_user_zap(cnu user, xmlnode data)
 {
   cnr room;
@@ -741,13 +723,9 @@ void con_user_zap(cnu user, xmlnode data)
 
   /*
   free(user->in_content_message);
-  free(user->in_content_presence);
   free(user->in_interest_message);
-  free(user->in_interest_presence);
   */
   free(user->name_prefix);
-  g_queue_foreach(user->exclusion_list, &free_list, NULL);
-  g_queue_free(user->exclusion_list);
 
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));

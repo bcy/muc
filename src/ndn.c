@@ -132,13 +132,12 @@ incoming_interest_presence(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;
+  cnu room = (cnr) selfp->data;
   
-  if (user == NULL)
+  if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
   
   char *name;
-  struct ccn_charbuf *content;
   
   switch (kind)
   {
@@ -155,11 +154,7 @@ incoming_interest_presence(
   name = calloc(1, sizeof(char) * 100);
   fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
     
-  strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
-  content = g_hash_table_lookup(user->room->presence, name);
-  if (content != NULL)
-    ccn_put(info->h, content->buf, content->length);
+  g_hash_table_foreach(room->presence, send_presence, info->h);
     
   return CCN_UPCALL_RESULT_OK;
 }
@@ -221,9 +216,9 @@ incoming_content_presence(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;
+  cnr room = (cnr) selfp->data;
   
-  if (user == NULL)
+  if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
   
   size_t len, size;
@@ -238,8 +233,7 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      //fprintf(stderr, "timed out\n");
-      create_presence_interest(user);
+      create_presence_interest(room);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
@@ -256,10 +250,10 @@ incoming_content_presence(
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &name, &size);
   element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element)); 
   element->name = strndup(name, size);
-  if (list_find(user->exclusion_list, element->name) == 0)
+  if (list_find(room->exclusion_list, element->name) == 0)
   {
     element->timer = g_timer_new();
-    g_queue_push_head(user->exclusion_list, element);
+    g_queue_push_head(room->exclusion_list, element);
   }
   else
   {
@@ -267,7 +261,7 @@ incoming_content_presence(
     free(element);
   }
   
-  create_presence_interest(user);
+  create_presence_interest(room);
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
   hostname = calloc(1, sizeof(char) * 50);
@@ -345,9 +339,9 @@ check_delete(gpointer data, gpointer user_data)
 }
   
 int
-create_presence_interest(cnu user)
+create_presence_interest(cnr room)
 {
-  GQueue *exclusion_list = user->exclusion_list;
+  GQueue *exclusion_list = room->exclusion_list;
   struct ccn_charbuf *interest;
   struct ccn_charbuf **excl = NULL;
   int begin, i, length;
@@ -361,13 +355,13 @@ create_presence_interest(cnu user)
     return 1;
   }
   strcpy(interest_name, "/ndn/broadcast/xmpp-muc/");
-  strcat(interest_name, user->room->id->user);
+  strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
   free(interest_name);
     
   if (g_queue_is_empty(exclusion_list))
   {
-    int res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, NULL);
+    int res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, NULL);
     if (res < 0)
     {
       log_error(NAME, "ccn_express_interest failed");
@@ -499,7 +493,7 @@ create_presence_content(cnu user, xmlnode x)
   g_hash_table_insert(user->room->presence, content_name, content);
 
   //ccn_put(nthread->ccn, content->buf, content->length);
-  ccn_set_interest_filter(nthread->ccn, interest_filter, user->in_interest_presence);
+  ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_presence);
 
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&interest_filter);
@@ -530,7 +524,7 @@ create_message_interest(cnu user, char *name, int seq)
     ccn_name_append_str(interest, str_seq);
   }
   
-  res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, NULL);
+  res = ccn_express_interest(nthread->ccn, interest, user->in_content_message, NULL);
   if (res < 0)
   {
     log_error(NAME, "ccn_express_interest %s failed", name);

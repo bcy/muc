@@ -1521,10 +1521,20 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   sql_add_room_lists(master->sql, room);
 #endif
   
+  room->exclusion_list = g_queue_new();
+
+  room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_content_presence->data = room;
+  room->in_content_presence->p = &incoming_content_presence;
+  room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_interest_presence->data = room;
+  room->in_interest_presence->p = &incoming_interest_presence;
+  
   room->presence = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
   room->message = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
   room->message_latest = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
-
+  
+  create_presence_interest(room);
   return room;
 }
 
@@ -1598,6 +1608,14 @@ void con_room_send(cnr room, xmlnode x, int legacy)
   return;
 }
 
+static void free_list(gpointer data, gpointer user_data)
+{
+  struct exclusion_element *element = (struct exclusion_element *) data;
+  g_timer_destroy(element->timer);
+  free(element->name);
+  free(element);
+}
+
 /* Clear up room hashes */
 void con_room_cleanup(cnr room)
 {
@@ -1667,6 +1685,10 @@ void con_room_cleanup(cnr room)
   free(room->note_leave);
 
   free(roomid);
+  
+  g_queue_foreach(room->exclusion_list, &free_list, NULL);
+  g_queue_free(room->exclusion_list);
+
   return;
 }
 
