@@ -419,7 +419,8 @@ void _con_packets(void *arg)
     }
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__GET && NSCHECK(jp->iq, NS_MUC_OWNER))
     {
-      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, xmlnode_get_attrib(jp->x, "name_prefix"));
+      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
+			  xmlnode_get_attrib(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external_flag"), 0));
 
       xdata_room_config(room,g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from))),1,jp->x);
 
@@ -430,7 +431,8 @@ void _con_packets(void *arg)
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__SET && NSCHECK(jp->iq, NS_MUC_OWNER) && xmlnode_get_tag(jp->iq,"x?xmlns=jabber:x:data"))
     {
       //create instant room
-      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, xmlnode_get_attrib(jp->x, "name_prefix"));
+      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
+			  xmlnode_get_attrib(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external_flag"), 0));
       //instant room are always non browsable
       room->public=0;
      
@@ -457,9 +459,11 @@ void _con_packets(void *arg)
     else
     {
       if(master->dynamic == -1)
-        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1, xmlnode_get_attrib(jp->x, "name_prefix"));
+        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1, 
+			    xmlnode_get_attrib(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external_flag"), 0));
       else
-        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, xmlnode_get_attrib(jp->x, "name_prefix"));
+        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
+			    xmlnode_get_attrib(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external_flag"), 0));
 
       /* fall through, so the presence goes to the room like normal */
       created = 1;
@@ -544,12 +548,12 @@ void _con_packets(void *arg)
   /* sending available presence will automatically get you a generic user, if you don't have one */
   if(u == NULL && priority >= 0)
   {
-    u = con_user_new(room, jp->from, xmlnode_get_attrib(jp->x, "name_prefix"));
+    u = con_user_new(room, jp->from, xmlnode_get_attrib(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external_flag"), 0));
   }
   
   if (jp->type == JPACKET_PRESENCE && u != NULL)
   {
-    create_presence_content(u, xmlnode2str(jp->x));
+    create_presence_content(u, jp->x);
   }
   
   /* update tracking stuff */

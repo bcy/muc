@@ -258,7 +258,7 @@ void con_room_log_new(cnr room);			/* New Log */
 void con_room_log_close(cnr room);			/* Close logfile */
 void con_room_send_invite(cnu sender, xmlnode node);	/* Send invites */
 void con_room_forward_decline(cnr room, jpacket jp, xmlnode decline); /* Forward declines */
-cnr con_room_new(cni c, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix);
+cnr con_room_new(cni c, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external);
 							/* Set up a new room */
 void con_room_sendwalk(gpointer key, gpointer data, gpointer arg);
 							/* Used to send to all members of a room */
@@ -273,12 +273,12 @@ void con_room_zap(cnr room); 				/* kills a room */
 void con_room_history_clear(cnr room);			/* Wipes a room history */
 
 /* Functions in conference_user.c */
-cnu con_user_new(cnr room, jid id, char *name_prefix);	/* new generic user */
-void con_user_nick(cnu user, char *nick, xmlnode data); /* broadcast nick change */
-void con_user_enter(cnu user, char *nick, int created); /* put user in room and announce */
-void con_user_send(cnu to, cnu from, xmlnode x); 	/* send a packet to a user from other user */
-void con_user_zap(cnu user, xmlnode data);		/* clean up the user */
-void con_user_process(cnu to, cnu from, jpacket jp); 	/* process packets betweeen users */
+cnu con_user_new(cnr room, jid id, char *name_prefix, int external);	/* new generic user */
+void con_user_nick(cnu user, char *nick, xmlnode data); 		/* broadcast nick change */
+void con_user_enter(cnu user, char *nick, int created); 		/* put user in room and announce */
+void con_user_send(cnu to, cnu from, xmlnode x); 			/* send a packet to a user from other user */
+void con_user_zap(cnu user, xmlnode data);				/* clean up the user */
+void con_user_process(cnu to, cnu from, jpacket jp); 			/* process packets betweeen users */
 
 /* Functions in utils.c */
 xmlnode add_extended_presence(cnu from, cnu to, xmlnode presence, char *status, char *reason, char *actor);
@@ -383,5 +383,5 @@ int init_ndn_thread();
 int stop_ndn_thread();
 int create_presence_interest(cnu user);
 int create_message_interest(cnu user, char *name, int seq);
-int create_presence_content(cnu user, char *data);
+int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);

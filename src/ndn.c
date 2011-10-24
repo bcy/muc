@@ -68,6 +68,19 @@ send_presence(gpointer key, gpointer value, gpointer user_data)
   ccn_put(ccn, content->buf, content->length);
 }
 
+static int
+list_find(GQueue *list, char *name)
+{
+  GList *iterator = list->head;
+  for (; iterator != NULL; iterator = iterator->next)
+  {
+    struct exclusion_element *element = (struct exclusion_element *) iterator->data;
+    if (strcmp(name, element->name) == 0)
+      return 1;
+  }
+  return 0;
+}
+
 enum ccn_upcall_res
 incoming_interest_meesage(
   struct ccn_closure *selfp,
@@ -200,6 +213,10 @@ incoming_content_presence(
   cnu user = (cnu) selfp->data;
   size_t len, size;
   unsigned char *pcontent = NULL;
+  struct exclusion_element *element;
+  char *name;
+  char *hostname;
+  char *from;
   
   switch (kind) {
     case CCN_UPCALL_FINAL:
@@ -220,19 +237,28 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  struct exclusion_element *element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
-  
-  element->name = calloc(1, sizeof(char) * 100);
-  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &element->name, &size);
-  
-  element->timer = g_timer_new();
-  g_queue_push_head(user->exclusion_list, element);
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &name, &size);
+  element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element)); 
+  element->name = strndup(name, size);
+  if (list_find(user->exclusion_list, element->name) == 0)
+  {
+    element->timer = g_timer_new();
+    g_queue_push_head(user->exclusion_list, element);
+  }
+  else
+  {
+    free(element->name);
+    free(element);
+  }
   
   create_presence_interest(user);
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
-  XML_Parse(jcr->parser, pcontent, len, 0);
-    
+  hostname = calloc(1, sizeof(char) * 50);
+  gethostname(hostname, 50);
+  if (j_strncmp(strchr(name, '@') + 1, hostname, strlen(hostname)) != 0)
+    XML_Parse(jcr->parser, pcontent, len, 0);
+  
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -291,7 +317,7 @@ check_delete(gpointer data, gpointer user_data)
   gulong duration;
   
   g_timer_elapsed(element->timer, &duration);
-  if (duration >= 2000000)
+  if (duration >= 10000000)
   {
     g_queue_remove(list, data);
     g_timer_destroy(element->timer);
@@ -394,7 +420,7 @@ create_presence_interest(cnu user)
 }
 
 int
-create_presence_content(cnu user, char *data)
+create_presence_content(cnu user, xmlnode x)
 {
   struct ccn_charbuf *pname;
   struct ccn_charbuf *keylocator;
@@ -402,11 +428,23 @@ create_presence_content(cnu user, char *data)
   struct ccn_charbuf *signed_info;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
+  char *hostname = calloc(1, sizeof(char) * 100);
+  char *data;
+  xmlnode dup_x = xmlnode_dup(x);
   
+  gethostname(hostname, 50);
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
   strcat(content_name, jid_ns(user->room->id));
+  /*
+  strcat(content_name, user->room->id->user);
+  strcat(content_name, "@");
+  strcat(content_name, hostname);
+  */
   strcat(content_name, "/");
-  strcat(content_name, jid_ns(user->realid));
+  strcat(content_name, user->realid->user);
+  strcat(content_name, "@");
+  strcat(content_name, hostname);
+  
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
 
@@ -469,6 +507,8 @@ create_presence_content(cnu user, char *data)
     return 1;
   }
   
+  xmlnode_put_attrib(dup_x, "external_flag", "1");
+  data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
@@ -527,12 +567,16 @@ create_message_content(cnu user, char *data)
   struct ccn_charbuf *content, *dup_content;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
+  char *hostname = calloc(1, sizeof(char) * 50);
   char *name_without_seq;
   char *seq_char = calloc(1, sizeof(char) * 10);
   
+  gethostname(hostname, 50);
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
-  strcat(content_name, jid_ns(user->realid));
+  strcat(content_name, user->realid->user);
+  strcat(content_name, "@");
+  strcat(content_name, hostname);
   name_without_seq = j_strdup(content_name);
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);

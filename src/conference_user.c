@@ -27,6 +27,9 @@ void express_message_interest(gpointer key, gpointer value, gpointer arg)
   cnu new_user = (cnu) arg;
   char *name = calloc(1, sizeof(char) * 100);
   
+  if (user->remote == 0)
+    return;
+  
   strcpy(name, new_user->name_prefix);
   strcat(name, "/");
   strcat(name, jid_ns(new_user->realid));
@@ -42,7 +45,7 @@ void express_message_interest(gpointer key, gpointer value, gpointer arg)
   create_message_interest(new_user, name, -1);
 }
 
-cnu con_user_new(cnr room, jid id, char *name_prefix)
+cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
 {
   pool p;
   cnu user;
@@ -111,17 +114,15 @@ cnu con_user_new(cnr room, jid id, char *name_prefix)
   
   user->exclusion_list = g_queue_new();
   user->message_seq = 1;
-  user->name_prefix = calloc(1, sizeof(char) * strlen(name_prefix));
-  strcpy(user->name_prefix, name_prefix);
-  
-  if ((strncmp(user->realid->server, "localhost", 9) == 0) || (strncmp(user->realid->server, "127.0.0.1", 9) == 0))
+  user->name_prefix = strdup(name_prefix);
+      user->remote = 0;
+  user->remote = external;
+  if (external == 0)
   {
-    user->remote = 0;
-    create_presence_interest(user);
+    //create_presence_interest(user);
     g_hash_table_foreach(room->remote, express_message_interest, user);
   }
-  else
-    user->remote = 1;
+  
 
   return user;
 }
@@ -362,7 +363,8 @@ void con_user_enter(cnu user, char *nick, int created)
 
   /* Update my roster with current users */
   g_hash_table_foreach(room->local, _con_user_enter, (void*)user);
-  create_presence_interest(user);
+  if (user->remote == 0)
+    create_presence_interest(user);
 
   /* Send presence back to user to confirm presence received */
   if(created == 1)
