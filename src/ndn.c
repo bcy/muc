@@ -132,13 +132,11 @@ incoming_interest_presence(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu room = (cnr) selfp->data;
+  cnr room = (cnr) selfp->data;
   
   if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
-  
-  char *name;
-  
+    
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
@@ -150,10 +148,7 @@ incoming_interest_presence(
     default:
       return CCN_UPCALL_RESULT_OK;
   }
-  
-  name = calloc(1, sizeof(char) * 100);
-  fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
-    
+      
   g_hash_table_foreach(room->presence, send_presence, info->h);
     
   return CCN_UPCALL_RESULT_OK;
@@ -326,10 +321,11 @@ check_delete(gpointer data, gpointer user_data)
 {
   struct exclusion_element *element = (struct exclusion_element*) data;
   GQueue *list = (GQueue*) user_data;
-  gulong duration;
+  gdouble duration;
+  gulong useless;
   
-  g_timer_elapsed(element->timer, &duration);
-  if (duration >= 10000000)
+  duration = g_timer_elapsed(element->timer, &useless);
+  if (duration >= 10)
   {
     g_queue_remove(list, data);
     g_timer_destroy(element->timer);
@@ -358,6 +354,8 @@ create_presence_interest(cnr room)
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
   free(interest_name);
+  
+  g_queue_foreach(exclusion_list, check_delete, exclusion_list);
     
   if (g_queue_is_empty(exclusion_list))
   {
@@ -370,9 +368,7 @@ create_presence_interest(cnr room)
     ccn_charbuf_destroy(&interest);
     return 0;
   }
-/*  
-  g_queue_foreach(exclusion_list, check_delete, exclusion_list);
-  
+
   excl = calloc(1, sizeof(struct ccn_charbuf) * g_queue_get_length(exclusion_list));
   length = copy_from_list(excl, exclusion_list);
   qsort(&excl[0], length, sizeof(excl[0]), &namecompare);
@@ -415,7 +411,7 @@ create_presence_interest(cnr room)
     
     ccn_charbuf_append_closer(templ); // </Exclude>
     ccn_charbuf_append_closer(templ); // </Interest> 
-    int res = ccn_express_interest(nthread->ccn, interest, user->in_content_presence, templ);
+    int res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     if (res < 0)
     {
       log_error(NAME, "ccn_express_interest failed!");
@@ -430,7 +426,6 @@ create_presence_interest(cnr room)
     ccn_charbuf_destroy(&excl[i]); 
 
   free(excl);
-  */
   return 0;
 }
 
