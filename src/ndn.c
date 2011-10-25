@@ -166,9 +166,12 @@ incoming_content_message(
     return CCN_UPCALL_RESULT_OK;
   
   char *name, *seq_str;
-  unsigned char *pcontent = NULL;
+  char *pcontent = NULL;
   int seq;
   size_t len, size;
+  char *insert_data;
+  char *changed;
+  char *insert_point;
   
   switch (kind)
   {
@@ -190,10 +193,20 @@ incoming_content_message(
   }
 
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
-  XML_Parse(jcr->parser, pcontent, len, 0);
+  insert_data = calloc(1, sizeof(char) * 50);
+  strcpy(insert_data, " recv=\'");
+  strcat(insert_data, user->localid->resource);
+  strcat(insert_data, "\' external='1'");
+  changed = calloc(1, sizeof(char) * (len + 50));
+  insert_point = strstr(pcontent, "><");
+  strncpy(changed, pcontent, insert_point - pcontent);
+  strcat(changed, insert_data);
+  strncat(changed, insert_point, pcontent + len - insert_point);
+  XML_Parse(jcr->parser, changed, strlen(changed), 0);
   
   name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
   fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
+  *strrchr(name, '/') = '\0';
   
   seq_str = calloc(1, sizeof(char) * 10);
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &seq_str, &size);

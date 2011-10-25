@@ -27,7 +27,7 @@ void express_message_interest(gpointer key, gpointer value, gpointer arg)
   cnu new_user = (cnu) arg;
   char *name = calloc(1, sizeof(char) * 100);
   
-  if (user->remote == 0)
+  if (user->remote == 0 && new_user->remote == 1)
   {
     strcpy(name, new_user->name_prefix);
     strcat(name, "/");
@@ -37,7 +37,7 @@ void express_message_interest(gpointer key, gpointer value, gpointer arg)
     create_message_interest(user, name, -1);
   }
   
-  if (new_user->remote == 0)
+  if (new_user->remote == 0 && user->remote == 1)
   {
     strcpy(name, user->name_prefix);
     strcat(name, "/");

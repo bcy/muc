@@ -491,7 +491,8 @@ void _con_packets(void *arg)
             continue;
           s = xmlnode_get_name(node);
           if ((j_strcmp(s, "gone") == 0) || (j_strcmp(s, "item-not-found") == 0) || (j_strcmp(s, "recipient-unavailable") == 0) || (j_strcmp(s, "redirect") == 0) || (j_strcmp(s, "remote-server-not-found") == 0) || (j_strcmp(s, "remote-server-timeout") == 0) || (j_strcmp(s, "service-unavailable")) || (j_strcmp(s, "jid-malformed")))
-          {/*
+          {
+	    /*
             log_debug(NAME, "[%s] Error Handler: Zapping user", FZONE);
             node = xmlnode_new_tag("reason");
             xmlnode_insert_cdata(node, "Lost connection", -1);
@@ -500,8 +501,10 @@ void _con_packets(void *arg)
 
             xmlnode_free(jp->x);
             g_mutex_unlock(master->lock);
+            
             return;
-          */}
+	    */
+          }
         }
       }
       else
