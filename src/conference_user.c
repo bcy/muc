@@ -111,7 +111,6 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   
   user->message_seq = 1;
   user->name_prefix = strdup(name_prefix);
-      user->remote = 0;
   user->remote = external;
   
   g_hash_table_foreach(room->remote, express_message_interest, user);  

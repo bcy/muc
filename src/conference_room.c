@@ -1704,6 +1704,9 @@ void con_room_zap(cnr room)
   log_debug(NAME, "[%s] cleaning up room %s", FZONE, jid_full(room->id));
 
   con_room_cleanup(room);
+  
+  free(room->in_content_presence);
+  free(room->in_interest_presence);
 
 #ifdef HAVE_MYSQL
   sql_destroy_room(room->master->sql, jid_full(room->id));

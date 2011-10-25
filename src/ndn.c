@@ -263,7 +263,10 @@ incoming_content_presence(
   gethostname(hostname, 50);
   if (j_strncmp(strstr(pcontent, "hostname") + 10, hostname, strlen(hostname)) != 0)
   {
-    XML_Parse(jcr->parser, pcontent, len, 0);
+    if (XML_Parse(jcr->parser, pcontent, len, 0) == 0)
+    {
+      log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
+    }
   }
   
   return CCN_UPCALL_RESULT_OK;
