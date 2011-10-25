@@ -21,33 +21,6 @@
 #include "conference.h"
 extern int deliver__flag;
 
-void express_message_interest(gpointer key, gpointer value, gpointer arg)
-{
-  cnu user = (cnu) value;
-  cnu new_user = (cnu) arg;
-  char *name = calloc(1, sizeof(char) * 100);
-  
-  if (user->remote == 0 && new_user->remote == 1)
-  {
-    strcpy(name, new_user->name_prefix);
-    strcat(name, "/");
-    strcat(name, jid_ns(new_user->realid));
-    
-    log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
-    create_message_interest(user, name, -1);
-  }
-  
-  if (new_user->remote == 0 && user->remote == 1)
-  {
-    strcpy(name, user->name_prefix);
-    strcat(name, "/");
-    strcat(name, jid_ns(user->realid));
-    
-    log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(new_user->realid), name);
-    create_message_interest(new_user, name, -1);
-  }
-}
-
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
 {
   pool p;
@@ -99,21 +72,24 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
     add_role(room->participant, user);
   }
   
-  /*bcy: ccn_closure initialization*/
-  user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  user->in_content_message->data = user;
-  user->in_content_message->p = &incoming_content_message;
-  user->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  user->in_interest_message->data = user;
-  user->in_interest_message->p = &incoming_interest_meesage;
-  
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
   
   user->message_seq = 1;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   
-  g_hash_table_foreach(room->remote, express_message_interest, user);  
+  if (external == 1)
+  {
+    char *name = calloc(1, sizeof(char) * 100);
+    strcpy(name, user->name_prefix);
+    strcat(name, "/");
+    strcat(name, user->room->id->user);
+    strcat(name, "/");
+    strcat(name, jid_ns(user->realid));
+    
+    log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
+    create_message_interest(user->room, name, -1);
+  }
 
   return user;
 }
@@ -345,6 +321,8 @@ void con_user_enter(cnu user, char *nick, int created)
   jid_set(user->localid, nick, JID_RESOURCE);
 
   room->count++;
+  if (user->remote == 0)
+    room->local_count++;
 
 #ifdef HAVE_MYSQL
   sql_update_nb_users(room->master->sql, room);
@@ -652,6 +630,8 @@ void con_user_zap(cnu user, xmlnode data)
     con_user_nick(user, NULL, data); /* sends unavailable */
 
     room->count--;
+    if (user->remote == 0)
+      room->local_count--;
 #ifdef HAVE_MYSQL
     sql_update_nb_users(room->master->sql, room);
 #endif
@@ -720,15 +700,14 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Un-alloc nick xmlnode", FZONE);
   xmlnode_free(user->nick);
 
-  /*
-  free(user->in_content_message);
-  free(user->in_interest_message);
-  */
   free(user->name_prefix);
 
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
   
-  user = NULL;
+  /*
+  if (room->local_count == 0)
+    con_room_zap(room);
+  */
 }
 

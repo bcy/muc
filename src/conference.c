@@ -560,7 +560,8 @@ void _con_packets(void *arg)
   }
   
   /* update tracking stuff */
-  room->last = now;
+  if (j_strcmp(xmlnode_get_attrib(jp->x, "external_flag"), "1") != 0)
+    room->last = now;
   room->packets++;
 
   if(u != NULL)
@@ -1000,7 +1001,7 @@ void _con_beat_idle(gpointer key, gpointer data, gpointer arg)
   g_queue_free(room->queue);
 
   /* Destroy timed-out dynamic room */
-  if(room->persistent == 0 && room->count == 0 && (t - room->last) > 240)
+  if(room->persistent == 0 && room->local_count == 0 && (t - room->last) > 240)
   {
     log_debug(NAME, "[%s] HBTICK: Locking room and adding %s to remove queue", FZONE, (char*) key);
     room->locked = 1;

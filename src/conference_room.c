@@ -530,8 +530,7 @@ void con_room_sendwalk(gpointer key, gpointer data, gpointer arg)
   }
   else
   {
-    if (xmlnode_get_attrib(x, "recv") == NULL || j_strcmp(xmlnode_get_attrib(x, "recv"), to->localid->resource) == 0)
-      con_user_send(to, from, xmlnode_dup(x)); /* Need to send duplicate */
+    con_user_send(to, from, xmlnode_dup(x)); /* Need to send duplicate */
   }
 }
 
@@ -1524,13 +1523,22 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
 #endif
   
   room->exclusion_list = g_queue_new();
-
+  
+  /*bcy: ccn_closure initialization*/
   room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_presence->data = room;
   room->in_content_presence->p = &incoming_content_presence;
   room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_presence->data = room;
   room->in_interest_presence->p = &incoming_interest_presence;
+  room->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_content_message->data = room;
+  room->in_content_message->p = &incoming_content_message;
+  room->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_interest_message->data = room;
+  room->in_interest_message->p = &incoming_interest_meesage;
+  
+  room->local_count = 0;
   
   room->presence = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
   room->message = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
@@ -1707,8 +1715,21 @@ void con_room_zap(cnr room)
 
   con_room_cleanup(room);
   
+  room->in_content_presence->data = NULL;
+  room->in_interest_presence->data = NULL;
+  room->in_content_message->data = NULL;
+  room->in_interest_message->data = NULL;
+  
+  /*
+  room->in_content_message->p = NULL;
+  room->in_interest_message->p = NULL;
+  room->in_content_presence->p = NULL;
+  room->in_content_presence->p = NULL;
+  free(room->in_content_message);
+  free(room->in_interest_message);
   free(room->in_content_presence);
   free(room->in_interest_presence);
+  */
 
 #ifdef HAVE_MYSQL
   sql_destroy_room(room->master->sql, jid_full(room->id));

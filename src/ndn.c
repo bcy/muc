@@ -87,12 +87,11 @@ incoming_interest_meesage(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;
+  cnr room = (cnr) selfp->data;
   
-  if (user == NULL)
+  if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
   
-  cnr room = user->room;
   char *name;
   struct ccn_charbuf *content = NULL;
   
@@ -160,16 +159,15 @@ incoming_content_message(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;
+  cnr room = (cnr) selfp->data;
   
-  if (user == NULL)
+  if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
   
   char *name, *seq_str;
   char *pcontent = NULL;
   int seq;
   size_t len, size;
-  char *insert_data;
   char *changed;
   char *insert_point;
   
@@ -192,28 +190,23 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_OK;
   }
 
-  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
-  insert_data = calloc(1, sizeof(char) * 50);
-  strcpy(insert_data, " recv=\'");
-  strcat(insert_data, user->localid->resource);
-  strcat(insert_data, "\' external='1'");
-  changed = calloc(1, sizeof(char) * (len + 50));
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);  
+    
+  changed = calloc(1, sizeof(char) * (len + 15));
   insert_point = strstr(pcontent, "><");
   strncpy(changed, pcontent, insert_point - pcontent);
-  strcat(changed, insert_data);
+  strcat(changed, " external='1'");
   strncat(changed, insert_point, pcontent + len - insert_point);
   XML_Parse(jcr->parser, changed, strlen(changed), 0);
   
   name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
   fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
   *strrchr(name, '/') = '\0';
-  
   seq_str = calloc(1, sizeof(char) * 10);
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &seq_str, &size);
   seq = atoi(seq_str);
   seq++;
-  
-  create_message_interest(user, name, seq);
+  create_message_interest(room, name, seq);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -361,11 +354,6 @@ create_presence_interest(cnr room)
   char *interest_name = calloc(1, sizeof(char) * 50);
   
   interest = ccn_charbuf_create();
-  if (interest == NULL)
-  {
-    log_error(NAME, "ccn_charbuf_create failed");
-    return 1;
-  }
   strcpy(interest_name, "/ndn/broadcast/xmpp-muc/");
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
@@ -378,7 +366,7 @@ create_presence_interest(cnr room)
     int res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, NULL);
     if (res < 0)
     {
-      log_error(NAME, "ccn_express_interest failed");
+      log_error(NAME, "[%s] ccn_express_interest failed", FZONE);
       return 1;
     }
     ccn_charbuf_destroy(&interest);
@@ -457,8 +445,6 @@ create_presence_content(cnu user, xmlnode x)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *hostname = calloc(1, sizeof(char) * 100);
   char *data;
-  char *from;
-  char *server;
   xmlnode dup_x = xmlnode_dup(x);
   
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
@@ -516,18 +502,13 @@ create_presence_content(cnu user, xmlnode x)
 }
 
 int
-create_message_interest(cnu user, char *name, int seq)
+create_message_interest(cnr room, char *name, int seq)
 {
   struct ccn_charbuf *interest;
   int res;
-  char str_seq[10];
+  char *str_seq = calloc(1, sizeof(char) * 10);
   
   interest = ccn_charbuf_create();
-  if (interest == NULL)
-  {
-    log_error(NAME, "ccn_charbuf_create failed");
-    return 1;
-  }
   ccn_name_from_uri(interest, name);
   if (seq > 0)
   {
@@ -535,14 +516,16 @@ create_message_interest(cnu user, char *name, int seq)
     ccn_name_append_str(interest, str_seq);
   }
   
-  res = ccn_express_interest(nthread->ccn, interest, user->in_content_message, NULL);
+  res = ccn_express_interest(nthread->ccn, interest, room->in_content_message, NULL);
   if (res < 0)
   {
-    log_error(NAME, "ccn_express_interest %s failed", name);
+    log_error(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);
     return 1;
   }
   
+  free(str_seq);
   ccn_charbuf_destroy(&interest);
+  
   return 0;
 }
 
@@ -560,6 +543,8 @@ create_message_content(cnu user, char *data)
   char *seq_char = calloc(1, sizeof(char) * 10);
   
   strcpy(content_name, user->name_prefix);
+  strcat(content_name, "/");
+  strcat(content_name, user->room->id->user);
   strcat(content_name, "/");
   strcat(content_name, jid_ns(user->realid));
   name_without_seq = j_strdup(content_name);
@@ -586,7 +571,7 @@ create_message_content(cnu user, char *data)
 	
   if (res < 0)
   {
-    log_error(NAME, "FAILED TO CREATE signed_info (res == %d)", res);
+    log_error(NAME, "[%s] failed to create signed_info (res == %d)", FZONE, res);
     return 1;
   }
   
@@ -603,7 +588,7 @@ create_message_content(cnu user, char *data)
   g_hash_table_insert(user->room->message_latest, name_without_seq, dup_content);
   
   //ccn_put(nthread->ccn, content->buf, content->length);
-  ccn_set_interest_filter(nthread->ccn, interest_filter, user->in_interest_message);
+  ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_message);
   
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);

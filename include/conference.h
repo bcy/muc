@@ -188,9 +188,12 @@ typedef struct cnr_struct
     GHashTable *message;	/* bcy: storage of generated message packets */
     GHashTable *message_latest; /* bcy: storage of latest message packets of each user */
 
+    struct ccn_closure *in_content_message;
+    struct ccn_closure *in_interest_message;
     struct ccn_closure *in_interest_presence;
     struct ccn_closure *in_content_presence;
     GQueue *exclusion_list;
+    int local_count;		/* bcy: # of local users in the room */
 } *cnr, _cnr;
 
 /* conference user */
@@ -207,8 +210,6 @@ struct cnu_struct
     int legacy;			/* To denote gc clients */
     int leaving;		/* To flag user is leaving the room */
     
-    struct ccn_closure *in_content_message;
-    struct ccn_closure *in_interest_message;
     char *name_prefix;
     int message_seq;
     int remote;
@@ -383,6 +384,6 @@ enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum cc
 int init_ndn_thread();
 int stop_ndn_thread();
 int create_presence_interest(cnr room);
-int create_message_interest(cnu user, char *name, int seq);
+int create_message_interest(cnr room, char *name, int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
