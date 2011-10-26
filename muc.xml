@@ -9,6 +9,7 @@
   <pidfile>/home/bcy/var/mu-conference.pid</pidfile> <!-- file that will contain the PID of the process -->
   
   <loglevel>255</loglevel> <!-- log verbosity, 255 for very verbose, 0 for quiet -->
+  <name_prefix>/ndn/ucla.edu</name_prefix>
 
     <conference xmlns="jabber:config:conference">
       <public/> <!-- rooms are public when created, comment to make them private by default -->

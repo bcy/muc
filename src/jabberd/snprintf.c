@@ -534,7 +534,7 @@ static int format_converter(register buffy * odp, const char *fmt,
 
     register char *s = NULL;
     char *q;
-    int s_len;
+    int s_len = 0;
 
     register int min_width = 0;
     int precision = 0;

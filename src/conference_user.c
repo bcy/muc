@@ -592,7 +592,6 @@ void con_user_zap(cnu user, xmlnode data)
   char *reason;
   char *status;
   char *nick;
-  char *key;
 
   if(user == NULL || data == NULL)
   {
@@ -605,8 +604,6 @@ void con_user_zap(cnu user, xmlnode data)
   }
 
   user->leaving = 1;
-
-  key = pstrdup(user->p, jid_full(user->realid));
 
   status = xmlnode_get_attrib(data, "status");
   nick = xmlnode_get_attrib(data, "actnick");

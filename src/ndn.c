@@ -35,7 +35,7 @@ fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf 
   for (i = 0; i < n - 1; i++)
   {
     strcat(name, "/");
-    if (ccn_name_comp_get(ccnb, comps, i, &comp_str, &size) == 0)
+    if (ccn_name_comp_get(ccnb, comps, i, (const unsigned char **)&comp_str, &size) == 0)
     {
       comp_str[size] = '\0';
       strcat(name, comp_str);
@@ -190,7 +190,7 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_OK;
   }
 
-  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);  
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);  
     
   changed = calloc(1, sizeof(char) * (len + 15));
   insert_point = strstr(pcontent, "><");
@@ -203,7 +203,7 @@ incoming_content_message(
   fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
   *strrchr(name, '/') = '\0';
   seq_str = calloc(1, sizeof(char) * 10);
-  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &seq_str, &size);
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
   seq = atoi(seq_str);
   seq++;
   create_message_interest(room, name, seq);
@@ -248,7 +248,7 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, &name, &size);
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&name, &size);
   element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element)); 
   element->name = strndup(name, size);
   if (list_find(room->exclusion_list, element->name) == 0)
@@ -264,12 +264,17 @@ incoming_content_presence(
   
   create_presence_interest(room);
   
-  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, &pcontent, &len);
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   hostname = calloc(1, sizeof(char) * 50);
   gethostname(hostname, 50);
   if (j_strncmp(strstr(pcontent, "hostname") + 10, hostname, strlen(hostname)) != 0)
   {
-    if (XML_Parse(jcr->parser, pcontent, len, 0) == 0)
+    char *insert_point = strstr(pcontent, "><");
+    char *changed = calloc(1, sizeof(char) * (len + 15));
+    strncpy(changed, pcontent, insert_point - pcontent);
+    strcat(changed, " external='1'");
+    strncat(changed, insert_point, pcontent + len - insert_point);
+    if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
     {
       log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
     }
@@ -477,7 +482,6 @@ create_presence_content(cnu user, xmlnode x)
   }
 
   gethostname(hostname, 50);
-  xmlnode_put_attrib(dup_x, "external_flag", "1");
   xmlnode_put_attrib(dup_x, "hostname", hostname);
   
   data = xmlnode2str(dup_x);

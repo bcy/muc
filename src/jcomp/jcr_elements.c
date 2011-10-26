@@ -172,7 +172,7 @@ gboolean jcr_read_data(GIOChannel *src, GIOCondition cond, gpointer *data) {
     if (rc != G_IO_STATUS_NORMAL) {
       if (gerr != NULL) {
         log_warn(JDBG, "Main Channel Error: rc=%d, %d '%s' '%s'", rc,
-          gerr->code, gerr->domain, gerr->message);
+          gerr->code, (char *)gerr->domain, gerr->message);
         g_error_free(gerr);
       } else {
         log_warn(JDBG, "Main Channel Error: rc=%d", rc);
