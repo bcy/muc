@@ -87,6 +87,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
     strcat(name, "/");
     strcat(name, jid_ns(user->realid));
     
+    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)1);
     log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
     create_message_interest(user->room, name, -1);
   }
@@ -97,7 +98,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
 int _con_user_history_send(cnu to, xmlnode node)
 {
 
-  if(to == NULL || node == NULL)
+  if(to == NULL || node == NULL || to->remote == 1)
   {
     return 0;
   }
@@ -698,7 +699,13 @@ void con_user_zap(cnu user, xmlnode data)
   xmlnode_free(user->nick);
 
   free(user->name_prefix);
-
+  
+  if (user->remote == 1)
+  {
+    log_debug(NAME, "[%s] Removing from remote user list", FZONE);
+    g_hash_table_remove(room->remote_users, jid_ns(user->realid));
+  }
+  
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
   

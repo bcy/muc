@@ -37,8 +37,7 @@ fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf 
     strcat(name, "/");
     if (ccn_name_comp_get(ccnb, comps, i, (const unsigned char **)&comp_str, &size) == 0)
     {
-      comp_str[size] = '\0';
-      strcat(name, comp_str);
+      strncat(name, comp_str, size);
     }
   }
 }
@@ -170,14 +169,21 @@ incoming_content_message(
   size_t len, size;
   char *changed;
   char *insert_point;
-  
+  char *from;
+    
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      return CCN_UPCALL_RESULT_REEXPRESS;
+      ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 3, (const unsigned char **)&from, &size);
+      if (strchr(from, '@') == NULL)
+	ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 2, (const unsigned char **)&from, &size);
+      if (g_hash_table_lookup(room->remote_users, from) == NULL)
+	return CCN_UPCALL_RESULT_OK;
+      else
+	return CCN_UPCALL_RESULT_REEXPRESS;
       
     case CCN_UPCALL_CONTENT_UNVERIFIED:
       log_warn(NAME, "[%s] Unverified message content received", FZONE);
@@ -197,12 +203,14 @@ incoming_content_message(
   strncpy(changed, pcontent, insert_point - pcontent);
   strcat(changed, " external='1'");
   strncat(changed, insert_point, pcontent + len - insert_point);
-  XML_Parse(jcr->parser, changed, strlen(changed), 0);
+  if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
+  {
+    log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
+  }
   
   name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
   fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
   *strrchr(name, '/') = '\0';
-  seq_str = calloc(1, sizeof(char) * 10);
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
   seq = atoi(seq_str);
   seq++;
@@ -269,8 +277,10 @@ incoming_content_presence(
   gethostname(hostname, 50);
   if (j_strncmp(strstr(pcontent, "hostname") + 10, hostname, strlen(hostname)) != 0)
   {
-    char *insert_point = strstr(pcontent, "><");
+    char *insert_point = strchr(pcontent, '>');
     char *changed = calloc(1, sizeof(char) * (len + 15));
+    while (*(insert_point - 1) != '\'')
+      insert_point--;
     strncpy(changed, pcontent, insert_point - pcontent);
     strcat(changed, " external='1'");
     strncat(changed, insert_point, pcontent + len - insert_point);

@@ -186,7 +186,8 @@ typedef struct cnr_struct
     
     GHashTable *presence;	/* bcy: storage of generated presence packets */
     GHashTable *message;	/* bcy: storage of generated message packets */
-    GHashTable *message_latest; /* bcy: storage of latest message packets of each user */
+    GHashTable *message_latest;	/* bcy: storage of latest message packets of each user */
+    GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
 
     struct ccn_closure *in_content_message;
     struct ccn_closure *in_interest_message;
