@@ -1,7 +1,7 @@
 
 #  $Id: Makefile,v 1.1 2005/12/06 14:48:49 peregrine Exp $
 CC=gcc
-CFLAGS:=$(CFLAGS) -O2 -Wall -I../../include -I. `pkg-config --cflags glib-2.0` -D_REENTRANT
+CFLAGS:=$(CFLAGS) -O0 -Wall -I../../include -I. `pkg-config --cflags glib-2.0` -D_REENTRANT -g3
 LIBS=
 
 JCOMP_OBJECTS=jcr_xdb.o \

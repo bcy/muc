@@ -189,8 +189,6 @@ typedef struct cnr_struct
     GHashTable *message_latest;	/* bcy: storage of latest message packets of each user */
     GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
 
-    struct ccn_closure *in_content_private_message;
-    struct ccn_closure *in_content_message;
     struct ccn_closure *in_interest_message;
     struct ccn_closure *in_interest_presence;
     struct ccn_closure *in_content_presence;
@@ -216,7 +214,7 @@ struct cnu_struct
     int message_seq;
     int remote;
     char *status;
-    GHashTable *private_message_seq;
+    struct ccn_closure *in_content_message;
 };
 
 struct exclusion_element
@@ -384,13 +382,10 @@ enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum cc
 enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
-enum ccn_upcall_res incoming_content_private_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 
 int init_ndn_thread();
 int stop_ndn_thread();
 int create_presence_interest(cnr room);
-int create_message_interest(cnr room, char *name, int seq);
+int create_message_interest(cnu user, char *name, int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
-int create_private_message_interest(cnr room, char *name, int seq);
-int create_private_message_content(cnu to, cnu from, char *data);

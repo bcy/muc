@@ -1,6 +1,6 @@
 
 CC=gcc
-CFLAGS:=$(CFLAGS) -O2 -Wall -I. -I../../include `pkg-config --cflags glib-2.0` -D_REENTRANT -DLIBIDN
+CFLAGS:=$(CFLAGS) -O0 -Wall -I. -I../../include `pkg-config --cflags glib-2.0` -D_REENTRANT -DLIBIDN -g3
 LIBS=
 
 JCOMP_LIB_OBJECTS=expat.o \

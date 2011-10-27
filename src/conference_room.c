@@ -1533,15 +1533,10 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_presence->data = room;
   room->in_interest_presence->p = &incoming_interest_presence;
-  room->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_content_message->data = room;
-  room->in_content_message->p = &incoming_content_message;
   room->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_message->data = room;
   room->in_interest_message->p = &incoming_interest_meesage;
-  room->in_content_private_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_content_private_message->data = room;
-  room->in_content_private_message->p = &incoming_content_private_message;
+
   
   room->local_count = 0;
   
@@ -1703,6 +1698,9 @@ void con_room_cleanup(cnr room)
   
   g_queue_foreach(room->exclusion_list, &free_list, NULL);
   g_queue_free(room->exclusion_list);
+  
+  log_debug(NAME, "[%s] azpping remote user list", FZONE);
+  g_hash_table_destroy(room->remote_users);
 
   return;
 }
@@ -1722,16 +1720,12 @@ void con_room_zap(cnr room)
   
   room->in_content_presence->data = NULL;
   room->in_interest_presence->data = NULL;
-  room->in_content_message->data = NULL;
   room->in_interest_message->data = NULL;
-  room->in_content_private_message->data = NULL;
   
   /*
-  room->in_content_message->p = NULL;
   room->in_interest_message->p = NULL;
   room->in_content_presence->p = NULL;
-  room->in_content_presence->p = NULL;
-  free(room->in_content_message);
+  room->in_interest_presence->p = NULL;
   free(room->in_interest_message);
   free(room->in_content_presence);
   free(room->in_interest_presence);
