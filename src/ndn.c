@@ -220,6 +220,73 @@ incoming_content_message(
 }
 
 enum ccn_upcall_res
+incoming_content_private_message(
+  struct ccn_closure *selfp,
+  enum ccn_upcall_kind kind,
+  struct ccn_upcall_info *info)
+{
+  cnr room = (cnr) selfp->data;
+  
+  if (room == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
+  char *name, *seq_str;
+  char *pcontent = NULL;
+  int seq;
+  size_t len, size;
+  char *changed;
+  char *from;
+  xmlnode x;
+    
+  switch (kind)
+  {
+    case CCN_UPCALL_FINAL:
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_INTEREST_TIMED_OUT:
+      ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 4, (const unsigned char **)&from, &size);
+      if (strchr(from, '@') == NULL)
+	ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 3, (const unsigned char **)&from, &size);
+      if (g_hash_table_lookup(room->remote_users, from) == NULL)
+	return CCN_UPCALL_RESULT_OK;
+      else
+	return CCN_UPCALL_RESULT_REEXPRESS;
+      
+    case CCN_UPCALL_CONTENT_UNVERIFIED:
+      log_warn(NAME, "[%s] Unverified message content received", FZONE);
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_CONTENT:
+      break;
+      
+    default:
+      return CCN_UPCALL_RESULT_OK;
+  }
+
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);  
+  
+  x = xmlnode_str(pcontent, len);
+  xmlnode_put_attrib(x, "external", "1");
+  changed = xmlnode2str(x);
+  if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
+  {
+    log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
+  }
+  
+  name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
+  fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
+  *strrchr(name, '/') = '\0';
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
+  seq = atoi(seq_str);
+  seq++;
+  create_private_message_interest(room, name, seq);
+  
+  pool_free(x->p);
+  
+  return CCN_UPCALL_RESULT_OK;
+}
+
+enum ccn_upcall_res
 incoming_content_presence(
   struct ccn_closure *selfp,
   enum ccn_upcall_kind kind,
@@ -628,6 +695,110 @@ create_message_content(cnu user, char *data)
   free(seq_char);
   
   return 0;
+}
+
+int
+create_private_message_content(cnu to, cnu from, char *data)
+{
+  struct ccn_charbuf *pname;
+  struct ccn_charbuf *interest_filter;
+  struct ccn_charbuf *signed_info;
+  struct ccn_charbuf *keylocator;
+  struct ccn_charbuf *content, *dup_content;
+  int res, seq;
+  char *content_name = calloc(1, sizeof(char) * 100);
+  char *name_without_seq;
+  char *seq_char = calloc(1, sizeof(char) * 10);
+  
+  strcpy(content_name, from->name_prefix);
+  strcat(content_name, "/");
+  strcat(content_name, from->room->id->user);
+  strcat(content_name, "/");
+  strcat(content_name, jid_ns(from->realid));
+  strcat(content_name, "/");
+  strcat(content_name, jid_ns(to->realid));
+  name_without_seq = j_strdup(content_name);
+  strcat(content_name, "/");
+  seq = (int)g_hash_table_lookup(from->private_message_seq, jid_ns(to->realid));
+  itoa(seq, seq_char);
+  strcat(content_name, seq_char);
+  seq++;
+  g_hash_table_insert(from->private_message_seq, jid_ns(to->realid), (gpointer)seq);
+  
+  interest_filter = ccn_charbuf_create();
+  ccn_name_from_uri(interest_filter, name_without_seq);  
+  pname = ccn_charbuf_create();
+  ccn_name_from_uri(pname, content_name);  
+  
+  keylocator = ccn_charbuf_create();
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
+  signed_info = ccn_charbuf_create();
+  res = ccn_signed_info_create(signed_info,
+		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+		/*datetime*/ NULL,
+		/*type*/ CCN_CONTENT_DATA,
+		/*freshness*/ 10,
+		/*finalblockid*/ NULL,
+		/*keylocator*/ keylocator);
+	
+  if (res < 0)
+  {
+    log_error(NAME, "[%s] failed to create signed_info (res == %d)", FZONE, res);
+    return 1;
+  }
+  
+  content = ccn_charbuf_create();
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data), 
+			NULL, ccn_keystore_private_key(keystore));
+  
+  dup_content = ccn_charbuf_create();
+  ccn_charbuf_reset(dup_content);
+  ccn_charbuf_append_charbuf(dup_content, content);
+  
+  g_hash_table_insert(from->room->message, content_name, content);
+  g_hash_table_insert(from->room->message_latest, name_without_seq, dup_content);
+  
+  //ccn_put(nthread->ccn, content->buf, content->length);
+  ccn_set_interest_filter(nthread->ccn, interest_filter, from->room->in_interest_message);
+  
+  ccn_charbuf_destroy(&signed_info);
+  ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&interest_filter);
+  //ccn_charbuf_destroy(&content);
+  //free(content_name);
+  free(seq_char);
+  
+  return 0;  
+}
+
+int
+create_private_message_interest(cnr room, char *name, int seq)
+{
+  struct ccn_charbuf *interest;
+  int res;
+  char *str_seq = calloc(1, sizeof(char) * 10);
+  
+  interest = ccn_charbuf_create();
+  ccn_name_from_uri(interest, name);
+  if (seq > 0)
+  {
+    itoa(seq, str_seq);
+    ccn_name_append_str(interest, str_seq);
+  }
+  
+  res = ccn_express_interest(nthread->ccn, interest, room->in_content_private_message, NULL);
+  if (res < 0)
+  {
+    log_error(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);
+    return 1;
+  }
+  
+  free(str_seq);
+  ccn_charbuf_destroy(&interest);
+  
+  return 0;  
 }
 
 int

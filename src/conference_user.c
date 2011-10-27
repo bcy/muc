@@ -21,6 +21,39 @@
 #include "conference.h"
 extern int deliver__flag;
 
+static void express_interest(gpointer key, gpointer value, gpointer user_data)
+{
+  cnu user = (cnu) value;
+  cnu new_user = (cnu) user_data;
+  
+  if (user->remote == 0 && new_user->remote == 1)
+  {
+    char *name = calloc(1, sizeof(char) * 100);
+    g_hash_table_insert(user->private_message_seq, jid_ns(new_user->realid), (gpointer)1);
+    strcpy(name, user->name_prefix);
+    strcat(name, "/");
+    strcat(name, user->room->id->user);
+    strcat(name, "/");
+    strcat(name, jid_ns(new_user->realid));
+    strcat(name, "/");
+    strcat(name, jid_ns(user->realid));
+    create_private_message_interest(user->room, name, -1);
+  }
+  else if (user->remote == 1 && new_user->remote == 0)
+  {
+    char *name = calloc(1, sizeof(char) * 100);
+    g_hash_table_insert(new_user->private_message_seq, jid_ns(user->realid), (gpointer)1);
+    strcpy(name, new_user->name_prefix);
+    strcat(name, "/");
+    strcat(name, new_user->room->id->user);
+    strcat(name, "/");
+    strcat(name, jid_ns(user->realid));
+    strcat(name, "/");
+    strcat(name, jid_ns(new_user->realid));
+    create_private_message_interest(new_user->room, name, -1);
+  }
+}
+
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
 {
   pool p;
@@ -78,6 +111,9 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
+  user->private_message_seq = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
+  
+  g_hash_table_foreach(room->remote, express_interest, user);
   
   if (external == 1)
   {
@@ -90,9 +126,9 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
     
     g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
     log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
-    create_message_interest(user->room, name, -1);
+    create_message_interest(user->room, name, -1);   
   }
-
+ 
   return user;
 }
 
@@ -563,14 +599,16 @@ void con_user_process(cnu to, cnu from, jpacket jp)
         return;
       }
     }
-
   }
 
-  con_user_send(to, from, jp->x);
+  if (to->remote == 0)
+    con_user_send(to, from, jp->x);
+  else
+    create_private_message_content(to, from, xmlnode2str(jp->x));
 }
 
 void con_user_send(cnu to, cnu from, xmlnode node)
-{  
+{
   if(to == NULL || from == NULL || node == NULL)
   {
     return;

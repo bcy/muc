@@ -367,7 +367,6 @@ void con_server(cni master, jpacket jp)
   return;
 }
 
-
 void _con_packets(void *arg)
 {
   jpacket jp = (jpacket)arg;
@@ -879,7 +878,7 @@ result con_packets(instance i, dpacket dp, void *arg)
   {
     if (xmlnode_get_attrib(jp->x, "name_prefix") == NULL)
     {
-      xmlnode_put_attrib(jp->x, "name_prefix", xmlnode_get_data(xmlnode_get_tag(jcr->config, "name_prefix")));
+      xmlnode_put_attrib(jp->x, "name_prefix", xmlnode_get_tag_data(jcr->config, "name_prefix"));
     }
   }
 

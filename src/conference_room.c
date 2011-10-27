@@ -1458,19 +1458,19 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->created = now;
 
   /* user hashes */
-  room->remote = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_cnu);
-  room->local = g_hash_table_new_full(g_str_hash,g_str_equal, NULL, NULL);
-  room->roster = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_xmlnode);
+  room->remote = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_cnu);
+  room->local = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, NULL);
+  room->roster = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_xmlnode);
 
   /* Affiliated hashes */
-  room->owner = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_xmlnode);
-  room->admin = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_xmlnode);
-  room->member = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_xmlnode);
-  room->outcast = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_xmlnode);
+  room->owner = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_xmlnode);
+  room->admin = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_xmlnode);
+  room->member = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_xmlnode);
+  room->outcast = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_xmlnode);
 
   /* Role hashes */
-  room->moderator = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, NULL);
-  room->participant = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, NULL);
+  room->moderator = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
+  room->participant = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
 
   /* Room messages */
   room->note_leave = j_strdup(xmlnode_get_tag_data(master->config,"notice/leave"));
@@ -1492,7 +1492,9 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->logfile = NULL;
   room->logformat = LOG_TEXT;
   room->description = j_strdup(room->name);
-
+  
+  room->remote_users = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
+  
   /* Assign owner to room */
   if(owner != NULL)
   {
@@ -1537,13 +1539,15 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_message->data = room;
   room->in_interest_message->p = &incoming_interest_meesage;
+  room->in_content_private_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_content_private_message->data = room;
+  room->in_content_private_message->p = &incoming_content_private_message;
   
   room->local_count = 0;
   
-  room->presence = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
-  room->message = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
-  room->message_latest = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, ght_remove_pkt);
-  room->remote_users = g_hash_table_new_full(g_str_hash,g_str_equal, ght_remove_key, NULL);
+  room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
+  room->message = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
+  room->message_latest = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
   
   create_presence_interest(room);
   return room;
@@ -1720,6 +1724,7 @@ void con_room_zap(cnr room)
   room->in_interest_presence->data = NULL;
   room->in_content_message->data = NULL;
   room->in_interest_message->data = NULL;
+  room->in_content_private_message->data = NULL;
   
   /*
   room->in_content_message->p = NULL;
