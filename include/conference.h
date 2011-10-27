@@ -214,6 +214,7 @@ struct cnu_struct
     char *name_prefix;
     int message_seq;
     int remote;
+    char *status;
 };
 
 struct exclusion_element

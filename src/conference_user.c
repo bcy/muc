@@ -77,6 +77,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   user->message_seq = 1;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
+  user->status = NULL;
   
   if (external == 1)
   {
@@ -87,7 +88,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
     strcat(name, "/");
     strcat(name, jid_ns(user->realid));
     
-    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)1);
+    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
     log_debug(NAME, "[%s] Creating message interest from %s for %s", FZONE, jid_full(user->realid), name);
     create_message_interest(user->room, name, -1);
   }
@@ -699,6 +700,7 @@ void con_user_zap(cnu user, xmlnode data)
   xmlnode_free(user->nick);
 
   free(user->name_prefix);
+  free(user->status);
   
   if (user->remote == 1)
   {

@@ -49,7 +49,7 @@ char *j_strdup(const char *str)
         return strdup(str);
 }
 
-char *j_strcat(char *dest, char *txt)
+char *j_strcpy(char *dest, char *txt)
 {
     if(!txt) return(dest);
 
@@ -58,6 +58,12 @@ char *j_strcat(char *dest, char *txt)
     *dest = '\0';
 
     return(dest);
+}
+
+char *j_strcat(char *dest, char *txt)
+{
+    if(!txt) return(dest);
+    return(strcat(dest, txt));
 }
 
 int j_strcmp(const char *a, const char *b)
@@ -178,7 +184,7 @@ char *spool_print(spool s)
     tmp = ret;
     while(next != NULL)
     {
-        tmp = j_strcat(tmp,next->c);
+        tmp = j_strcpy(tmp,next->c);
         next = next->next;
     }
 

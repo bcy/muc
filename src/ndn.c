@@ -168,8 +168,8 @@ incoming_content_message(
   int seq;
   size_t len, size;
   char *changed;
-  char *insert_point;
   char *from;
+  xmlnode x;
     
   switch (kind)
   {
@@ -197,12 +197,10 @@ incoming_content_message(
   }
 
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);  
-    
-  changed = calloc(1, sizeof(char) * (len + 15));
-  insert_point = strstr(pcontent, "><");
-  strncpy(changed, pcontent, insert_point - pcontent);
-  strcat(changed, " external='1'");
-  strncat(changed, insert_point, pcontent + len - insert_point);
+  
+  x = xmlnode_str(pcontent, len);
+  xmlnode_put_attrib(x, "external", "1");
+  changed = xmlnode2str(x);
   if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
   {
     log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
@@ -215,6 +213,8 @@ incoming_content_message(
   seq = atoi(seq_str);
   seq++;
   create_message_interest(room, name, seq);
+  
+  pool_free(x->p);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -235,6 +235,9 @@ incoming_content_presence(
   struct exclusion_element *element;
   char *name;
   char *hostname;
+  cnu user;
+  xmlnode x;
+  char *status;
   
   switch (kind)
   {
@@ -273,22 +276,35 @@ incoming_content_presence(
   create_presence_interest(room);
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
+  user = g_hash_table_lookup(room->remote_users, name);
+  x = xmlnode_str(pcontent, len);
+  status = calloc(1, sizeof(char) * 100);
+  status[0] = '\0';
+  j_strcat(status, xmlnode_get_attrib(x, "type"));
+  if (strlen(status) == 0)
+    j_strcat(status, xmlnode_get_tag_data(x, "show"));
+  if (strlen(status) == 0)
+    j_strcat(status, "available");
+  j_strcat(status, xmlnode_get_tag_data(x, "status"));
+  if (user != NULL && j_strcmp(status, user->status) == 0)
+    return CCN_UPCALL_RESULT_OK;
+  
   hostname = calloc(1, sizeof(char) * 50);
   gethostname(hostname, 50);
-  if (j_strncmp(strstr(pcontent, "hostname") + 10, hostname, strlen(hostname)) != 0)
+  if (j_strcmp(xmlnode_get_attrib(x, "hostname"), hostname) != 0)
   {
-    char *insert_point = strchr(pcontent, '>');
-    char *changed = calloc(1, sizeof(char) * (len + 15));
-    while (*(insert_point - 1) != '\'')
-      insert_point--;
-    strncpy(changed, pcontent, insert_point - pcontent);
-    strcat(changed, " external='1'");
-    strncat(changed, insert_point, pcontent + len - insert_point);
+    char *changed;
+    xmlnode_put_attrib(x, "external", "1");
+    changed = xmlnode2str(x);    
     if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
     {
       log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
     }
   }
+  
+  free(status);
+  free(hostname);
+  pool_free(x->p);
   
   return CCN_UPCALL_RESULT_OK;
 }

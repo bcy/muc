@@ -99,7 +99,8 @@ void pool_free(pool p); /* frees all the data on the pool, and deletes the pool 
 /*                                                           */
 /* --------------------------------------------------------- */
 char *j_strdup(const char *str); /* provides NULL safe strdup wrapper */
-char *j_strcat(char *dest, char *txt); /* strcpy() clone */
+char *j_strcpy(char *dest, char *txt); /* strcpy() clone */
+char *j_strcat(char *dest, char *txt); /* strcat() clone */
 int j_strcmp(const char *a, const char *b); /* provides NULL safe strcmp wrapper */
 int j_strncmp(const char *a, const char *b, int i); /* provides NULL safe strncmp wrapper */
 int j_strncasecmp(const char *a, const char *b, int i); /* provides NULL safe strncasecmp wrapper */

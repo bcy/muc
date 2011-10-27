@@ -552,9 +552,20 @@ void _con_packets(void *arg)
     u = con_user_new(room, jp->from, xmlnode_get_attrib(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
   }
   
-  if (jp->type == JPACKET_PRESENCE && u != NULL && u->remote == 0)
+  if (jp->type == JPACKET_PRESENCE && u != NULL)
   {
-    create_presence_content(u, jp->x);
+    if (u->status != NULL)
+      free(u->status);
+    u->status = calloc(1, sizeof(char) * 100);
+    u->status[0] = '\0';
+    j_strcat(u->status, xmlnode_get_attrib(jp->x, "type"));
+    if (strlen(u->status) == 0)
+      j_strcat(u->status, xmlnode_get_tag_data(jp->x, "show"));
+    if (strlen(u->status) == 0)
+      j_strcat(u->status, "available");
+    j_strcat(u->status, xmlnode_get_tag_data(jp->x, "status"));
+    if (u->remote == 0)
+      create_presence_content(u, jp->x);
   }
   
   /* update tracking stuff */
