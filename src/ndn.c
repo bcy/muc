@@ -84,22 +84,21 @@ list_find(GQueue *list, char *name)
 }
 
 enum ccn_upcall_res
-incoming_interest_meesage(
+incoming_interest_message(
   struct ccn_closure *selfp,
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnr room = (cnr) selfp->data;
-  
-  if (room == NULL) // room has been zapped
-    return CCN_UPCALL_RESULT_OK;
-  
+  cnr room = (cnr) selfp->data;  
   char *name;
   struct ccn_charbuf *content = NULL;
   
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
+      if (room != NULL)
+	free(room);
+      free(selfp);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST:
@@ -109,6 +108,9 @@ incoming_interest_meesage(
       return CCN_UPCALL_RESULT_OK;
   }
   
+  if (room == NULL) // room has been zapped
+    return CCN_UPCALL_RESULT_OK;
+
   name = calloc(1, sizeof(char) * info->interest_comps->buf[info->interest_comps->n - 1]);
   fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
   
@@ -116,14 +118,17 @@ incoming_interest_meesage(
   if ((content = g_hash_table_lookup(room->message, name)) != NULL)
   {
     ccn_put(info->h, content->buf, content->length);
+    free(name);
     return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
   }
   else if ((content = g_hash_table_lookup(room->message_latest, name)) != NULL)
   {
     ccn_put(info->h, content->buf, content->length);
+    free(name);
     return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
   }
   else
+    free(name);
     return CCN_UPCALL_RESULT_OK;
 }
 
@@ -134,13 +139,13 @@ incoming_interest_presence(
   struct ccn_upcall_info *info)
 {
   cnr room = (cnr) selfp->data;
-  
-  if (room == NULL) // room has been zapped
-    return CCN_UPCALL_RESULT_OK;
     
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
+      if (room != NULL)
+	free(room);
+      free(selfp);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST:
@@ -149,6 +154,9 @@ incoming_interest_presence(
     default:
       return CCN_UPCALL_RESULT_OK;
   }
+  
+  if (room == NULL) // room has been zapped
+    return CCN_UPCALL_RESULT_OK;
   
   // put all presence in local storage to ccnd
   g_hash_table_foreach(room->presence, send_presence, info->h);
@@ -162,11 +170,7 @@ incoming_content_message(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;
-  
-  if (user == NULL) // user has been zapped
-    return CCN_UPCALL_RESULT_OK;
-  
+  cnu user = (cnu) selfp->data;  
   char *name, *seq_str;
   char *pcontent = NULL;
   int seq;
@@ -177,10 +181,16 @@ incoming_content_message(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
+      if (user != NULL)
+	free(user);
+      free(selfp);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      return CCN_UPCALL_RESULT_REEXPRESS; // interest timed out, re-express it
+      if (user != NULL) // interest timed out, re-express it
+	return CCN_UPCALL_RESULT_REEXPRESS;
+      else
+	return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
       log_warn(NAME, "[%s] Unverified message content received", FZONE);
@@ -192,6 +202,9 @@ incoming_content_message(
     default:
       return CCN_UPCALL_RESULT_OK;
   }
+  
+  if (user == NULL) // user has been zapped
+    return CCN_UPCALL_RESULT_OK;
   
   // extract sequence number from content name, increase one and send new interest
   name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
@@ -212,7 +225,7 @@ incoming_content_message(
     char *to = xmlnode_get_attrib(x, "to");
     if (strstr(to, jid_full(user->room->id)) == NULL) // "to" field should be in the form of <roomID>/<nick>
     {
-      pool_free(x->p);
+      xmlnode_free(x);
       return CCN_UPCALL_RESULT_OK;
     }
     else
@@ -221,7 +234,7 @@ incoming_content_message(
       cnu u = g_hash_table_lookup(user->room->local, nick);
       if (u == NULL || u->remote == 1) // the destination user should be local
       {
-	pool_free(x->p);
+	xmlnode_free(x);
 	return CCN_UPCALL_RESULT_OK;
       }
     }
@@ -234,7 +247,7 @@ incoming_content_message(
   {
     log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
   }
-  pool_free(x->p);
+  xmlnode_free(x);
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -245,10 +258,6 @@ incoming_content_presence(
   struct ccn_upcall_info *info)
 {
   cnr room = (cnr) selfp->data;
-  
-  if (room == NULL) // room has been zapped
-    return CCN_UPCALL_RESULT_OK;
-  
   size_t len, size;
   char *pcontent = NULL;
   struct exclusion_element *element;
@@ -261,10 +270,14 @@ incoming_content_presence(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
+      if (room != NULL)
+	free(room);
+      free(selfp);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
-      create_presence_interest(room); // interest timed out, re-express using new exclusion_list
+      if (room != NULL)
+	create_presence_interest(room); // interest timed out, re-express using new exclusion_list
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
@@ -277,6 +290,9 @@ incoming_content_presence(
     default:
       return CCN_UPCALL_RESULT_OK;
   }
+  
+  if (room == NULL) // room has been zapped
+    return CCN_UPCALL_RESULT_OK;
   
   // extract user name and insert it into exclusion_list
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&name, &size);
@@ -312,7 +328,7 @@ incoming_content_presence(
   if (user != NULL && j_strcmp(status, user->status) == 0)
   {
     free(status);
-    pool_free(x->p);
+    xmlnode_free(x);
     return CCN_UPCALL_RESULT_OK;
   }
   
@@ -332,7 +348,7 @@ incoming_content_presence(
   }
   free(status);
   free(hostname);
-  pool_free(x->p);
+  xmlnode_free(x);
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -567,7 +583,7 @@ create_presence_content(cnu user, xmlnode x)
   ccn_charbuf_destroy(&interest_filter);
   ccn_charbuf_destroy(&pname);
   free(hostname);
-  pool_free(dup_x->p);
+  xmlnode_free(dup_x);
   return 0;
 }
 

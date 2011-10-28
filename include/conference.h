@@ -196,6 +196,7 @@ typedef struct cnr_struct
     
     GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
     int local_count;		/* bcy: # of local users in the room */
+    int zapping;		/* bcy: to flag room is being zapped */
 } *cnr, _cnr;
 
 /* conference user */
@@ -386,7 +387,7 @@ struct ndn_thread
 };
 
 /* bcy: upcall functions for incoming interest/content */
-enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+enum ccn_upcall_res incoming_interest_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);

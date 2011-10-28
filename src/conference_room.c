@@ -1536,9 +1536,10 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->in_interest_presence->p = &incoming_interest_presence;
   room->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_message->data = room;
-  room->in_interest_message->p = &incoming_interest_meesage;
+  room->in_interest_message->p = &incoming_interest_message;
 
   room->local_count = 0;
+  room->zapping = 0;
   
   // bcy: init tables for storing NDN packets
   room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
@@ -1630,6 +1631,16 @@ static void free_list(gpointer data, gpointer user_data)
   free(element);
 }
 
+static void cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
+{
+  cnu user = (cnu) value;
+  xmlnode node;
+  
+  node = xmlnode_new_tag("reason");
+  xmlnode_insert_cdata(node, "Local room zapped, clearing remote users", -1);
+  con_user_zap(user, node);
+}
+
 /* Clear up room hashes */
 void con_room_cleanup(cnr room)
 {
@@ -1644,7 +1655,11 @@ void con_room_cleanup(cnr room)
   roomid = j_strdup(jid_full(room->id));
 
   log_debug(NAME, "[%s] cleaning room %s", FZONE, roomid);
-
+  
+  log_debug(NAME, "[%s] zapping remote users", FZONE);
+  g_hash_table_foreach(room->remote_users, cleanup_remote_user, NULL);
+  g_hash_table_destroy(room->remote_users);
+  
   /* Clear old hashes */
   log_debug(NAME, "[%s] zapping list remote in room %s", FZONE, roomid);
   g_hash_table_destroy(room->remote);
@@ -1704,25 +1719,6 @@ void con_room_cleanup(cnr room)
   g_queue_foreach(room->exclusion_list, &free_list, NULL);
   g_queue_free(room->exclusion_list);
   
-  log_debug(NAME, "[%s] azpping remote user list", FZONE);
-  g_hash_table_destroy(room->remote_users);
-
-  return;
-}
-
-/* Zap room entry */
-void con_room_zap(cnr room)
-{
-  if(room == NULL) 
-  {
-    log_warn(NAME, "[%s] Aborting - NULL room attribute found", FZONE);
-    return;
-  }
-
-  log_debug(NAME, "[%s] cleaning up room %s", FZONE, jid_full(room->id));
-
-  con_room_cleanup(room);
-  
   // bcy: stop sending interest
   room->in_content_presence->data = NULL;
   room->in_interest_presence->data = NULL;
@@ -1736,7 +1732,25 @@ void con_room_zap(cnr room)
   free(room->in_content_presence);
   free(room->in_interest_presence);
   */
+  
+  return;
+}
 
+/* Zap room entry */
+void con_room_zap(cnr room)
+{
+  if(room == NULL) 
+  {
+    log_warn(NAME, "[%s] Aborting - NULL room attribute found", FZONE);
+    return;
+  }
+  
+  room->zapping = 1;
+
+  log_debug(NAME, "[%s] cleaning up room %s", FZONE, jid_full(room->id));
+
+  con_room_cleanup(room);
+  
 #ifdef HAVE_MYSQL
   sql_destroy_room(room->master->sql, jid_full(room->id));
 #endif
