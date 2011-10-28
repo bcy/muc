@@ -1493,6 +1493,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->logformat = LOG_TEXT;
   room->description = j_strdup(room->name);
   
+  // bcy: init table for storing remote users
   room->remote_users = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
   
   /* Assign owner to room */
@@ -1524,7 +1525,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   sql_add_room_lists(master->sql, room);
 #endif
   
-  room->exclusion_list = g_queue_new();
+  room->exclusion_list = g_queue_new(); // bcy: create exclusion list
   
   /*bcy: ccn_closure initialization*/
   room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
@@ -1537,14 +1538,16 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->in_interest_message->data = room;
   room->in_interest_message->p = &incoming_interest_meesage;
 
-  
   room->local_count = 0;
   
+  // bcy: init tables for storing NDN packets
   room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
   room->message = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
   room->message_latest = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
   
+  // bcy: create presnce interest for the room
   create_presence_interest(room);
+  
   return room;
 }
 
@@ -1618,6 +1621,7 @@ void con_room_send(cnr room, xmlnode x, int legacy)
   return;
 }
 
+/* bcy: used in free exclusion_list */
 static void free_list(gpointer data, gpointer user_data)
 {
   struct exclusion_element *element = (struct exclusion_element *) data;
@@ -1696,6 +1700,7 @@ void con_room_cleanup(cnr room)
 
   free(roomid);
   
+  /* bcy: free exclusion_list and destroy hash table */
   g_queue_foreach(room->exclusion_list, &free_list, NULL);
   g_queue_free(room->exclusion_list);
   
@@ -1718,6 +1723,7 @@ void con_room_zap(cnr room)
 
   con_room_cleanup(room);
   
+  // bcy: stop sending interest
   room->in_content_presence->data = NULL;
   room->in_interest_presence->data = NULL;
   room->in_interest_message->data = NULL;
@@ -1772,5 +1778,4 @@ void con_room_history_clear(cnr room)
         break;
     }
   }
-
 }

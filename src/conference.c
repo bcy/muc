@@ -550,7 +550,8 @@ void _con_packets(void *arg)
   {
     u = con_user_new(room, jp->from, xmlnode_get_attrib(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
   }
-  
+
+  /* bcy: record status and create presence content */
   if (jp->type == JPACKET_PRESENCE && u != NULL)
   {
     if (u->status != NULL)
@@ -687,7 +688,6 @@ void _con_packets(void *arg)
       xmlnode_free(jp->x);
       g_mutex_unlock(master->lock);
       return;
-
     }
     else if(room->secret == NULL || is_sadmin(master, jp->from)) /* No password required, just go right in, or you're an sadmin */
     {
@@ -874,6 +874,7 @@ result con_packets(instance i, dpacket dp, void *arg)
     return r_DONE;
   }
   
+  /* bcy: get name_prefix from config file */
   if (jp->type == JPACKET_PRESENCE)
   {
     if (xmlnode_get_attrib(jp->x, "name_prefix") == NULL)

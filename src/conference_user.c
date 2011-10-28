@@ -73,12 +73,14 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   }
   
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
-  
+
+  /* bcy: initialization */
   user->message_seq = 1;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
   
+  // bcy: for user coming from outside
   if (external == 1)
   {
     char *name = calloc(1, sizeof(char) * 100);
@@ -86,23 +88,24 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
     user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     user->in_content_message->data = user;
     user->in_content_message->p = &incoming_content_message;
+    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
+    
+    // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
     strcpy(name, user->name_prefix);
     strcat(name, "/");
     strcat(name, jid_ns(user->realid));
     strcat(name, "/");
-    strcat(name, user->room->id->user);    
-    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
-    
+    strcat(name, user->room->id->user);
     log_debug(NAME, "[%s] Creating message interest %s", FZONE, name);
     create_message_interest(user, name, -1);
+    free(name);
   }
-   
+  
   return user;
 }
 
 int _con_user_history_send(cnu to, xmlnode node)
 {
-
   if(to == NULL || node == NULL || to->remote == 1)
   {
     return 0;
@@ -123,7 +126,7 @@ void _con_user_nick(gpointer key, gpointer data, gpointer arg)
   xmlnode element;
   jid fullid;
   
-  if (to->remote == 1)
+  if (to->remote == 1) // bcy: only send to local users
     return;
 
   /* send unavail pres w/ old nick */
@@ -276,7 +279,7 @@ void _con_user_enter(gpointer key, gpointer data, gpointer arg)
   xmlnode node;
   xmlnode element;
 
-  /* only send to local user */
+  /* bcy: only send to local user */
   if (to->remote == 1)
     return;
   
@@ -327,7 +330,7 @@ void con_user_enter(cnu user, char *nick, int created)
   jid_set(user->localid, nick, JID_RESOURCE);
 
   room->count++;
-  if (user->remote == 0)
+  if (user->remote == 0) // bcy: count local users
     room->local_count++;
 
 #ifdef HAVE_MYSQL
@@ -569,10 +572,10 @@ void con_user_process(cnu to, cnu from, jpacket jp)
     }
   }
 
-  if (to->remote == 0)
+  if (to->remote == 0) // bcy: directly send to local users
     con_user_send(to, from, jp->x);
   else
-    create_message_content(from, xmlnode2str(jp->x));
+    create_message_content(from, xmlnode2str(jp->x)); // create NDN message for remote users
 }
 
 void con_user_send(cnu to, cnu from, xmlnode node)
@@ -582,7 +585,7 @@ void con_user_send(cnu to, cnu from, xmlnode node)
     return;
   }
   
-  if (to->remote == 1)
+  if (to->remote == 1) // bcy: only send to local users
     return;
 
   xmlnode_put_attrib(node, "to", jid_full(to->realid));
@@ -705,6 +708,7 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Un-alloc nick xmlnode", FZONE);
   xmlnode_free(user->nick);
 
+  // bcy: free allocated memory
   free(user->name_prefix);
   free(user->status);
   
@@ -723,4 +727,3 @@ void con_user_zap(cnu user, xmlnode data)
     con_room_zap(room);
   */
 }
-

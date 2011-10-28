@@ -189,10 +189,12 @@ typedef struct cnr_struct
     GHashTable *message_latest;	/* bcy: storage of latest message packets of each user */
     GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
 
+    /* bcy: ccn closures */
     struct ccn_closure *in_interest_message;
     struct ccn_closure *in_interest_presence;
     struct ccn_closure *in_content_presence;
-    GQueue *exclusion_list;
+    
+    GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
     int local_count;		/* bcy: # of local users in the room */
 } *cnr, _cnr;
 
@@ -210,17 +212,20 @@ struct cnu_struct
     int legacy;			/* To denote gc clients */
     int leaving;		/* To flag user is leaving the room */
     
-    char *name_prefix;
-    int message_seq;
-    int remote;
-    char *status;
+    char *name_prefix;		/* bcy: name prefix */
+    int message_seq;		/* bcy: message sequence number */
+    int remote;			/* bcy: remote flag */
+    char *status;		/* bcy: current status */
+    
+    /* bcy: ccn closure */
     struct ccn_closure *in_content_message;
 };
 
+/* bcy: element struct in exclusion list */
 struct exclusion_element
 {
-    char *name;
-    GTimer *timer;
+    char *name;		/* exclusion name */
+    GTimer *timer;	/* exclusion timer, remove element when outdated */
 };
 
 /* conference room history */
@@ -372,17 +377,21 @@ void sql_add_affiliate(mysql sql,cnr room,char * userid,int affil);
 void sql_remove_affiliate(mysql sql,cnr room,jid userid);
 #endif
 
-struct ndn_thread {
-  struct ccn *ccn;
-  GThread *thread;
-  int bRunning;
+/* bcy: ndn_thread struct */
+struct ndn_thread
+{
+  struct ccn *ccn;	// ccn
+  GThread *thread;	// thread for running ccn
+  int bRunning;		// running flag
 };
 
+/* bcy: upcall functions for incoming interest/content */
 enum ccn_upcall_res incoming_interest_meesage(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 
+/* bcy: functions related to ccn operation, defined in ndn.c */
 int init_ndn_thread();
 int stop_ndn_thread();
 int create_presence_interest(cnr room);
