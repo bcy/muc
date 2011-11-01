@@ -488,6 +488,11 @@ void con_user_process(cnu to, cnu from, jpacket jp)
   cnr room = to->room;
   char str[10];
   int t;
+  
+  /*
+  if (to->remote == 1)
+    return;
+  */
 
   /* we handle all iq's for this id, it's *our* id */
   if(jp->type == JPACKET_IQ)
@@ -530,7 +535,10 @@ void con_user_process(cnu to, cnu from, jpacket jp)
 
       xmlnode_put_attrib(node ,"seconds", str);
 
-      deliver(dpacket_new(jp->x), NULL);
+      if (from->remote == 0)
+	deliver(dpacket_new(jp->x), NULL);
+      else
+	create_message_content(to, xmlnode2str(jp->x));
       return;
     }
 
