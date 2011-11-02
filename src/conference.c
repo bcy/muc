@@ -672,6 +672,7 @@ void _con_packets(void *arg)
       {
 	free(u->status);
 	u->status = NULL;
+	g_mutex_unlock(master->lock);
 	return;
       }
       log_debug(NAME, "[%s] Room has been locked", FZONE);

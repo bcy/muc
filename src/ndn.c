@@ -528,6 +528,7 @@ create_presence_content(cnu user, xmlnode x)
   char *hostname;
   char *data;
   xmlnode dup_x;
+  int freshness;
   
   // thre presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
@@ -543,12 +544,16 @@ create_presence_content(cnu user, xmlnode x)
   signed_info = ccn_charbuf_create();
   keylocator = ccn_charbuf_create();
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
+  if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
+    freshness = 30;
+  else
+    freshness = 10;
   res = ccn_signed_info_create(signed_info,
 		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
 		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
 		/*datetime*/ NULL,
 		/*type*/ CCN_CONTENT_DATA,
-		/*freshness*/ 10,
+		/*freshness*/ freshness,
 		/*finalblockid*/ NULL,
 		/*keylocator*/ keylocator);
   if (res < 0)
@@ -574,6 +579,8 @@ create_presence_content(cnu user, xmlnode x)
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
   g_hash_table_insert(user->room->presence, content_name, content); // insert into presence table for local storage
+  if (freshness == 30)
+    ccn_put(nthread->ccn, content->buf, content->length);
 
   // set interest filter for incoming interest
   ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_presence);
