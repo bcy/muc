@@ -668,16 +668,13 @@ void _con_packets(void *arg)
     /* Room has been locked against entry */
     if(room->locked && !is_owner(room, u->realid))
     {
-      log_debug(NAME, "[%s] Room has been locked", FZONE);
       if (u->remote == 1)
       {
-	xmlnode node = xmlnode_new_tag("reason");
-        xmlnode_insert_cdata(node, "Room locked", -1);
-	con_user_zap(u, node);
-	xmlnode_free(node);
+	free(u->status);
+	u->status = NULL;
 	return;
       }
-
+      log_debug(NAME, "[%s] Room has been locked", FZONE);
       jutil_error(jp->x, TERROR_NOTFOUND);
       g_mutex_unlock(master->lock);
       deliver(dpacket_new(jp->x),NULL);
