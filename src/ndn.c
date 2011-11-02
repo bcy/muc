@@ -691,8 +691,10 @@ create_message_content(cnu user, char *data)
   g_hash_table_insert(user->room->message, content_name, content);
   g_hash_table_insert(user->room->message_latest, name_without_seq, dup_content);
   
+  ccn_put(nthread->ccn, content->buf, content->length);
   // set interest filter for incoming message
   ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_message);
+  user->message_seq++;
 
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
