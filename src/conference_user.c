@@ -312,8 +312,7 @@ void con_user_enter(cnu user, char *nick, int created)
   struct tm *since_tm;
 
   int num_chars = 0;
-  char *name;
-
+  
   user->localid = jid_new(user->p, jid_full(room->id));
   jid_set(user->localid, nick, JID_RESOURCE);
 
@@ -469,18 +468,21 @@ void con_user_enter(cnu user, char *nick, int created)
   if(room->visible == 1)
     con_send_alert(user, NULL, NULL, STATUS_MUC_SHOWN_JID);
   
-  g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
+  if (user->remote == 1)
+  {
+    char *name = calloc(1, sizeof(char) * 100);
+    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
     
-  name = calloc(1, sizeof(char) * 100);
-  // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
-  strcpy(name, user->name_prefix);
-  strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
-  strcat(name, "/");
-  strcat(name, user->room->id->user);
-  log_debug(NAME, "[%s] Creating message interest %s", FZONE, name);
-  create_message_interest(user, name, -1);
-  free(name);
+    // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
+    strcpy(name, user->name_prefix);
+    strcat(name, "/");
+    strcat(name, jid_ns(user->realid));
+    strcat(name, "/");
+    strcat(name, user->room->id->user);
+    log_debug(NAME, "[%s] Creating message interest %s", FZONE, name);
+    create_message_interest(user, name, -1);
+    free(name);
+  }
 }
 
 void con_user_process(cnu to, cnu from, jpacket jp)
