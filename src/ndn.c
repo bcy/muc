@@ -693,7 +693,7 @@ create_message_content(cnu user, char *data)
   
   ccn_put(nthread->ccn, content->buf, content->length);
   // set interest filter for incoming message
-  ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_message);
+  //ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_message);
   user->message_seq++;
 
   ccn_charbuf_destroy(&keylocator);
