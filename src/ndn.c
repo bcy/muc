@@ -411,7 +411,7 @@ check_delete(gpointer data, gpointer user_data)
   gulong useless;
   
   duration = g_timer_elapsed(element->timer, &useless);
-  if (duration >= 10)
+  if (duration >= 2)
   {
     g_queue_remove(list, data);
     g_timer_destroy(element->timer);
@@ -547,7 +547,7 @@ create_presence_content(cnu user, xmlnode x)
   if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
     freshness = 30;
   else
-    freshness = 10;
+    freshness = 2;
   res = ccn_signed_info_create(signed_info,
 		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
 		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
