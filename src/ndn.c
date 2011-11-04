@@ -1,6 +1,11 @@
 /* bcy: NDN related operations */
 #include "conference.h"
 
+#define PRESENCE_FRESHNESS 2
+#define MESSAGE_FRESHNESS 10
+#define EXCLUSION_TIMEOUT 2
+#define UNAVAILABLE_FRESHNESS 30
+
 struct ndn_thread *nthread;			// ndn thread struct
 static struct pollfd pfds[1];
 static struct ccn_keystore *keystore;		// ccn keystore struct
@@ -327,6 +332,7 @@ incoming_content_presence(
   j_strcat(status, xmlnode_get_tag_data(x, "status"));
   if (user != NULL && j_strcmp(status, user->status) == 0)
   {
+    user->last = time(NULL);
     free(status);
     xmlnode_free(x);
     return CCN_UPCALL_RESULT_OK;
@@ -545,9 +551,9 @@ create_presence_content(cnu user, xmlnode x)
   keylocator = ccn_charbuf_create();
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
   if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
-    freshness = 30;
+    freshness = UNAVAILABLE_FRESHNESS;
   else
-    freshness = 2;
+    freshness = PRESENCE_FRESHNESS;
   res = ccn_signed_info_create(signed_info,
 		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
 		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
@@ -579,7 +585,7 @@ create_presence_content(cnu user, xmlnode x)
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
   g_hash_table_insert(user->room->presence, content_name, content); // insert into presence table for local storage
-  if (freshness == 30)
+  if (freshness == UNAVAILABLE_FRESHNESS)
     ccn_put(nthread->ccn, content->buf, content->length);
 
   // set interest filter for incoming interest
@@ -664,7 +670,7 @@ create_message_content(cnu user, char *data)
 		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
 		/*datetime*/ NULL,
 		/*type*/ CCN_CONTENT_DATA,
-		/*freshness*/ 10,
+		/*freshness*/ MESSAGE_FRESHNESS,
 		/*finalblockid*/ NULL,
 		/*keylocator*/ keylocator);
   if (res < 0)
