@@ -492,14 +492,12 @@ void con_user_process(cnu to, cnu from, jpacket jp)
   char str[10];
   int t;
   
-  /*
-  if (to->remote == 1)
-    return;
-  */
-
   /* we handle all iq's for this id, it's *our* id */
   if(jp->type == JPACKET_IQ)
   {
+    if (to->remote == 1)
+      return;
+
     if(NSCHECK(jp->iq,NS_BROWSE))
     {
       jutil_iqresult(jp->x);

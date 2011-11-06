@@ -208,7 +208,7 @@ void con_server(cni master, jpacket jp)
       xmlnode_insert_cdata(xmlnode_insert_tag(jp->iq, "name"), str, -1);
       xmlnode_insert_cdata(xmlnode_insert_tag(jp->iq, "key"), jutil_regkey(NULL, jid_full(jp->to)), -1);
 
-      if(x != NULL) 
+      if(x != NULL)
         xmlnode_insert_tag(jp->iq, "registered");
 
       deliver(dpacket_new(jp->x), NULL);
