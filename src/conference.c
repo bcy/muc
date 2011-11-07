@@ -1070,7 +1070,7 @@ result con_beat_update(void *arg)
 
     g_hash_table_foreach(master->rooms, _con_beat_idle, &t);
 
-    while ((room_name = (char *)g_queue_pop_head(master->queue)) != NULL) 
+    while ((room_name = (char *)g_queue_pop_head(master->queue)) != NULL)
     {
       log_debug(NAME, "[%s] HBTICK: removed room '%s' in the queue", FZONE, room_name);
       con_room_zap(g_hash_table_lookup(master->rooms, room_name));
@@ -1078,6 +1078,7 @@ result con_beat_update(void *arg)
       g_free(room_name);
     }
     g_queue_free(master->queue);
+    master->queue = NULL;
     log_debug(NAME, "[%s] HBTICK: Idle check complete", FZONE);
     g_mutex_unlock(master->lock);
   }

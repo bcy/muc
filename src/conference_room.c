@@ -1546,7 +1546,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->message_latest = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
   
   // bcy: create presnce interest for the room
-  create_presence_interest(room);
+  create_presence_interest(room, 1);
   
   return room;
 }

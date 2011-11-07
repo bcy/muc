@@ -5,6 +5,7 @@
 #define MESSAGE_FRESHNESS 10
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 30
+#define SEND_PRESENCE_INTERVAL 600
 
 struct ndn_thread *nthread;			// ndn thread struct
 static struct pollfd pfds[1];
@@ -98,7 +99,7 @@ incoming_interest_message(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnr room = (cnr) selfp->data;  
+  cnr room = (cnr) selfp->data;
   char *name;
   struct ccn_charbuf *content = NULL;
   
@@ -152,7 +153,7 @@ incoming_interest_presence(
   struct ccn_upcall_info *info)
 {
   cnr room = (cnr) selfp->data;
-    
+  
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
@@ -290,7 +291,7 @@ incoming_content_presence(
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (room != NULL)
-	create_presence_interest(room); // interest timed out, re-express using new exclusion_list
+	create_presence_interest(room, 0); // interest timed out, re-express using new exclusion_list
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
@@ -322,7 +323,7 @@ incoming_content_presence(
     free(element);
   }
   
-  create_presence_interest(room); // generate new presence interest
+  create_presence_interest(room, 0); // generate new presence interest
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   user = g_hash_table_lookup(room->remote_users, name);
@@ -437,7 +438,7 @@ check_delete(gpointer data, gpointer user_data)
 
 /* create interest for presence */
 int
-create_presence_interest(cnr room)
+create_presence_interest(cnr room, int allow_stale)
 {
   GQueue *exclusion_list = room->exclusion_list;
   struct ccn_charbuf *interest;
@@ -459,7 +460,20 @@ create_presence_interest(cnr room)
   
   if (g_queue_is_empty(exclusion_list)) // empty exclusion list, directly express interest
   {
-    int res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, NULL);
+    int res;
+    struct ccn_charbuf *templ = NULL;
+    
+    if (allow_stale)
+    {
+      templ = ccn_charbuf_create();
+      ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG);
+      ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);
+      ccn_charbuf_append_closer(templ); // </Name>
+      ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
+      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
+      ccn_charbuf_append_closer(templ); // </AnswerOriginKind>
+    }
+    res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     g_mutex_unlock(ccn_mutex);
     if (res < 0)
     {
@@ -486,7 +500,13 @@ create_presence_interest(cnr room)
     struct ccn_charbuf *templ = ccn_charbuf_create();
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG); // <Name>
-    ccn_charbuf_append_closer(templ); // </Name> 
+    ccn_charbuf_append_closer(templ); // </Name>
+    if (allow_stale)
+    {
+      ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
+      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
+      ccn_charbuf_append_closer(templ); // </AndswerOriginKind>
+    }
     ccn_charbuf_append_tt(templ, CCN_DTAG_Exclude, CCN_DTAG); // <Exclude>
     
     if (excludeLow)
@@ -536,6 +556,20 @@ create_presence_interest(cnr room)
     ccn_charbuf_destroy(&excl[i]);
   free(excl);
   return 0;
+}
+
+gboolean send_again(gpointer data)
+{
+  struct ccn_charbuf *content = (struct ccn_charbuf *) data;
+
+  if (content != NULL)
+  {
+    g_mutex_lock(ccn_mutex);
+    ccn_put(nthread->ccn, content->buf, content->length);
+    g_mutex_unlock(ccn_mutex);
+    return TRUE;
+  }
+  return FALSE;
 }
 
 /* create content packet for presence */
@@ -606,11 +640,11 @@ create_presence_content(cnu user, xmlnode x)
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
   g_hash_table_insert(user->room->presence, content_name, content); // insert into presence table for local storage
-  if (freshness == UNAVAILABLE_FRESHNESS)
-    ccn_put(nthread->ccn, content->buf, content->length);
+  ccn_put(nthread->ccn, content->buf, content->length);
+  g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, content);
 
   // set interest filter for incoming interest
-  ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_presence);
+  // ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_presence);
   
   g_mutex_unlock(ccn_mutex);
 

@@ -728,10 +728,9 @@ void con_user_zap(cnu user, xmlnode data)
       g_hash_table_remove(room->remote_users, jid_ns(user->realid));
     user->in_content_message->data = NULL;
   }
-    
+  
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
-  
   
   if (room->persistent == 0 && room->local_count == 0 && room->zapping == 0)
   {

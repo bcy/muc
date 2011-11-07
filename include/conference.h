@@ -395,7 +395,7 @@ enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum cc
 /* bcy: functions related to ccn operation, defined in ndn.c */
 int init_ndn_thread();
 int stop_ndn_thread();
-int create_presence_interest(cnr room);
+int create_presence_interest(cnr room, int allow_stale);
 int create_message_interest(cnu user, char *name, int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
