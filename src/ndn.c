@@ -338,9 +338,10 @@ incoming_content_presence(
   if (strlen(status) == 0)
     j_strcat(status, "available");
   j_strcat(status, xmlnode_get_tag_data(x, "status"));
-  if (user != NULL && j_strcmp(status, user->status) == 0)
+  if ((user != NULL && j_strcmp(status, user->status) == 0) || (user == NULL && j_strcmp(status, "unavailable") == 0))
   {
-    user->last = time(NULL);
+    if (user != NULL)
+      user->last = time(NULL);
     free(status);
     xmlnode_free(x);
     return CCN_UPCALL_RESULT_OK;

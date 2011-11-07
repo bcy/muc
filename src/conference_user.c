@@ -733,7 +733,12 @@ void con_user_zap(cnu user, xmlnode data)
   g_hash_table_remove(room->remote, jid_full(user->realid));
   
   
-  if (room->local_count == 0 && room->zapping == 0)
-    con_room_zap(room);
-  
+  if (room->persistent == 0 && room->local_count == 0 && room->zapping == 0)
+  {
+    log_debug(NAME, "[%s] No local user: Locking room and adding %s to remove queue", FZONE, room->id->user);
+    room->locked = 1;
+    if (room->master->queue == NULL)
+      room->master->queue = g_queue_new();
+    g_queue_push_tail(room->master->queue, g_strdup(jid_full(room->id)));
+  }
 }
