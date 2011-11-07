@@ -472,6 +472,7 @@ create_presence_interest(cnr room, int allow_stale)
       ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
       ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
       ccn_charbuf_append_closer(templ); // </AnswerOriginKind>
+      ccn_charbuf_append_closer(templ); // </Interest>
     }
     res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     g_mutex_unlock(ccn_mutex);
@@ -479,9 +480,13 @@ create_presence_interest(cnr room, int allow_stale)
     {
       log_warn(NAME, "[%s] ccn_express_interest failed", FZONE);
       ccn_charbuf_destroy(&interest);
+      if (templ != NULL)
+	ccn_charbuf_destroy(&templ);
       return 1;
     }
     ccn_charbuf_destroy(&interest);
+    if (templ != NULL)
+      ccn_charbuf_destroy(&templ);
     return 0;
   }
 
