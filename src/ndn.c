@@ -5,12 +5,13 @@
 #define MESSAGE_FRESHNESS 10
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 30
-#define SEND_PRESENCE_INTERVAL 600
+#define SEND_PRESENCE_INTERVAL 6
 
 struct ndn_thread *nthread;			// ndn thread struct
 static struct pollfd pfds[1];
 static struct ccn_keystore *keystore;		// ccn keystore struct
 static GMutex *ccn_mutex;
+GHashTable *timer_valid;			// flags indicating if a timer is valid
 extern jcr_instance jcr;
 
 /*
@@ -357,6 +358,8 @@ incoming_content_presence(
     // insert external field to show it's from outside and then deliver it to MUC
     xmlnode_put_attrib(x, "external", "1");
     changed = xmlnode2str(x);
+    while (room->locked == 1)
+      sleep(1);
     if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
     {
       log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
@@ -567,8 +570,9 @@ gboolean send_again(gpointer data)
 {
   struct ccn_charbuf *content = (struct ccn_charbuf *) data;
 
-  if (content != NULL)
+  if (g_hash_table_lookup(timer_valid, content) != NULL)
   {
+    log_debug(NAME, "[%s] send data at %p", FZONE, content);
     g_mutex_lock(ccn_mutex);
     ccn_put(nthread->ccn, content->buf, content->length);
     g_mutex_unlock(ccn_mutex);
@@ -646,6 +650,7 @@ create_presence_content(cnu user, xmlnode x)
 			NULL, ccn_keystore_private_key(keystore));
   g_hash_table_insert(user->room->presence, content_name, content); // insert into presence table for local storage
   ccn_put(nthread->ccn, content->buf, content->length);
+  g_hash_table_insert(timer_valid, content, (gpointer)1);
   g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, content);
 
   // set interest filter for incoming interest
@@ -806,6 +811,7 @@ init_ndn_thread()
   }
   
   ccn_mutex = g_mutex_new();
+  timer_valid = g_hash_table_new(NULL, NULL);
 
   // initialize ccn_keystore
   temp = ccn_charbuf_create();
@@ -843,6 +849,7 @@ stop_ndn_thread()
   ccn_destroy(&nthread->ccn);
   ccn_keystore_destroy(&keystore);
   g_mutex_free(ccn_mutex);
+  g_hash_table_destroy(timer_valid);
   free(nthread);
   return 0;
 }

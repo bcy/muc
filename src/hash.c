@@ -28,10 +28,11 @@ void ght_remove_key(gpointer data)
 
 void ght_remove_pkt(gpointer data)
 {
+  extern GHashTable *timer_valid;
   struct ccn_charbuf *node = (struct ccn_charbuf *)data;
   log_debug(NAME, "[%s] Auto-removing packet", FZONE);
   ccn_charbuf_destroy(&node);
-  data = NULL;
+  g_hash_table_remove(timer_valid, node);
 }
 
 void ght_remove_cnu(gpointer data)

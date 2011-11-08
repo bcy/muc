@@ -85,7 +85,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   {
     user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     user->in_content_message->data = user;
-    user->in_content_message->p = &incoming_content_message; 
+    user->in_content_message->p = &incoming_content_message;
   }
   
   return user;
