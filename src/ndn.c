@@ -5,7 +5,7 @@
 #define MESSAGE_FRESHNESS 10
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 30
-#define SEND_PRESENCE_INTERVAL 6
+#define SEND_PRESENCE_INTERVAL 60
 
 struct ndn_thread *nthread;			// ndn thread struct
 static struct pollfd pfds[1];
@@ -359,7 +359,10 @@ incoming_content_presence(
     xmlnode_put_attrib(x, "external", "1");
     changed = xmlnode2str(x);
     while (room->locked == 1)
-      sleep(1);
+    {
+      log_debug(NAME, "[%s] sleep 2s waiting for room unlocked", FZONE);
+      sleep(2);
+    }
     if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
     {
       log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
