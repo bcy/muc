@@ -1416,13 +1416,6 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   return;
 }
 
-gboolean create_interest(gpointer data)
-{
-  cnr room = (cnr) data;
-  create_presence_interest(room, 1);
-  return FALSE;
-}
-
 cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external)
 {
   cnr room;
@@ -1554,7 +1547,6 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   
   // bcy: create presnce interest for the room
   // create_presence_interest(room, 1);
-  g_timeout_add_seconds(2, create_interest, room);
   
   return room;
 }
