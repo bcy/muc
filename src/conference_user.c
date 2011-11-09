@@ -344,7 +344,7 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room MOTD */
-  if(room->description != NULL && *room->description != '\0')
+  if(room->description != NULL && *room->description != '\0' && user->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, room->description);
     xmlnode_put_attrib(message,"from", jid_full(room->id));
@@ -352,7 +352,7 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room protocol message to legacy clients */
-  if(is_legacy(user))
+  if(is_legacy(user) && user->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room supports the MUC protocol.", user->p));
     xmlnode_put_attrib(message,"from", jid_full(room->id));
@@ -360,7 +360,7 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room Lock warning if necessary */
-  if(room->locked > 0)
+  if(room->locked > 0 && user->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room is locked from entry until configuration is confirmed.", user->p));
     xmlnode_put_attrib(message,"from", jid_full(room->id));
@@ -734,10 +734,8 @@ void con_user_zap(cnu user, xmlnode data)
   
   if (room->persistent == 0 && room->local_count == 0 && room->zapping == 0)
   {
-    log_debug(NAME, "[%s] No local user: Locking room and adding %s to remove queue", FZONE, room->id->user);
+    log_debug(NAME, "[%s] No local user: Locking room %s and remove", FZONE, room->id->user);
     room->locked = 1;
-    if (room->master->queue == NULL)
-      room->master->queue = g_queue_new();
-    g_queue_push_tail(room->master->queue, g_strdup(jid_full(room->id)));
+    con_room_zap(room);
   }
 }

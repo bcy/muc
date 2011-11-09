@@ -197,6 +197,7 @@ typedef struct cnr_struct
     GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
     int local_count;		/* bcy: # of local users in the room */
     int zapping;		/* bcy: to flag room is being zapped */
+    int stale;			/* bcy: to flag interest is set stale flag */
 } *cnr, _cnr;
 
 /* conference user */

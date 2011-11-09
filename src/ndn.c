@@ -292,7 +292,10 @@ incoming_content_presence(
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (room != NULL)
+      {
+	room->stale = 0;
 	create_presence_interest(room, 0); // interest timed out, re-express using new exclusion_list
+      }
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
@@ -324,7 +327,7 @@ incoming_content_presence(
     free(element);
   }
   
-  create_presence_interest(room, 0); // generate new presence interest
+  create_presence_interest(room, room->stale); // generate new presence interest
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   user = g_hash_table_lookup(room->remote_users, name);
@@ -360,8 +363,8 @@ incoming_content_presence(
     changed = xmlnode2str(x);
     while (room->locked == 1)
     {
-      log_debug(NAME, "[%s] sleep 2s waiting for room unlocked", FZONE);
-      sleep(2);
+      log_debug(NAME, "[%s] sleep 500ms waiting for room unlocked", FZONE);
+      usleep(500000);
     }
     if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
     {
@@ -453,6 +456,9 @@ create_presence_interest(cnr room, int allow_stale)
   gboolean excludeLow, excludeHigh;
   char *interest_name = calloc(1, sizeof(char) * 50);
   
+  while (room->locked)
+    sleep(1);
+  
   g_mutex_lock(ccn_mutex);
   
   // the interest name has the form of "/ndn/broadcast/xmpp-muc/<roomID>"
@@ -471,6 +477,7 @@ create_presence_interest(cnr room, int allow_stale)
     
     if (allow_stale)
     {
+      log_debug(NAME, "[%s] Set allow_stale flag", FZONE);
       templ = ccn_charbuf_create();
       ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG);
       ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);
@@ -512,12 +519,6 @@ create_presence_interest(cnr room, int allow_stale)
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG); // <Name>
     ccn_charbuf_append_closer(templ); // </Name>
-    if (allow_stale)
-    {
-      ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
-      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
-      ccn_charbuf_append_closer(templ); // </AndswerOriginKind>
-    }
     ccn_charbuf_append_tt(templ, CCN_DTAG_Exclude, CCN_DTAG); // <Exclude>
     
     if (excludeLow)
@@ -543,6 +544,12 @@ create_presence_interest(cnr room, int allow_stale)
       append_bf_all(templ);
     
     ccn_charbuf_append_closer(templ); // </Exclude>
+    if (allow_stale)
+    {
+      ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
+      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
+      ccn_charbuf_append_closer(templ); // </AndswerOriginKind>
+    }
     ccn_charbuf_append_closer(templ); // </Interest>
     int res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     if (res < 0)

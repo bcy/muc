@@ -1414,7 +1414,13 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   jutil_error(jp->x, TERROR_BAD);
   deliver(dpacket_new(jp->x), NULL);
   return;
+}
 
+gboolean create_interest(gpointer data)
+{
+  cnr room = (cnr) data;
+  create_presence_interest(room, 1);
+  return FALSE;
 }
 
 cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external)
@@ -1539,6 +1545,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
 
   room->local_count = 0;
   room->zapping = 0;
+  room->stale = 1;
   
   // bcy: init tables for storing NDN packets
   room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
@@ -1546,7 +1553,8 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->message_latest = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
   
   // bcy: create presnce interest for the room
-  create_presence_interest(room, 1);
+  // create_presence_interest(room, 1);
+  g_timeout_add_seconds(2, create_interest, room);
   
   return room;
 }
@@ -1556,6 +1564,9 @@ void _con_room_send(gpointer key, gpointer data, gpointer arg)
   cnu user = (cnu)data;
   xmlnode x = (xmlnode)arg;
   xmlnode output;
+  
+  if (user->remote == 1)
+    return;
 
   if(user == NULL || x == NULL) 
   {
@@ -1575,6 +1586,9 @@ void _con_room_send_legacy(gpointer key, gpointer data, gpointer arg)
   cnu user = (cnu)data;
   xmlnode x = (xmlnode)arg;
   xmlnode output;
+  
+  if (user->remote == 1)
+    return;
 
   if(user == NULL || x == NULL) 
   {

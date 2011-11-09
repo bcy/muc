@@ -1065,8 +1065,7 @@ result con_beat_update(void *arg)
     g_mutex_lock(master->lock);
     log_debug(NAME, "[%s] HBTICK: Idle check started", FZONE);
 
-    if (master->queue == NULL)
-      master->queue = g_queue_new();
+    master->queue = g_queue_new();
 
     g_hash_table_foreach(master->rooms, _con_beat_idle, &t);
 
@@ -1078,7 +1077,6 @@ result con_beat_update(void *arg)
       g_free(room_name);
     }
     g_queue_free(master->queue);
-    master->queue = NULL;
     log_debug(NAME, "[%s] HBTICK: Idle check complete", FZONE);
     g_mutex_unlock(master->lock);
   }
