@@ -218,6 +218,7 @@ struct cnu_struct
     int message_seq;		/* bcy: message sequence number */
     int remote;			/* bcy: remote flag */
     char *status;		/* bcy: current status */
+    int last_presence;		/* bcy: last presence from user */
     
     /* bcy: ccn closure */
     struct ccn_closure *in_content_message;

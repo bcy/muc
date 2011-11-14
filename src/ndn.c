@@ -281,6 +281,8 @@ incoming_content_presence(
   cnu user;
   xmlnode x;
   char *status;
+  int l;
+  time_t now;
   
   switch (kind)
   {
@@ -312,6 +314,8 @@ incoming_content_presence(
   if (room == NULL) // room has been zapped
     return CCN_UPCALL_RESULT_OK;
   
+  now = time(NULL);
+  
   // extract user name and insert it into exclusion_list
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&name, &size);
   element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
@@ -328,6 +332,32 @@ incoming_content_presence(
   }
   
   create_presence_interest(room, room->stale); // generate new presence interest
+  
+   /* Timestamp checking */
+  
+  l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
+  if (l > 0) {
+    double dt;
+    const unsigned char *blob;
+    size_t blob_size;
+    int i;
+    time_t secs;
+    
+    ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, info->content_ccnb,
+			info->pco->offset[CCN_PCO_B_Timestamp],
+			info->pco->offset[CCN_PCO_E_Timestamp],
+			&blob, &blob_size);
+    dt = 0.0;
+    for (i = 0; i < blob_size; i++)
+      dt = dt * 256.0 + (double)blob[i];
+    dt /= 4096.0;
+    secs = dt; // truncates
+    if (now - secs > 1200)
+    {
+      log_debug(NAME, "[%s] Too old presence, ignore", FZONE);
+      return CCN_UPCALL_RESULT_OK;
+    }
+  }
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   user = g_hash_table_lookup(room->remote_users, name);
@@ -346,7 +376,10 @@ incoming_content_presence(
   if ((user != NULL && j_strcmp(status, user->status) == 0) || (user == NULL && j_strcmp(status, "unavailable") == 0))
   {
     if (user != NULL)
-      user->last = time(NULL);
+    {
+      user->last = now;
+      user->last_presence = now;
+    }
     free(status);
     xmlnode_free(x);
     return CCN_UPCALL_RESULT_OK;

@@ -87,6 +87,8 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
     user->in_content_message->data = user;
     user->in_content_message->p = &incoming_content_message;
   }
+  else
+    user->in_content_message = NULL;
   
   return user;
 }

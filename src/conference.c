@@ -564,6 +564,7 @@ void _con_packets(void *arg)
     if (strlen(u->status) == 0)
       j_strcat(u->status, "available");
     j_strcat(u->status, xmlnode_get_tag_data(jp->x, "status"));
+    u->last_presence = now;
     if (u->remote == 0)
       create_presence_content(u, jp->x);
   }
@@ -975,7 +976,7 @@ void _con_beat_user(gpointer key, gpointer data, gpointer arg)
     return;
   }
 
-  if(user->localid == NULL && (t - user->last) > 120)
+  if((user->localid == NULL && (t - user->last) > 120) || (user->remote == 1 && (t - user->last_presence) > 600))
   {
     log_debug(NAME, "[%s] Marking zombie", FZONE);
 
