@@ -21,7 +21,7 @@ extern jcr_instance jcr;
 static void
 append_bf_all(struct ccn_charbuf *c)
 {
-  unsigned char bf_all[9] = { 3, 1, 'A', 0, 0, 0, 0, 0, 0xFF };
+  unsigned char bf_all[9] = {3, 1, 'A', 0, 0, 0, 0, 0, 0xFF};
   const struct ccn_bloom_wire *b = ccn_bloom_validate_wire(bf_all, sizeof(bf_all));
   if (b == NULL)
     abort();
@@ -67,17 +67,6 @@ ccn_create_keylocator(struct ccn_charbuf *c, const struct ccn_pkey *k)
     ccn_charbuf_append_closer(c); /* </KeyLocator> */
   }
   return (0);
-}
-
-static void
-send_presence(gpointer key, gpointer value, gpointer user_data)
-{
-  struct ccn *ccn = (struct ccn*) user_data;
-  struct ccn_charbuf *content = (struct ccn_charbuf*) value;
-  
-  g_mutex_lock(ccn_mutex);
-  ccn_put(ccn, content->buf, content->length);
-  g_mutex_unlock(ccn_mutex);
 }
 
 /* find a specific name from a list */
@@ -145,38 +134,6 @@ incoming_interest_message(
   else
     free(name);
     return CCN_UPCALL_RESULT_OK;
-}
-
-enum ccn_upcall_res
-incoming_interest_presence(
-  struct ccn_closure *selfp,
-  enum ccn_upcall_kind kind,
-  struct ccn_upcall_info *info)
-{
-  cnr room = (cnr) selfp->data;
-  
-  switch (kind)
-  {
-    case CCN_UPCALL_FINAL:
-      if (room != NULL)
-	free(room);
-      free(selfp);
-      return CCN_UPCALL_RESULT_OK;
-    
-    case CCN_UPCALL_INTEREST:
-      break;
-    
-    default:
-      return CCN_UPCALL_RESULT_OK;
-  }
-  
-  if (room == NULL) // room has been zapped
-    return CCN_UPCALL_RESULT_OK;
-  
-  // put all presence in local storage to ccnd
-  g_hash_table_foreach(room->presence, send_presence, info->h);
-  
-  return CCN_UPCALL_RESULT_OK;
 }
 
 enum ccn_upcall_res
@@ -609,35 +566,16 @@ create_presence_interest(cnr room, int allow_stale)
   return 0;
 }
 
-gboolean send_again(gpointer data)
-{
-  struct ccn_charbuf *content = (struct ccn_charbuf *) data;
-
-  if (g_hash_table_lookup(timer_valid, content) != NULL)
-  {
-    log_debug(NAME, "[%s] send data at %p", FZONE, content);
-    g_mutex_lock(ccn_mutex);
-    ccn_put(nthread->ccn, content->buf, content->length);
-    g_mutex_unlock(ccn_mutex);
-    return TRUE;
-  }
-  return FALSE;
-}
-
-/* create content packet for presence */
-int
-create_presence_content(cnu user, xmlnode x)
+static int
+generate_presence_content(cnu user, xmlnode x)
 {
   struct ccn_charbuf *pname;
-  struct ccn_charbuf *interest_filter;
   struct ccn_charbuf *keylocator;
   struct ccn_charbuf *content;
   struct ccn_charbuf *signed_info;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
-  char *hostname;
   char *data;
-  xmlnode dup_x;
   int freshness;
   
   g_mutex_lock(ccn_mutex);
@@ -645,8 +583,6 @@ create_presence_content(cnu user, xmlnode x)
   // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
   strcat(content_name, user->room->id->user);
-  interest_filter = ccn_charbuf_create();
-  ccn_name_from_uri(interest_filter, content_name);
   strcat(content_name, "/");
   strcat(content_name, jid_ns(user->realid));
   pname = ccn_charbuf_create();
@@ -675,7 +611,90 @@ create_presence_content(cnu user, xmlnode x)
     free(content_name);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&keylocator);
-    ccn_charbuf_destroy(&interest_filter);
+    ccn_charbuf_destroy(&pname);
+    return 1;
+  }
+
+  data = xmlnode2str(x);
+  log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
+  content = ccn_charbuf_create();
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data), 
+			NULL, ccn_keystore_private_key(keystore));
+  ccn_put(nthread->ccn, content->buf, content->length);
+  
+  g_mutex_unlock(ccn_mutex);
+
+  ccn_charbuf_destroy(&keylocator);
+  ccn_charbuf_destroy(&signed_info);
+  ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&content);
+  return 0;
+}
+
+static gboolean
+send_again(gpointer data)
+{
+  struct presence *pcontent = (struct presence *) data;
+
+  if (g_hash_table_lookup(timer_valid, pcontent) != NULL)
+  {
+    log_debug(NAME, "[%s] send data again at %p", FZONE, pcontent);
+    generate_presence_content(pcontent->user, pcontent->x);
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/* create content packet for presence */
+int
+create_presence_content(cnu user, xmlnode x)
+{
+  struct ccn_charbuf *pname;
+  struct ccn_charbuf *keylocator;
+  struct ccn_charbuf *content;
+  struct ccn_charbuf *signed_info;
+  int res;
+  char *content_name = calloc(1, sizeof(char) * 100);
+  char *hostname;
+  char *data;
+  xmlnode dup_x;
+  int freshness;
+  struct presence *pcontent;
+  
+  g_mutex_lock(ccn_mutex);
+  
+  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
+  strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
+  strcat(content_name, user->room->id->user);
+  strcat(content_name, "/");
+  strcat(content_name, jid_ns(user->realid));
+  pname = ccn_charbuf_create();
+  ccn_name_from_uri(pname, content_name);
+  
+  // create signed_info for presence content
+  signed_info = ccn_charbuf_create();
+  keylocator = ccn_charbuf_create();
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
+  if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
+    freshness = UNAVAILABLE_FRESHNESS;
+  else
+    freshness = PRESENCE_FRESHNESS;
+  res = ccn_signed_info_create(signed_info,
+		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+		/*datetime*/ NULL,
+		/*type*/ CCN_CONTENT_DATA,
+		/*freshness*/ freshness,
+		/*finalblockid*/ NULL,
+		/*keylocator*/ keylocator);
+  if (res < 0)
+  {
+    log_warn(NAME, "[%s]: Failed to create signed_info (res == %d)", FZONE, res);
+    g_mutex_unlock(ccn_mutex);
+    free(content_name);
+    ccn_charbuf_destroy(&signed_info);
+    ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&pname);
     return 1;
   }
@@ -691,22 +710,22 @@ create_presence_content(cnu user, xmlnode x)
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
-  g_hash_table_insert(user->room->presence, content_name, content); // insert into presence table for local storage
+  
+  pcontent = (struct presence *) calloc(1, sizeof(struct presence));
+  pcontent->user = user;
+  pcontent->x = dup_x;
+  g_hash_table_insert(user->room->presence, content_name, pcontent); // insert into presence table for local storage
   ccn_put(nthread->ccn, content->buf, content->length);
-  g_hash_table_insert(timer_valid, content, (gpointer)1);
-  g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, content);
-
-  // set interest filter for incoming interest
-  // ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_presence);
+  g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
+  g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   
   g_mutex_unlock(ccn_mutex);
 
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
-  ccn_charbuf_destroy(&interest_filter);
   ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&content);
   free(hostname);
-  xmlnode_free(dup_x);
   return 0;
 }
 

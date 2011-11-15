@@ -191,7 +191,6 @@ typedef struct cnr_struct
 
     /* bcy: ccn closures */
     struct ccn_closure *in_interest_message;
-    struct ccn_closure *in_interest_presence;
     struct ccn_closure *in_content_presence;
     
     GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
@@ -388,9 +387,14 @@ struct ndn_thread
   int bRunning;		// running flag
 };
 
+struct presence
+{
+  cnu user;
+  xmlnode x;
+};
+
 /* bcy: upcall functions for incoming interest/content */
 enum ccn_upcall_res incoming_interest_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
-enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 
