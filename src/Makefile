@@ -1,7 +1,7 @@
 CC:=gcc
 CFLAGS:=$(CFLAGS) -O0 -Wall -I../../lib -I../include `pkg-config --cflags glib-2.0` -D_JCOMP -D_REENTRANT -DLIBIDN -g3
 #CFLAGS:=$(CFLAGS) -O2 -Wall -I../../lib -I../include `pkg-config --cflags glib-2.0` -D_JCOMP -D_REENTRANT -DLIBIDN -DHAVE_MYSQL
-LIBS:=$(LIBS) -ljcomp -lm `pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` -lexpat -lidn -lprotobuf -lccn -lssl -lcrypto -lpthread
+LIBS:=$(LIBS) -ljcomp -lm `pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` -lexpat -lidn -lccn -lcrypto
 #LIBS:=$(LIBS) -ljcomp -lm `pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` -lexpat -lidn `mysql_config --libs`
 LDFLAGS:=-L. -L/usr/lib
 
