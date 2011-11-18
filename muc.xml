@@ -4,7 +4,7 @@
   <ip>127.0.0.1</ip> <!-- adress of the jabber server -->
   <port>31518</port>  <!-- port used to connect the service to the jabber server -->
   <secret>secret</secret> <!-- secret shared with the jabber server -->
-  <spool>/home/bcy/var/spool/chat.localhost</spool> <!-- directory containing the rooms data -->
+  <spool>/home/bcy/var/spool/muclinker.localhost</spool> <!-- directory containing the rooms data -->
   <logdir>/home/bcy/var/log/</logdir> <!-- directory containing the debug log (the file is called mu-conference.log) -->
   <pidfile>/home/bcy/var/mu-conference.pid</pidfile> <!-- file that will contain the PID of the process -->
   

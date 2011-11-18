@@ -72,7 +72,7 @@ if( ! -d "$spooldir/$server/" )
 
     my $input = <>;
     
-    if( $input =~ /^[Y|y]/ )
+    if( $input !~ /^[N|n]/ )
     {
 	print "Creating Directory\n";
 
@@ -107,7 +107,7 @@ $roomcfg->{secret} = [getText("Password", "")];
 $roomcfg->{description} = [getText("Room description/MOTD", "")];
 $roomcfg->{subject} = [getText("Room subject", "")];
 $roomcfg->{creator} = [getText("Bare JID of room creator", "")];
-$roomcfg->{public} = [getBoolean("Is room public", 0)];
+$roomcfg->{public} = [getBoolean("Is room public", 1)];
 $roomcfg->{maxusers} = [getValue("Maximum Users ", 0)];
 $roomcfg->{persistent} = [1]; # Has to be persistent
 
@@ -118,9 +118,9 @@ $roomcfg->{private} = [getBoolean("Allow users to IQ query other users", 0)];
 
 print "\nLegacy Options:\n---\n";
 $roomcfg->{legacy} = [getBoolean("Consider all clients legacy", 0)];
-$noticecfg->{join} = [getText("Legacy join message", "")];
-$noticecfg->{leave} = [getText("Legacy leave message", "")];
-$noticecfg->{rename} = [getText("Legacy rename message", "")];
+$noticecfg->{join} = [getText("Legacy join message", "has become available")];
+$noticecfg->{leave} = [getText("Legacy leave message", "has left")];
+$noticecfg->{rename} = [getText("Legacy rename message", "is now known as")];
 $roomcfg->{notice} = [$noticecfg];
 
 print "\nModeration Options:\n---\n";

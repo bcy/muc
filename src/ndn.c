@@ -646,6 +646,15 @@ send_again(gpointer data)
   return FALSE;
 }
 
+void generate_presence_name(char *name, cnu user)
+{
+  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
+  strcpy(name, "/ndn/broadcast/xmpp-muc/");
+  strcat(name, user->room->id->user);
+  strcat(name, "/");
+  strcat(name, jid_ns(user->realid));
+}
+
 /* create content packet for presence */
 int
 create_presence_content(cnu user, xmlnode x)
@@ -663,12 +672,7 @@ create_presence_content(cnu user, xmlnode x)
   struct presence *pcontent;
   
   g_mutex_lock(ccn_mutex);
-  
-  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
-  strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
-  strcat(content_name, user->room->id->user);
-  strcat(content_name, "/");
-  strcat(content_name, jid_ns(user->realid));
+  generate_presence_name(content_name, user);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   

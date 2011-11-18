@@ -608,6 +608,15 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
+void remove_presence(GHashTable *table, cnu user)
+{
+  char *name = calloc(1, sizeof(char) * 100);
+  
+  generate_presence_name(name, user);
+  g_hash_table_remove(table, name);
+  free(name);
+}
+
 void con_user_zap(cnu user, xmlnode data)
 {
   cnr room;
@@ -722,6 +731,9 @@ void con_user_zap(cnu user, xmlnode data)
   // bcy: free allocated memory
   free(user->name_prefix);
   free(user->status);
+  
+  log_debug(NAME, "[%s] Removing presence stored in local table", FZONE);
+  remove_presence(room->presence, user);
   
   if (user->remote == 1)
   {
