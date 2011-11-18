@@ -125,9 +125,16 @@ int main(int argc, char *argv[]) {
   jcr->log_dir = strdup(xmlnode_get_data(xmlnode_get_tag(jcr->config,"logdir")));
   rc = stat(jcr->log_dir, &st);
   if (rc < 0) {
-    fprintf(stderr, "%s: <logdir> '%s': ", JDBG, jcr->log_dir);
-    perror(NULL);
-    return 1;
+    /* Directory doesn't seem to exist, we try to create it */
+    if (mkdir(jcr->log_dir,S_IRUSR | S_IWUSR | S_IXUSR)==0){
+      fprintf(stdout, "%s: <logdir> '%s': directory created.\n", JDBG, jcr->log_dir);
+      rc = stat(jcr->log_dir, &st);
+    }
+    else {
+      fprintf(stderr, "%s: <logdir> '%s': ", JDBG, jcr->log_dir);
+      perror(NULL);
+      return 1;
+    }
   }
   if (!(S_ISDIR(st.st_mode))) {
     fprintf(stderr, "%s: <logdir> '%s' is not a directory.\n", JDBG, jcr->log_dir);
