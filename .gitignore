@@ -1,3 +1,8 @@
+.gdb_history
+.kdev4
+mu-conference.pid
+muc.kdev4
+muclinker.localhost
 src/admin.o
 src/conference.o
 src/conference_room.o
@@ -25,7 +30,9 @@ src/libjcomp.a
 src/main.o
 src/mu-conference
 src/mysql.o
+src/ndn.o
 src/roles.o
 src/utils.o
 src/xdata.o
 src/xdb.o
+syslogs
