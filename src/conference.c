@@ -466,6 +466,17 @@ void _con_packets(void *arg)
       created = 1;
     }
   }
+  else
+  {
+    if (room->persistent == 1 && room->local_count == 0)
+    {
+      room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+      room->in_content_presence->data = room;
+      room->in_content_presence->p = &incoming_content_presence;
+      // bcy: create presnce interest for the persistent room
+      create_presence_interest(room, 1);
+    }
+  }
 
   /* get the sending user entry, if any */
   log_debug(NAME, "[%s] %s", FZONE, jid_full(jid_fix(jp->from)));

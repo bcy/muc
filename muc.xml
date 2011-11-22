@@ -8,7 +8,7 @@
   <logdir>./syslogs</logdir> <!-- directory containing the debug log (the file is called mu-conference.log) -->
   <pidfile>./mu-conference.pid</pidfile> <!-- file that will contain the PID of the process -->
   
-  <loglevel>255</loglevel> <!-- log verbosity, 255 for very verbose, 0 for quiet -->
+  <loglevel>124</loglevel> <!-- log verbosity, 255 for very verbose, 0 for quiet -->
   <name_prefix>/ndn/ucla.edu</name_prefix>
 
     <conference xmlns="jabber:config:conference">
@@ -21,7 +21,7 @@
       <history>40</history> <!-- maximum numbers of history lines send when joining a room -->
       <!--<logdir>./logs</logdir>--> <!-- where to store the room logs, comment to disable logging -->
       <!--logsubdirs/--> <!-- uncomment to stores the room logs in subdirs (for example 2007/08/02) -->
-      <stylesheet>../style.css</stylesheet> <!--URL of the log stylesheet -->
+      <stylesheet>./style.css</stylesheet> <!--URL of the log stylesheet -->
       <!-- default text to send to legacy clients, will also be used in the logs -->
       <notice>
         <join>has become available</join>

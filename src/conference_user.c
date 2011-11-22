@@ -746,10 +746,17 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
   
-  if (room->persistent == 0 && room->local_count == 0 && room->zapping == 0)
+  if (room->local_count == 0 && room->zapping == 0)
   {
-    log_debug(NAME, "[%s] No local user: Locking room %s and remove", FZONE, room->id->user);
-    room->locked = 1;
-    con_room_zap(room);
+    if (room->persistent == 0)
+    {
+      log_debug(NAME, "[%s] No local user: Locking room %s and remove", FZONE, room->id->user);
+      room->locked = 1;
+      con_room_zap(room);
+    }
+    else
+    {
+      room->in_content_presence->data = NULL;
+    }
   }
 }
