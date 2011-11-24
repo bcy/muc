@@ -81,9 +81,13 @@ int main(int argc, char *argv[]) {
 
   /* The configuration file must be specified, and there is no default */
   if (config_file == NULL) {
+	  /*
     fprintf(stderr, "%s: Configuration file not specified, exiting.\n", JDBG);
     usage();
     return 1;
+	*/
+	config_file = CONFIG_DIR "muc.xml";
+
   }
 
   /* Parse the XML in the config file -- store it as a node */

@@ -1,0 +1,2 @@
+#!/bin/bash
+./roommaker.pl @localstatedir@/muclinker.localhost/spool "chattybuddy@muclinker.localhost"
