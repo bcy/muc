@@ -39,23 +39,11 @@
 /* Define to 1 if you have the `expat' library (-lexpat). */
 #undef HAVE_LIBEXPAT
 
-/* Define to 1 if you have the `glib-2.0' library (-lglib-2.0). */
-#undef HAVE_LIBGLIB_2_0
-
 /* Define to 1 if you have the `gthread-2.0' library (-lgthread-2.0). */
 #undef HAVE_LIBGTHREAD_2_0
 
 /* Define to 1 if you have the `idn' library (-lidn). */
 #undef HAVE_LIBIDN
-
-/* Define to 1 if you have the `m' library (-lm). */
-#undef HAVE_LIBM
-
-/* Define to 1 if you have the `pthread' library (-lpthread). */
-#undef HAVE_LIBPTHREAD
-
-/* Define to 1 if you have the `rt' library (-lrt). */
-#undef HAVE_LIBRT
 
 /* Define to 1 if your system has a GNU libc compatible `malloc' function, and
    to 0 otherwise. */

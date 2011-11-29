@@ -16,20 +16,22 @@ dnl helper macros
 sinclude(m4/ac_define_dir.m4)
 
 # Checks for libraries.
-AC_CHECK_LIB([glib-2.0], [main])
-AC_CHECK_LIB([pthread], [main])
-AC_CHECK_LIB([gthread-2.0], [main])
-AC_CHECK_LIB([rt], [main])
-# FIXME: Replace `main' with a function in `-lccn':
-AC_CHECK_LIB([ccn], [main])
 # FIXME: Replace `main' with a function in `-lcrypto':
-AC_CHECK_LIB([crypto], [main])
+AC_CHECK_LIB([crypto], [SHA1_Init])
+# FIXME: Replace `main' with a function in `-lccn':
+AC_CHECK_LIB([ccn], [ccn_run])
 # FIXME: Replace `main' with a function in `-lexpat':
-AC_CHECK_LIB([expat], [main])
+AC_CHECK_LIB([expat], [XML_Parse])
 # FIXME: Replace `main' with a function in `-lidn':
-AC_CHECK_LIB([idn], [main])
+AC_CHECK_LIB([idn], [stringprep])
+
+AC_CHECK_LIB([gthread-2.0], [g_thread_init])
+#AC_CHECK_LIB([rt], [main])
+#AC_CHECK_LIB([pthread], [main])
+#AC_CHECK_LIB([glib-2.0], [main])
+
 # FIXME: Replace `main' with a function in `-lm':
-AC_CHECK_LIB([m], [main])
+#AC_CHECK_LIB([m], [main])
 
 # PKG_CHECK_MODULES([DEPS], [glib-2.0 >= 2.0.0])
 # AC_CONFIG_FILES([src/Makefile glib-2.0.pc gthread-2.0.pc])
