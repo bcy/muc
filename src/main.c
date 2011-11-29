@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     usage();
     return 1;
 	*/
-	config_file = CONFIG_DIR "muc.xml";
+	//config_file = CONFIG_DIR "muc.xml";
 
   }
 
