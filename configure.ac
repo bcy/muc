@@ -15,6 +15,8 @@ AC_PROG_RANLIB
 dnl helper macros
 sinclude(m4/ac_define_dir.m4)
 
+LDFLAGS="$LDFLAGS -L/opt/local/lib -L/usr/lib -L/usr/local/lib"
+
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lcrypto':
 AC_CHECK_LIB([crypto], [SHA1_Init])
@@ -28,10 +30,10 @@ AC_CHECK_LIB([idn], [stringprep])
 AC_CHECK_LIB([gthread-2.0], [g_thread_init])
 #AC_CHECK_LIB([rt], [main])
 #AC_CHECK_LIB([pthread], [main])
-#AC_CHECK_LIB([glib-2.0], [main])
+AC_CHECK_LIB([glib-2.0], [g_str_hash])
 
 # FIXME: Replace `main' with a function in `-lm':
-#AC_CHECK_LIB([m], [main])
+#AC_CHECK_LIB([m], [pow])
 
 # PKG_CHECK_MODULES([DEPS], [glib-2.0 >= 2.0.0])
 # AC_CONFIG_FILES([src/Makefile glib-2.0.pc gthread-2.0.pc])
