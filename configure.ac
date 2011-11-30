@@ -35,9 +35,6 @@ AC_CHECK_LIB([glib-2.0], [g_str_hash])
 # FIXME: Replace `main' with a function in `-lm':
 #AC_CHECK_LIB([m], [pow])
 
-# PKG_CHECK_MODULES([DEPS], [glib-2.0 >= 2.0.0])
-# AC_CONFIG_FILES([src/Makefile glib-2.0.pc gthread-2.0.pc])
-
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h stdlib.h string.h strings.h sys/param.h sys/socket.h sys/time.h syslog.h unistd.h])
 
@@ -50,14 +47,14 @@ AC_FUNC_MALLOC
 AC_FUNC_MKTIME
 AC_CHECK_FUNCS([bzero gethostbyname gethostname isascii memset mkdir modf socket strcasecmp strchr strdup strncasecmp strndup strrchr strstr uname])
 
-AC_DEFINE_DIR(CONFIG_DIR, sysconfdir, [where the configuration file can be found])
+dnl define where the configuration file is located
+AC_DEFINE_DIR(CONFIG_DIR,sysconfdir,[where the configuration file can be found])
 
 AC_OUTPUT(
-		[muc.xml.dist
-		scripts/change_nameprefix.sh
-		scripts/create_room.sh
+		[
 		Makefile
 		src/Makefile
 		scripts/Makefile
 		]
 )
+
