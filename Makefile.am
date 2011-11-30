@@ -1,4 +1,4 @@
-EXTRA_DIST = muc.xml.dist.in
+EXTRA_DIST = muc.xml.dist.in style.css
 
 SUBDIRS = src scripts
 sysconf_DATA = muc.xml.dist
@@ -25,7 +25,13 @@ install-data-hook:
 			$(INSTALL_DATA) $$p $(DESTDIR)$(sysconfdir)/$$dest; \
 		fi; \
 	done
+	@if test -f $(DESTDIR)$(sysconfdir)/style.css; then \
+		echo "$@ will not overwrite existing $(DESTDIR)$(sysconfdir)/style.css"; \
+	else \
+		cp style.css $(DESTDIR)$(sysconfdir)/style.css; \
+	fi;
+	create_room.sh
 
 clean-local:
 	rm -f $(sysconf_DATA)
-	rm *~
+	rm -f *~

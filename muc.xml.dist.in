@@ -4,9 +4,9 @@
   <ip>127.0.0.1</ip> <!-- adress of the jabber server -->
   <port>31518</port>  <!-- port used to connect the service to the jabber server -->
   <secret>secret</secret> <!-- secret shared with the jabber server -->
-  <spool>@localstatedir@/spool/muclinker.localhost</spool> <!-- directory containing the rooms data -->
-  <logdir>@localstatedir@/syslogs/mucliner.localhost</logdir> <!-- directory containing the debug log (the file is called mu-conference.log) -->
-  <pidfile>@localstatedir@/mu-conference.pid</pidfile> <!-- file that will contain the PID of the process -->
+  <spool>@localstatedir@/spool/jabberd/muclinker.localhost</spool> <!-- directory containing the rooms data -->
+  <logdir>@localstatedir@/log/jabberd</logdir> <!-- directory containing the debug log (the file is called mu-conference.log) -->
+  <pidfile>@localstatedir@/run/jabberd/mu-conference.pid</pidfile> <!-- file that will contain the PID of the process -->
   
   <loglevel>124</loglevel> <!-- log verbosity, 255 for very verbose, 0 for quiet -->
   <name_prefix>/ndn/ucla.edu</name_prefix>
@@ -19,9 +19,9 @@
         <URL>http://foo.bar/</URL>
       </vCard>
       <history>40</history> <!-- maximum numbers of history lines send when joining a room -->
-      <!--<logdir>@localstatedir@/logs/muclinker.localhost</logdir>--> <!-- where to store the room logs, comment to disable logging -->
+      <!--<logdir>@localstatedir@/log/jabberd</logdir>--> <!-- where to store the room logs, comment to disable logging -->
       <!--logsubdirs/--> <!-- uncomment to stores the room logs in subdirs (for example 2007/08/02) -->
-      <stylesheet>@localstatedir@/style.css</stylesheet> <!--URL of the log stylesheet -->
+      <stylesheet>@sysconfdir@/style.css</stylesheet> <!--URL of the log stylesheet -->
       <!-- default text to send to legacy clients, will also be used in the logs -->
       <notice>
         <join>has become available</join>
