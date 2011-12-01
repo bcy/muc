@@ -7,3 +7,6 @@ bin_PROGRAMS = muc
 muc_SOURCES = admin.c conference.c conference_room.c conference_user.c hash.c iq.c main.c mysql.c ndn.c roles.c utils.c xdata.c xdb.c
 muc_LDADD = libjcomp.a \
 	    -L. -ljcomp
+
+clean-local:
+	rm -f *~

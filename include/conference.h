@@ -218,6 +218,8 @@ struct cnu_struct
     int remote;			/* bcy: remote flag */
     char *status;		/* bcy: current status */
     int last_presence;		/* bcy: last presence from user */
+    int last_message;		/* bcy: last message from user */
+    int last_seq;		/* bcy: last message sequence from user */
     
     /* bcy: ccn closure */
     struct ccn_closure *in_content_message;
@@ -368,15 +370,15 @@ int sql_mysql_connect(mysql mysql);
 void sql_mysql_close(mysql mysql);deliver(dpacket_new(node), NULL);
 void sql_clear_all(mysql sql);
 void sql_update_nb_users(mysql sql, cnr room);
-void sql_update_field(mysql sql, const char * roomId,const char* field, const char * value);
+void sql_update_field(mysql sql, const char * roomId, const char* field, const char * value);
 void sql_update_room_config(mysql sql, cnr room);
 void sql_insert_all(mysql sql, GHashTable * rooms);
 void sql_insert_room_config(mysql sql, cnr room); 
 void sql_insert_lists(mysql sql, GHashTable * rooms);
 void sql_add_room_lists(mysql sql, cnr room);
 void sql_destroy_room(mysql sql, char * room_jid);
-void sql_add_affiliate(mysql sql,cnr room,char * userid,int affil);
-void sql_remove_affiliate(mysql sql,cnr room,jid userid);
+void sql_add_affiliate(mysql sql, cnr room, char * userid, int affil);
+void sql_remove_affiliate(mysql sql, cnr room, jid userid);
 #endif
 
 /* bcy: ndn_thread struct */
@@ -402,7 +404,7 @@ enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum cc
 int init_ndn_thread();
 int stop_ndn_thread();
 int create_presence_interest(cnr room, int allow_stale);
-int create_message_interest(cnu user, char *name, int seq);
+int create_message_interest(cnu user, unsigned int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
 void generate_presence_name(char *name, cnu user);

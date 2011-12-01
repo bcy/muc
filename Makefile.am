@@ -35,3 +35,4 @@ install-data-hook:
 clean-local:
 	rm -f $(sysconf_DATA)
 	rm -f *~
+	rm -f ./include/*~

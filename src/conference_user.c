@@ -79,6 +79,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
+  user->last_seq = 0;
   
   // bcy: for user coming from outside
   if (external == 1)
@@ -476,13 +477,8 @@ void con_user_enter(cnu user, char *nick, int created)
     g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
     
     // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
-    strcpy(name, user->name_prefix);
-    strcat(name, "/");
-    strcat(name, jid_ns(user->realid));
-    strcat(name, "/");
-    strcat(name, user->room->id->user);
-    log_debug(NAME, "[%s] Creating message interest %s", FZONE, name);
-    create_message_interest(user, name, -1);
+    log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, jid_ns(user->realid));
+    create_message_interest(user, 0);
     free(name);
   }
 }

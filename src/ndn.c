@@ -2,7 +2,7 @@
 #include "conference.h"
 
 #define PRESENCE_FRESHNESS 2
-#define MESSAGE_FRESHNESS 10
+#define MESSAGE_FRESHNESS 20
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 30
 #define SEND_PRESENCE_INTERVAL 60
@@ -142,13 +142,14 @@ incoming_content_message(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;  
-  char *name, *seq_str;
+  cnu user = (cnu) selfp->data;
+  char *seq_str;
   char *pcontent = NULL;
-  int seq;
+  unsigned int seq;
   size_t len, size;
   char *changed;
   xmlnode x;
+  int now =  time(NULL);
   
   switch (kind)
   {
@@ -160,7 +161,15 @@ incoming_content_message(
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (user != NULL) // interest timed out, re-express it
-	return CCN_UPCALL_RESULT_REEXPRESS;
+      {
+	if (now - user->last_message >= 120)
+	{
+	  create_message_interest(user, 0);
+	  return CCN_UPCALL_RESULT_OK;
+	}
+	else
+	  return CCN_UPCALL_RESULT_REEXPRESS;
+      }
       else
 	return CCN_UPCALL_RESULT_OK;
     
@@ -177,16 +186,19 @@ incoming_content_message(
   
   if (user == NULL) // user has been zapped
     return CCN_UPCALL_RESULT_OK;
-  
+    
   // extract sequence number from content name, increase one and send new interest
-  name = calloc(1, sizeof(char) * info->content_comps->buf[info->content_comps->n - 1]);
-  fetch_name_from_ccnb(name, info->content_ccnb, info->content_comps);
-  *strrchr(name, '/') = '\0';
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
   seq = atoi(seq_str);
+  if (seq == user->last_seq)
+    return CCN_UPCALL_RESULT_OK;
+  user->last_seq = seq;
+  user->last = now;
+  user->last_message = now;
   seq++;
-  create_message_interest(user, name, seq);
-  free(name);
+  if (seq == 0)
+    seq = 1;
+  create_message_interest(user, seq);
 
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate a XML string into a xmlnode
@@ -735,11 +747,18 @@ create_presence_content(cnu user, xmlnode x)
 
 /* create interest for message */
 int
-create_message_interest(cnu user, char *name, int seq)
+create_message_interest(cnu user, unsigned int seq)
 {
   struct ccn_charbuf *interest;
   int res;
   char *str_seq = calloc(1, sizeof(char) * 10);
+  char *name = calloc(1, sizeof(char) * 100);
+  
+  strcpy(name, user->name_prefix);
+  strcat(name, "/");
+  strcat(name, jid_ns(user->realid));
+  strcat(name, "/");
+  strcat(name, user->room->id->user);
   
   g_mutex_lock(ccn_mutex);
   
@@ -758,6 +777,7 @@ create_message_interest(cnu user, char *name, int seq)
   {
     log_warn(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);
     g_mutex_unlock(ccn_mutex);
+    free(name);
     free(str_seq);
     ccn_charbuf_destroy(&interest);
     return 1;
@@ -765,6 +785,7 @@ create_message_interest(cnu user, char *name, int seq)
   
   g_mutex_unlock(ccn_mutex);
   
+  free(name);
   free(str_seq);
   ccn_charbuf_destroy(&interest);
   return 0;
