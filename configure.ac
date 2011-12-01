@@ -15,7 +15,7 @@ AC_PROG_RANLIB
 dnl helper macros
 sinclude(m4/ac_define_dir.m4)
 
-LDFLAGS="$LDFLAGS -L/opt/local/lib -L/usr/lib -L/usr/local/lib"
+LDFLAGS="$LDFLAGS -L/usr/lib -L/usr/local/lib -L/opt/local/lib"
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lcrypto':
