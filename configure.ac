@@ -18,21 +18,39 @@ sinclude(m4/ac_define_dir.m4)
 LDFLAGS="$LDFLAGS -L/usr/lib -L/usr/local/lib -L/opt/local/lib"
 
 # Checks for libraries.
-# FIXME: Replace `main' with a function in `-lcrypto':
-AC_CHECK_LIB([crypto], [SHA1_Init])
-# FIXME: Replace `main' with a function in `-lccn':
-AC_CHECK_LIB([ccn], [ccn_run])
-# FIXME: Replace `main' with a function in `-lexpat':
-AC_CHECK_LIB([expat], [XML_Parse])
-# FIXME: Replace `main' with a function in `-lidn':
-AC_CHECK_LIB([idn], [stringprep])
+AC_CHECK_LIB([crypto], [SHA1_Init], [], [libcrypto=no])
+if test "$libcrypto" == "no"; then
+	AC_MSG_ERROR([Could not find required libcrypto installation])
+fi
 
-AC_CHECK_LIB([gthread-2.0], [g_thread_init])
+AC_CHECK_LIB([ccn], [ccn_run], [], [libccn=no])
+if test "$libccn" == "no"; then
+	AC_MSG_ERROR([Could not find required libccn installation])
+fi
+
+AC_CHECK_LIB([expat], [XML_Parse], [], [libexpat=no])
+if test "$libexpat" == "no"; then
+	AC_MSG_ERROR([Could not find required libexpat installation])
+fi
+
+AC_CHECK_LIB([idn], [stringprep], [], [libidn=no])
+if test "$libidn" == "no"; then
+	AC_MSG_ERROR([Could not find required libidn installation])
+fi
+
+AC_CHECK_LIB([gthread-2.0], [g_thread_init], [], [libgthread=no])
+if test "$libgthread" == "no"; then
+	AC_MSG_ERROR([Could not find required libgthread-2.0 installation])
+fi
+
 #AC_CHECK_LIB([rt], [main])
 #AC_CHECK_LIB([pthread], [main])
-AC_CHECK_LIB([glib-2.0], [g_str_hash])
 
-# FIXME: Replace `main' with a function in `-lm':
+AC_CHECK_LIB([glib-2.0], [g_str_hash], [], [libglib=no])
+if test "$libglib" == "no"; then
+	AC_MSG_ERROR([Could not find required libglib-2.0 installation])
+fi
+
 #AC_CHECK_LIB([m], [pow])
 
 # Checks for header files.
