@@ -43,11 +43,6 @@ if test "$libgthread" == "no"; then
 	AC_MSG_ERROR([Could not find required libgthread-2.0 installation])
 fi
 
-AC_CHECK_LIB([rt], [fork], [librt=yes], [librt=no])
-if test "$librt" == "no"; then
-	AC_MSG_ERROR([Could not find required librt installation])
-fi
-
 #AC_CHECK_LIB([pthread], [main])
 
 AC_CHECK_LIB([glib-2.0], [g_str_hash], [libglib=yes], [libglib=no])
@@ -55,7 +50,7 @@ if test "$libglib" == "no"; then
 	AC_MSG_ERROR([Could not find required libglib-2.0 installation])
 fi
 
-if test "$libgthread" == "yes" -a "$librt" == "yes" -a "$libglib" == "yes"; then
+if test "$libgthread" == "yes" -a "$libglib" == "yes"; then
 	LIBS="`pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` $LIBS"
 fi
 
