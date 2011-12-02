@@ -38,20 +38,31 @@ if test "$libidn" == "no"; then
 	AC_MSG_ERROR([Could not find required libidn installation])
 fi
 
-AC_CHECK_LIB([gthread-2.0], [g_thread_init], [], [libgthread=no])
+AC_CHECK_LIB([gthread-2.0], [g_thread_init], [libgthread=yes], [libgthread=no])
 if test "$libgthread" == "no"; then
 	AC_MSG_ERROR([Could not find required libgthread-2.0 installation])
 fi
 
-#AC_CHECK_LIB([rt], [main])
+AC_CHECK_LIB([rt], [fork], [librt=yes], [librt=no])
+if test "$librt" == "no"; then
+	AC_MSG_ERROR([Could not find required librt installation])
+fi
+
 #AC_CHECK_LIB([pthread], [main])
 
-AC_CHECK_LIB([glib-2.0], [g_str_hash], [], [libglib=no])
+AC_CHECK_LIB([glib-2.0], [g_str_hash], [libglib=yes], [libglib=no])
 if test "$libglib" == "no"; then
 	AC_MSG_ERROR([Could not find required libglib-2.0 installation])
 fi
 
-#AC_CHECK_LIB([m], [pow])
+if test "$libgthread" == "yes" -a "$librt" == "yes" -a "$libglib" == "yes"; then
+	LIBS="`pkg-config --libs glib-2.0` `pkg-config --libs gthread-2.0` $LIBS"
+fi
+
+AC_CHECK_LIB([m], [pow], [], [libm=no])
+if test "$libm" == "no"; then
+	AC_MSG_ERROR([Could not find required libm installation])
+fi
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h stdlib.h string.h strings.h sys/param.h sys/socket.h sys/time.h syslog.h unistd.h])
