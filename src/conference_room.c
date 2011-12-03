@@ -1533,6 +1533,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->local_count = 0;
   room->zapping = 0;
   room->stale = 1;
+  room->cleaning = 0;
   
   // bcy: init tables for storing NDN packets
   room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_prs);
@@ -1726,7 +1727,7 @@ void con_room_cleanup(cnr room)
 /* Zap room entry */
 void con_room_zap(cnr room)
 {
-  if(room == NULL) 
+  if(room == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL room attribute found", FZONE);
     return;

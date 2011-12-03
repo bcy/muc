@@ -604,13 +604,23 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
-void remove_presence(GHashTable *table, cnu user)
+static void remove_presence(GHashTable *table, cnu user)
 {
   char *name = calloc(1, sizeof(char) * 100);
   
   generate_presence_name(name, user);
   g_hash_table_remove(table, name);
   free(name);
+}
+
+static void cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
+{
+  cnu user = (cnu) value;
+  xmlnode node;
+  
+  node = xmlnode_new_tag("reason");
+  xmlnode_insert_cdata(node, "Local persistent room closed, clearing remote users", -1);
+  con_user_zap(user, node);
 }
 
 void con_user_zap(cnu user, xmlnode data)
@@ -750,9 +760,13 @@ void con_user_zap(cnu user, xmlnode data)
       room->locked = 1;
       con_room_zap(room);
     }
-    else
+    else if (room->cleaning == 0)
     {
+      room->cleaning = 1;
       room->in_content_presence->data = NULL;
+      log_debug(NAME, "[%s] zapping remote users", FZONE);
+      g_hash_table_foreach(room->remote_users, cleanup_remote_user, NULL);
+      room->cleaning = 0;
     }
   }
 }

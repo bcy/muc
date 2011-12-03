@@ -195,6 +195,7 @@ typedef struct cnr_struct
     int local_count;		/* bcy: # of local users in the room */
     int zapping;		/* bcy: to flag room is being zapped */
     int stale;			/* bcy: to flag interest is set stale flag */
+    int cleaning;		/* bcy: to flag remote users are being cleaned */
 } *cnr, _cnr;
 
 /* conference user */

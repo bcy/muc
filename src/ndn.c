@@ -31,26 +31,6 @@ append_bf_all(struct ccn_charbuf *c)
   ccn_charbuf_append_closer(c);
 }
 
-/* fetch content name from content_ccnb structure */
-static void
-fetch_name_from_ccnb(char *name, const unsigned char *ccnb, struct ccn_indexbuf *comps)
-{
-  char *comp_str;
-  size_t size;
-  int n = comps->n;
-  int i;
-  
-  name[0] = '\0';
-  for (i = 0; i < n - 1; i++)
-  {
-    strcat(name, "/");
-    if (ccn_name_comp_get(ccnb, comps, i, (const unsigned char **)&comp_str, &size) == 0)
-    {
-      strncat(name, comp_str, size);
-    }
-  }
-}
-
 /* create keylocator */
 static int
 ccn_create_keylocator(struct ccn_charbuf *c, const struct ccn_pkey *k)
@@ -749,7 +729,6 @@ create_message_content(cnu user, char *data)
   struct ccn_charbuf *content, *dup_content;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
-  char *name_without_seq;
   char *seq_char = calloc(1, sizeof(char) * 10);
   
   g_mutex_lock(ccn_mutex);
@@ -762,7 +741,6 @@ create_message_content(cnu user, char *data)
   strcat(content_name, user->room->id->user);
   interest_filter = ccn_charbuf_create();
   ccn_name_from_uri(interest_filter, content_name);  
-  name_without_seq = strdup(content_name);
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);
   strcat(content_name, seq_char);
