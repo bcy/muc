@@ -185,8 +185,6 @@ typedef struct cnr_struct
     GQueue *queue;		/* used to remove zombie users  */
     
     GHashTable *presence;	/* bcy: storage of generated presence packets */
-    GHashTable *message;	/* bcy: storage of generated message packets */
-    GHashTable *message_latest;	/* bcy: storage of latest message packets of each user */
     GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
 
     /* bcy: ccn closures */
@@ -396,7 +394,6 @@ struct presence
 };
 
 /* bcy: upcall functions for incoming interest/content */
-enum ccn_upcall_res incoming_interest_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 

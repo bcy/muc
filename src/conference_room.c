@@ -1529,9 +1529,6 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_presence->data = room;
   room->in_content_presence->p = &incoming_content_presence;
-  room->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_interest_message->data = room;
-  room->in_interest_message->p = &incoming_interest_message;
 
   room->local_count = 0;
   room->zapping = 0;
@@ -1539,12 +1536,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   
   // bcy: init tables for storing NDN packets
   room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_prs);
-  room->message = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
-  room->message_latest = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
-  
-  // bcy: create presnce interest for the persistent room
-  // create_presence_interest(room, 1);
-  
+    
   return room;
 }
 
@@ -1702,10 +1694,6 @@ void con_room_cleanup(cnr room)
   
   log_debug(NAME, "[%s] Clearing presence stored in room %s", FZONE, roomid);
   g_hash_table_destroy(room->presence);
-
-  log_debug(NAME, "[%s] Clearing messages stored in room %s", FZONE, roomid);
-  g_hash_table_destroy(room->message);
-  g_hash_table_destroy(room->message_latest);
   
   log_debug(NAME, "[%s] Clearing strings and legacy messages in room %s", FZONE, roomid);
   free(room->name);

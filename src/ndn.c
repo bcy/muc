@@ -84,59 +84,6 @@ list_find(GQueue *list, char *name)
 }
 
 enum ccn_upcall_res
-incoming_interest_message(
-  struct ccn_closure *selfp,
-  enum ccn_upcall_kind kind,
-  struct ccn_upcall_info *info)
-{
-  cnr room = (cnr) selfp->data;
-  char *name;
-  struct ccn_charbuf *content = NULL;
-  
-  switch (kind)
-  {
-    case CCN_UPCALL_FINAL:
-      if (room != NULL)
-	free(room);
-      free(selfp);
-      return CCN_UPCALL_RESULT_OK;
-      
-    case CCN_UPCALL_INTEREST:
-      break;
-      
-    default:
-      return CCN_UPCALL_RESULT_OK;
-  }
-  
-  if (room == NULL) // room has been zapped
-    return CCN_UPCALL_RESULT_OK;
-
-  name = calloc(1, sizeof(char) * info->interest_comps->buf[info->interest_comps->n - 1]);
-  fetch_name_from_ccnb(name, info->interest_ccnb, info->interest_comps);
-  
-  // find corresponding messages in local storage and put to ccnd
-  if ((content = g_hash_table_lookup(room->message, name)) != NULL)
-  {
-    g_mutex_lock(ccn_mutex);
-    ccn_put(info->h, content->buf, content->length);
-    g_mutex_unlock(ccn_mutex);
-    free(name);
-    return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
-  }
-  else if ((content = g_hash_table_lookup(room->message_latest, name)) != NULL)
-  {
-    g_mutex_lock(ccn_mutex);
-    ccn_put(info->h, content->buf, content->length);
-    g_mutex_unlock(ccn_mutex);
-    free(name);
-    return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
-  }
-  else
-    free(name);
-    return CCN_UPCALL_RESULT_OK;
-}
-
-enum ccn_upcall_res
 incoming_content_message(
   struct ccn_closure *selfp,
   enum ccn_upcall_kind kind,
@@ -854,14 +801,8 @@ create_message_content(cnu user, char *data)
   dup_content = ccn_charbuf_create();
   ccn_charbuf_reset(dup_content);
   ccn_charbuf_append_charbuf(dup_content, content);
-
-  // insert into message tables for local storage
-  g_hash_table_insert(user->room->message, content_name, content);
-  g_hash_table_insert(user->room->message_latest, name_without_seq, dup_content);
   
   ccn_put(nthread->ccn, content->buf, content->length);
-  // set interest filter for incoming message
-  //ccn_set_interest_filter(nthread->ccn, interest_filter, user->room->in_interest_message);
   user->message_seq++;
   
   g_mutex_unlock(ccn_mutex);
