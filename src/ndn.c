@@ -212,7 +212,7 @@ incoming_content_presence(
       if (room != NULL)
       {
 	room->stale = 0;
-	create_presence_interest(room, 0); // interest timed out, re-express using new exclusion_list
+	create_presence_interest(room); // interest timed out, re-express using new exclusion_list
       }
       return CCN_UPCALL_RESULT_OK;
     
@@ -247,7 +247,7 @@ incoming_content_presence(
     free(element);
   }
   
-  create_presence_interest(room, room->stale); // generate new presence interest
+  create_presence_interest(room); // generate new presence interest
   
    /* Timestamp checking */
   
@@ -396,7 +396,7 @@ check_delete(gpointer data, gpointer user_data)
 
 /* create interest for presence */
 int
-create_presence_interest(cnr room, int allow_stale)
+create_presence_interest(cnr room)
 {
   GQueue *exclusion_list = room->exclusion_list;
   struct ccn_charbuf *interest;
@@ -424,7 +424,7 @@ create_presence_interest(cnr room, int allow_stale)
     int res;
     struct ccn_charbuf *templ = NULL;
     
-    if (allow_stale)
+    if (room->stale)
     {
       log_debug(NAME, "[%s] Set allow_stale flag", FZONE);
       templ = ccn_charbuf_create();
@@ -493,7 +493,7 @@ create_presence_interest(cnr room, int allow_stale)
       append_bf_all(templ);
     
     ccn_charbuf_append_closer(templ); // </Exclude>
-    if (allow_stale)
+    if (room->stale)
     {
       ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
       ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);

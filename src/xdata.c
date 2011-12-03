@@ -68,7 +68,7 @@ static void add_xdata_desc(xmlnode parent, char *label)
 gboolean create_interest(gpointer data)
 {
   cnr room = (cnr) data;
-  create_presence_interest(room, 1);
+  create_presence_interest(room);
   return FALSE;
 }
 
