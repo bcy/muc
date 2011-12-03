@@ -320,7 +320,9 @@ ndn_run(gpointer data)
       int ret = poll(pfds, 1, 100);
       if (ret >= 0)
       {
+	g_mutex_lock(ccn_mutex);
 	res = ccn_run(ccn, 0);
+	g_mutex_unlock(ccn_mutex);
       }
     }
   }
@@ -388,7 +390,7 @@ create_presence_interest(cnr room)
   while (room->locked)
     sleep(1);
   
-  g_mutex_lock(ccn_mutex);
+  //g_mutex_lock(ccn_mutex);
   
   // the interest name has the form of "/ndn/broadcast/xmpp-muc/<roomID>"
   interest = ccn_charbuf_create();
@@ -417,7 +419,7 @@ create_presence_interest(cnr room)
       ccn_charbuf_append_closer(templ); // </Interest>
     }
     res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
-    g_mutex_unlock(ccn_mutex);
+    //g_mutex_unlock(ccn_mutex);
     if (res < 0)
     {
       log_warn(NAME, "[%s] ccn_express_interest failed", FZONE);
@@ -484,7 +486,7 @@ create_presence_interest(cnr room)
     if (res < 0)
     {
       log_warn(NAME, "[%s] ccn_express_interest failed!", FZONE);
-      g_mutex_unlock(ccn_mutex);
+      //g_mutex_unlock(ccn_mutex);
       ccn_charbuf_destroy(&interest);
       ccn_charbuf_destroy(&templ);
       for (i = 0; i < length; i++)
@@ -496,7 +498,7 @@ create_presence_interest(cnr room)
     ccn_charbuf_destroy(&templ);
   }
   
-  g_mutex_unlock(ccn_mutex);
+  //g_mutex_unlock(ccn_mutex);
   
   ccn_charbuf_destroy(&interest);
   for (i = 0; i < length; i++)
@@ -517,7 +519,7 @@ generate_presence_content(cnu user, xmlnode x)
   char *data;
   int freshness;
   
-  g_mutex_lock(ccn_mutex);
+  //g_mutex_lock(ccn_mutex);
   
   // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
@@ -546,7 +548,7 @@ generate_presence_content(cnu user, xmlnode x)
   if (res < 0)
   {
     log_warn(NAME, "[%s]: Failed to create signed_info (res == %d)", FZONE, res);
-    g_mutex_unlock(ccn_mutex);
+    //g_mutex_unlock(ccn_mutex);
     free(content_name);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&keylocator);
@@ -562,7 +564,7 @@ generate_presence_content(cnu user, xmlnode x)
 			NULL, ccn_keystore_private_key(keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
-  g_mutex_unlock(ccn_mutex);
+  //g_mutex_unlock(ccn_mutex);
 
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
@@ -610,7 +612,7 @@ create_presence_content(cnu user, xmlnode x)
   int freshness;
   struct presence *pcontent;
   
-  g_mutex_lock(ccn_mutex);
+  //g_mutex_lock(ccn_mutex);
   generate_presence_name(content_name, user);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
@@ -634,7 +636,7 @@ create_presence_content(cnu user, xmlnode x)
   if (res < 0)
   {
     log_warn(NAME, "[%s]: Failed to create signed_info (res == %d)", FZONE, res);
-    g_mutex_unlock(ccn_mutex);
+    //g_mutex_unlock(ccn_mutex);
     free(content_name);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&keylocator);
@@ -662,7 +664,7 @@ create_presence_content(cnu user, xmlnode x)
   g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
   g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   
-  g_mutex_unlock(ccn_mutex);
+  //g_mutex_unlock(ccn_mutex);
 
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
@@ -687,7 +689,7 @@ create_message_interest(cnu user, unsigned int seq)
   strcat(name, "/");
   strcat(name, user->room->id->user);
   
-  g_mutex_lock(ccn_mutex);
+  //g_mutex_lock(ccn_mutex);
   
   // append sequence number to the name
   interest = ccn_charbuf_create();
@@ -703,14 +705,14 @@ create_message_interest(cnu user, unsigned int seq)
   if (res < 0)
   {
     log_warn(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);
-    g_mutex_unlock(ccn_mutex);
+    //g_mutex_unlock(ccn_mutex);
     free(name);
     free(str_seq);
     ccn_charbuf_destroy(&interest);
     return 1;
   }
   
-  g_mutex_unlock(ccn_mutex);
+  //g_mutex_unlock(ccn_mutex);
   
   free(name);
   free(str_seq);
@@ -731,7 +733,7 @@ create_message_content(cnu user, char *data)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *seq_char = calloc(1, sizeof(char) * 10);
   
-  g_mutex_lock(ccn_mutex);
+  //g_mutex_lock(ccn_mutex);
   
   // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
   strcpy(content_name, user->name_prefix);
@@ -762,7 +764,7 @@ create_message_content(cnu user, char *data)
   if (res < 0)
   {
     log_warn(NAME, "[%s] failed to create signed_info (res == %d)", FZONE, res);
-    g_mutex_unlock(ccn_mutex);
+    //g_mutex_unlock(ccn_mutex);
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&pname);
@@ -783,7 +785,7 @@ create_message_content(cnu user, char *data)
   ccn_put(nthread->ccn, content->buf, content->length);
   user->message_seq++;
   
-  g_mutex_unlock(ccn_mutex);
+  //g_mutex_unlock(ccn_mutex);
 
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
