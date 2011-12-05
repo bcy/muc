@@ -613,7 +613,7 @@ static void remove_presence(GHashTable *table, cnu user)
   free(name);
 }
 
-static void cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
+static guint cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
 {
   cnu user = (cnu) value;
   xmlnode node;
@@ -621,6 +621,8 @@ static void cleanup_remote_user(gpointer key, gpointer value, gpointer user_data
   node = xmlnode_new_tag("reason");
   xmlnode_insert_cdata(node, "Local persistent room closed, clearing remote users", -1);
   con_user_zap(user, node);
+
+  return TRUE;
 }
 
 void con_user_zap(cnu user, xmlnode data)
@@ -744,7 +746,7 @@ void con_user_zap(cnu user, xmlnode data)
   if (user->remote == 1)
   {
     log_debug(NAME, "[%s] Removing from remote user list", FZONE);
-    if (room->zapping == 0)
+    if (room->zapping == 0 && room->cleaning == 0)
       g_hash_table_remove(room->remote_users, jid_ns(user->realid));
     user->in_content_message->data = NULL;
   }
@@ -765,7 +767,7 @@ void con_user_zap(cnu user, xmlnode data)
       room->cleaning = 1;
       room->in_content_presence->data = NULL;
       log_debug(NAME, "[%s] zapping remote users", FZONE);
-      g_hash_table_foreach(room->remote_users, cleanup_remote_user, NULL);
+      g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);
       room->cleaning = 0;
     }
   }

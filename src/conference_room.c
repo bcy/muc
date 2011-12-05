@@ -1712,12 +1712,9 @@ void con_room_cleanup(cnr room)
   
   // bcy: stop sending interest
   room->in_content_presence->data = NULL;
-  room->in_interest_message->data = NULL;
   
   /*
-  room->in_interest_message->p = NULL;
   room->in_content_presence->p = NULL;
-  free(room->in_interest_message);
   free(room->in_content_presence);
   */
   

@@ -187,8 +187,7 @@ typedef struct cnr_struct
     GHashTable *presence;	/* bcy: storage of generated presence packets */
     GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
 
-    /* bcy: ccn closures */
-    struct ccn_closure *in_interest_message;
+    /* bcy: ccn closure */
     struct ccn_closure *in_content_presence;
     
     GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
