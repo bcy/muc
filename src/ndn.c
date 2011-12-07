@@ -643,13 +643,14 @@ create_presence_content(cnu user, xmlnode x)
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
   
+  ccn_put(nthread->ccn, content->buf, content->length);
+  
   if (j_strcmp(xmlnode_get_attrib(dup_x, "type"), "unavailable") != 0)
   {
     pcontent = (struct presence *) calloc(1, sizeof(struct presence));
     pcontent->user = user;
     pcontent->x = dup_x;
     g_hash_table_insert(user->room->presence, content_name, pcontent); // insert into presence table for local storage
-    ccn_put(nthread->ccn, content->buf, content->length);
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
     g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   }
