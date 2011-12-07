@@ -4,7 +4,7 @@
 #define PRESENCE_FRESHNESS 2
 #define MESSAGE_FRESHNESS 20
 #define EXCLUSION_TIMEOUT 2
-#define UNAVAILABLE_FRESHNESS 30
+#define UNAVAILABLE_FRESHNESS 10
 #define SEND_PRESENCE_INTERVAL 60
 
 struct ndn_thread *nthread;			// ndn thread struct
@@ -511,7 +511,6 @@ generate_presence_content(cnu user, xmlnode x)
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
   char *data;
-  int freshness;
   
   // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
@@ -525,16 +524,12 @@ generate_presence_content(cnu user, xmlnode x)
   signed_info = ccn_charbuf_create();
   keylocator = ccn_charbuf_create();
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
-  if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
-    freshness = UNAVAILABLE_FRESHNESS;
-  else
-    freshness = PRESENCE_FRESHNESS;
   res = ccn_signed_info_create(signed_info,
 		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
 		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
 		/*datetime*/ NULL,
 		/*type*/ CCN_CONTENT_DATA,
-		/*freshness*/ freshness,
+		/*freshness*/ PRESENCE_FRESHNESS,
 		/*finalblockid*/ NULL,
 		/*keylocator*/ keylocator);
   if (res < 0)
