@@ -229,10 +229,10 @@ incoming_content_presence(
   
   create_presence_interest(room); // generate new presence interest
   
-   /* Timestamp checking */
-  
+  /* Timestamp checking */ 
   l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
-  if (l > 0) {
+  if (l > 0)
+  {
     double dt;
     const unsigned char *blob;
     size_t blob_size;
@@ -412,7 +412,7 @@ create_presence_interest(cnr room)
       ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);
       ccn_charbuf_append_closer(templ); // </Name>
       ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
-      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
+      ccnb_append_number(templ, CCN_AOK_STALE);
       ccn_charbuf_append_closer(templ); // </AnswerOriginKind>
       ccn_charbuf_append_closer(templ); // </Interest>
     }
@@ -475,7 +475,7 @@ create_presence_interest(cnr room)
     if (room->stale)
     {
       ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
-      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
+      ccnb_append_number(templ, CCN_AOK_STALE);
       ccn_charbuf_append_closer(templ); // </AndswerOriginKind>
     }
     ccn_charbuf_append_closer(templ); // </Interest>
@@ -643,13 +643,13 @@ create_presence_content(cnu user, xmlnode x)
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
   
-  pcontent = (struct presence *) calloc(1, sizeof(struct presence));
-  pcontent->user = user;
-  pcontent->x = dup_x;
-  g_hash_table_insert(user->room->presence, content_name, pcontent); // insert into presence table for local storage
-  ccn_put(nthread->ccn, content->buf, content->length);
   if (j_strcmp(xmlnode_get_attrib(dup_x, "type"), "unavailable") != 0)
   {
+    pcontent = (struct presence *) calloc(1, sizeof(struct presence));
+    pcontent->user = user;
+    pcontent->x = dup_x;
+    g_hash_table_insert(user->room->presence, content_name, pcontent); // insert into presence table for local storage
+    ccn_put(nthread->ccn, content->buf, content->length);
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
     g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   }

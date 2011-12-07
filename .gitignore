@@ -72,3 +72,4 @@ src/xdb.o
 src/xmlnode.o
 stamp-h1
 syslogs
+tags
