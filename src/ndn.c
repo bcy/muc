@@ -174,17 +174,16 @@ incoming_content_presence(
   struct exclusion_element *element;
   char *name;
   char *hostname;
+  char *id;
   cnu user;
   xmlnode x;
   char *status;
   int l;
-  time_t now;
+  time_t now, secs = 0;
   
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
-      if (room != NULL)
-	free(room);
       free(selfp);
       return CCN_UPCALL_RESULT_OK;
     
@@ -237,7 +236,6 @@ incoming_content_presence(
     const unsigned char *blob;
     size_t blob_size;
     int i;
-    time_t secs;
     
     ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, info->content_ccnb,
 			info->pco->offset[CCN_PCO_B_Timestamp],
@@ -248,7 +246,7 @@ incoming_content_presence(
       dt = dt * 256.0 + (double)blob[i];
     dt /= 4096.0;
     secs = dt; // truncates
-    if (now - secs > 1200)
+    if (now - secs > 120)
     {
       log_debug(NAME, "[%s] Too old presence, ignore", FZONE);
       return CCN_UPCALL_RESULT_OK;
@@ -256,8 +254,14 @@ incoming_content_presence(
   }
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
-  user = g_hash_table_lookup(room->remote_users, name);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
+  id = xmlnode_get_attrib(x, "from");
+  user = g_hash_table_lookup(room->remote_users, id);
+  if (user->last_presence > secs)
+  {
+    xmlnode_free(x);
+    return CCN_UPCALL_RESULT_OK;
+  }
   
   // extract status from presence message to check if it's the same as the previous one
   // the "type" field can show "unavailable", and "show", "status" fields together forms the complete status
@@ -512,11 +516,7 @@ generate_presence_content(cnu user, xmlnode x)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *data;
   
-  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
-  strcpy(content_name, "/ndn/broadcast/xmpp-muc/");
-  strcat(content_name, user->room->id->user);
-  strcat(content_name, "/");
-  strcat(content_name, jid_ns(user->realid));
+  generate_presence_name(content_name, user);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
@@ -564,7 +564,7 @@ send_again(gpointer data)
 
   if (g_hash_table_lookup(timer_valid, pcontent) != NULL)
   {
-    log_debug(NAME, "[%s] send data again at %p", FZONE, pcontent);
+    log_debug(NAME, "[%s] send presence again at %p", FZONE, pcontent);
     generate_presence_content(pcontent->user, pcontent->x);
     return TRUE;
   }
@@ -573,11 +573,17 @@ send_again(gpointer data)
 
 void generate_presence_name(char *name, cnu user)
 {
-  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
+  int now;
+  char *str_now = calloc(1, sizeof(char) * 20);
+
+  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID><timestamp>"
   strcpy(name, "/ndn/broadcast/xmpp-muc/");
   strcat(name, user->room->id->user);
   strcat(name, "/");
   strcat(name, jid_ns(user->realid));
+  now = time(NULL);
+  itoa(now, str_now);
+  strcat(name, str_now);
 }
 
 /* create content packet for presence */
