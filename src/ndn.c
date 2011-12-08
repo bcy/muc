@@ -174,7 +174,6 @@ incoming_content_presence(
   struct exclusion_element *element;
   char *name;
   char *hostname;
-  char *id;
   cnu user;
   xmlnode x;
   char *status;
@@ -255,9 +254,8 @@ incoming_content_presence(
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
-  id = xmlnode_get_attrib(x, "from");
-  user = g_hash_table_lookup(room->remote_users, id);
-  if (user->last_presence > secs)
+  user = g_hash_table_lookup(room->remote_users, xmlnode_get_attrib(x, "from"));
+  if (user != NULL && user->last_presence > secs)
   {
     xmlnode_free(x);
     return CCN_UPCALL_RESULT_OK;
@@ -416,7 +414,7 @@ create_presence_interest(cnr room)
       ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);
       ccn_charbuf_append_closer(templ); // </Name>
       ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
-      ccnb_append_number(templ, CCN_AOK_STALE);
+      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
       ccn_charbuf_append_closer(templ); // </AnswerOriginKind>
       ccn_charbuf_append_closer(templ); // </Interest>
     }
@@ -479,7 +477,7 @@ create_presence_interest(cnr room)
     if (room->stale)
     {
       ccn_charbuf_append_tt(templ, CCN_DTAG_AnswerOriginKind, CCN_DTAG);
-      ccnb_append_number(templ, CCN_AOK_STALE);
+      ccnb_append_number(templ, CCN_AOK_DEFAULT | CCN_AOK_STALE);
       ccn_charbuf_append_closer(templ); // </AndswerOriginKind>
     }
     ccn_charbuf_append_closer(templ); // </Interest>
