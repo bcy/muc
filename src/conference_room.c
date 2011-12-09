@@ -1530,9 +1530,13 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->in_content_presence->data = room;
   room->in_content_presence->p = &incoming_content_presence;
 
+  room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_interest_presence->data = room;
+  room->in_interest_presence->p = &incoming_interest_presence;
+
   room->local_count = 0;
   room->zapping = 0;
-  room->stale = 1;
+  room->startup = 1;
   room->cleaning = 0;
   
   // bcy: init tables for storing NDN packets
@@ -1713,10 +1717,10 @@ void con_room_cleanup(cnr room)
   // bcy: stop sending interest
   room->in_content_presence->data = NULL;
   
-  /*
-  room->in_content_presence->p = NULL;
-  free(room->in_content_presence);
-  */
+  // bcy: stop handling incoming interest
+  set_interest_filter(room, NULL);
+  room->in_interest_presence->data = NULL;
+  free(room->in_interest_presence);
   
   return;
 }

@@ -187,13 +187,14 @@ typedef struct cnr_struct
     GHashTable *presence;	/* bcy: storage of generated presence packets */
     GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
 
-    /* bcy: ccn closure */
+    /* bcy: ccn closures */
     struct ccn_closure *in_content_presence;
+    struct ccn_closure *in_interest_presence;
     
     GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
     int local_count;		/* bcy: # of local users in the room */
     int zapping;		/* bcy: to flag room is being zapped */
-    int stale;			/* bcy: to flag interest is set stale flag */
+    int startup;		/* bcy: to flag room is just startup */
     int cleaning;		/* bcy: to flag remote users are being cleaned */
 } *cnr, _cnr;
 
@@ -396,6 +397,7 @@ struct presence
 /* bcy: upcall functions for incoming interest/content */
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 
 /* bcy: functions related to ccn operation, defined in ndn.c */
 int init_ndn_thread();
@@ -405,3 +407,5 @@ int create_message_interest(cnu user, unsigned int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
 void generate_presence_name(char *name, cnu user);
+void set_interest_filter(cnr room, struct ccn_closure *in_interest);
+

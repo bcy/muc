@@ -65,6 +65,14 @@ static void add_xdata_desc(xmlnode parent, char *label)
   xmlnode_insert_cdata(xmlnode_insert_tag(node,"value"), label, -1);
 }
 
+static gboolean send_interest(gpointer data)
+{
+  cnr room = (cnr) data;
+
+  create_presence_interest(room);
+  return FALSE;
+}
+
 //return 1 if configuration may have changed
 int xdata_handler(cnr room, cnu user, jpacket packet)
 {
@@ -145,6 +153,7 @@ int xdata_handler(cnr room, cnu user, jpacket packet)
       deliver(dpacket_new(message), NULL);
 
       room->locked = 0;
+      g_timeout_add_seconds(2, send_interest, room);
     }
 
     /* Protect text forms from broken clients */

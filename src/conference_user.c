@@ -757,6 +757,8 @@ void con_user_zap(cnu user, xmlnode data)
     {
       room->cleaning = 1;
       room->in_content_presence->data = NULL;
+      room->in_interest_presence->data = NULL;
+      set_interest_filter(room, NULL);
       log_debug(NAME, "[%s] zapping remote users", FZONE);
       g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);
       room->cleaning = 0;
