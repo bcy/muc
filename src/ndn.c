@@ -147,7 +147,11 @@ incoming_interest_presence(
   if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
 
-  g_hash_table_foreach(room->presence, send_presence, NULL);
+  if (g_hash_table_size(room->presence) != 0)
+  {
+    g_hash_table_foreach(room->presence, send_presence, NULL);
+    return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
+  }
 
   return CCN_UPCALL_RESULT_OK;
 }
