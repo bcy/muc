@@ -63,6 +63,19 @@ list_find(GQueue *list, char *name)
   return 0;
 }
 
+static void
+generate_presence_name(char *name, cnu user, int startup)
+{
+  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
+  strcpy(name, "/ndn/broadcast/xmpp-muc/");
+  if (startup)
+    strcat(name, "startup/");
+  strcat(name, user->room->id->user);
+  strcat(name, "/");
+  strcat(name, jid_ns(user->realid));
+}
+
+/* create content packet for presence */
 static int
 generate_presence_content(cnu user, xmlnode x, int startup)
 {
@@ -168,7 +181,8 @@ incoming_content_message(
   size_t len, size;
   char *changed;
   xmlnode x;
-  int now =  time(NULL);
+  int now = time(NULL);
+  int l;
   
   switch (kind)
   {
@@ -206,6 +220,33 @@ incoming_content_message(
   if (user == NULL) // user has been zapped
     return CCN_UPCALL_RESULT_OK;
     
+  /* Timestamp checking */ 
+  l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
+  if (l > 0)
+  {
+    double dt;
+    const unsigned char *blob;
+    size_t blob_size;
+    int i;
+    int secs;
+    
+    ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, info->content_ccnb,
+			info->pco->offset[CCN_PCO_B_Timestamp],
+			info->pco->offset[CCN_PCO_E_Timestamp],
+			&blob, &blob_size);
+    dt = 0.0;
+    for (i = 0; i < blob_size; i++)
+      dt = dt * 256.0 + (double)blob[i];
+    dt /= 4096.0;
+    secs = dt; // truncates
+    if (secs < user->last_presence)
+    {
+      log_debug(NAME, "[%s] Too old message, ignore", FZONE);
+      create_message_interest(user, 0);
+      return CCN_UPCALL_RESULT_OK;
+    }
+  }
+  
   // extract sequence number from content name, increase one and send new interest
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
   seq = atoi(seq_str);
@@ -618,18 +659,6 @@ send_again(gpointer data)
   return FALSE;
 }
 
-void generate_presence_name(char *name, cnu user, int startup)
-{
-  // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
-  strcpy(name, "/ndn/broadcast/xmpp-muc/");
-  if (startup)
-    strcat(name, "startup/");
-  strcat(name, user->room->id->user);
-  strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
-}
-
-/* create content packet for presence */
 int
 create_presence_content(cnu user, xmlnode x)
 {
