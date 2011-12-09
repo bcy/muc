@@ -173,6 +173,7 @@ incoming_content_presence(
   char *pcontent = NULL;
   struct exclusion_element *element;
   char *name;
+  char *id;
   char *hostname;
   cnu user;
   xmlnode x;
@@ -254,7 +255,9 @@ incoming_content_presence(
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
-  user = g_hash_table_lookup(room->remote_users, xmlnode_get_attrib(x, "from"));
+  id = xmlnode_get_attrib(x, "from");
+  *strrchr(id, '/') = '\0';
+  user = g_hash_table_lookup(room->remote_users, id);
   if (user != NULL && user->last_presence > secs)
   {
     xmlnode_free(x);
