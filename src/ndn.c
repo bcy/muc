@@ -255,7 +255,7 @@ incoming_content_presence(
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
-  id = xmlnode_get_attrib(x, "from");
+  id = j_strdup(xmlnode_get_attrib(x, "from"));
   *strrchr(id, '/') = '\0';
   user = g_hash_table_lookup(room->remote_users, id);
   if (user != NULL && user->last_presence > secs)
