@@ -1536,7 +1536,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->cleaning = 0;
   
   // bcy: init tables for storing NDN packets
-  room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_prs);
+  room->presence = g_hash_table_new_full(NULL, NULL, NULL, ght_remove_prs);
     
   return room;
 }

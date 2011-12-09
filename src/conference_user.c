@@ -604,15 +604,6 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
-static void remove_presence(GHashTable *table, cnu user)
-{
-  char *name = calloc(1, sizeof(char) * 100);
-  
-  generate_presence_name(name, user);
-  g_hash_table_remove(table, name);
-  free(name);
-}
-
 static guint cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
 {
   cnu user = (cnu) value;
@@ -741,7 +732,7 @@ void con_user_zap(cnu user, xmlnode data)
   free(user->status);
   
   log_debug(NAME, "[%s] Removing presence stored in local table", FZONE);
-  remove_presence(room->presence, user);
+  g_hash_table_remove(room->presence, user);
   
   if (user->remote == 1)
   {
