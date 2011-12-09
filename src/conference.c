@@ -988,7 +988,7 @@ void _con_beat_user(gpointer key, gpointer data, gpointer arg)
     return;
   }
 
-  if((user->localid == NULL && (t - user->last) > 120) || (user->remote == 1 && (t - user->last_presence) > 600))
+  if((user->localid == NULL && (t - user->last) > 120) || (user->remote == 1 && (t - user->last_presence) > 200))
   {
     log_debug(NAME, "[%s] Marking zombie", FZONE);
 
@@ -1125,6 +1125,9 @@ void conference(instance i, xmlnode x)
   xmlnode node;
   pool tp;
   time_t now = time(NULL);
+
+  /* bcy: srand */
+  srandom(now);
 
   log_debug(NAME, "[%s] mu-conference loading  - Service ID: %s", FZONE, i->id);
   

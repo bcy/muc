@@ -2,9 +2,9 @@
 #include "conference.h"
 
 #define PRESENCE_FRESHNESS 2
-#define MESSAGE_FRESHNESS 5
+#define MESSAGE_FRESHNESS 10
 #define EXCLUSION_TIMEOUT 2
-#define UNAVAILABLE_FRESHNESS 10
+#define UNAVAILABLE_FRESHNESS 1
 #define SEND_PRESENCE_INTERVAL 60
 
 struct ndn_thread *nthread;			// ndn thread struct
@@ -181,7 +181,7 @@ incoming_content_message(
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (user != NULL) // interest timed out, re-express it
       {
-	if (now - user->last_message >= 120)
+	if (now - user->last_message > MESSAGE_FRESHNESS || user->last_seq == 0)
 	{
 	  create_message_interest(user, 0);
 	  return CCN_UPCALL_RESULT_OK;
@@ -379,6 +379,9 @@ incoming_content_presence(
     xmlnode_free(x);
     return CCN_UPCALL_RESULT_OK;
   }
+
+  if (j_strcmp(xmlnode_get_attrib(x, "seq_reset"), "1") == 0 && user != NULL)
+    user->last_seq = 0;
   
   // check hostname to determine whether the presence is from outside
   hostname = calloc(1, sizeof(char) * 50);
@@ -677,10 +680,11 @@ create_presence_content(cnu user, xmlnode x)
   hostname = calloc(1, sizeof(char) * 50);
   gethostname(hostname, 50);
   xmlnode_put_attrib(dup_x, "hostname", hostname);
+  xmlnode_put_attrib(dup_x, "seq_reset", "1");
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
-  ccn_encode_ContentObject(content, pname, signed_info,
+  ccn_encode_ContentObject(content, pname, signed_info, 
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
   
@@ -690,6 +694,7 @@ create_presence_content(cnu user, xmlnode x)
   {
     pcontent = (struct presence *) calloc(1, sizeof(struct presence));
     pcontent->user = user;
+    xmlnode_put_attrib(dup_x, "seq_reset", "0");
     pcontent->x = dup_x;
     g_hash_table_insert(user->room->presence, user, pcontent); // insert into presence table for local storage
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);

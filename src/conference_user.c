@@ -75,7 +75,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
 
   /* bcy: initialization */
-  user->message_seq = 1;
+  user->message_seq = random() % 65536;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
