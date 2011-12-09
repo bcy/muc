@@ -2,7 +2,7 @@
 #include "conference.h"
 
 #define PRESENCE_FRESHNESS 2
-#define MESSAGE_FRESHNESS 20
+#define MESSAGE_FRESHNESS 5
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 10
 #define SEND_PRESENCE_INTERVAL 60
@@ -173,7 +173,7 @@ incoming_content_presence(
   char *pcontent = NULL;
   struct exclusion_element *element;
   char *name;
-  char *id;
+  char *id, *tmp;
   char *hostname;
   cnu user;
   xmlnode x;
@@ -256,8 +256,11 @@ incoming_content_presence(
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
   id = j_strdup(xmlnode_get_attrib(x, "from"));
-  *strrchr(id, '/') = '\0';
+  tmp = strrchr(id, '/');
+  if (tmp != NULL)
+    *tmp = '\0';
   user = g_hash_table_lookup(room->remote_users, id);
+  free(id);
   if (user != NULL && user->last_presence > secs)
   {
     xmlnode_free(x);
