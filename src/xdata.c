@@ -70,6 +70,7 @@ static gboolean send_interest(gpointer data)
   cnr room = (cnr) data;
 
   create_presence_interest(room);
+  set_interest_filter(room, room->in_interest_presence);
   return FALSE;
 }
 
