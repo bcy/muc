@@ -406,6 +406,5 @@ int create_presence_interest(cnr room);
 int create_message_interest(cnu user, unsigned int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
-void generate_presence_name(char *name, cnu user);
 void set_interest_filter(cnr room, struct ccn_closure *in_interest);
 

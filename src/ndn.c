@@ -64,7 +64,7 @@ list_find(GQueue *list, char *name)
 }
 
 static int
-generate_presence_content(cnu user, xmlnode x)
+generate_presence_content(cnu user, xmlnode x, int startup)
 {
   struct ccn_charbuf *pname;
   struct ccn_charbuf *keylocator;
@@ -74,7 +74,7 @@ generate_presence_content(cnu user, xmlnode x)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *data;
   
-  generate_presence_name(content_name, user);
+  generate_presence_name(content_name, user, startup);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
@@ -121,7 +121,7 @@ send_presence(gpointer key, gpointer value, gpointer user_data)
   cnu user = (cnu) key;
   struct presence *p = (struct presence*) value;
 
-  generate_presence_content(user, p->x);
+  generate_presence_content(user, p->x, 1);
 }
 
 enum ccn_upcall_res
@@ -606,16 +606,18 @@ send_again(gpointer data)
   if (g_hash_table_lookup(timer_valid, pcontent) != NULL)
   {
     log_debug(NAME, "[%s] send presence again at %p", FZONE, pcontent);
-    generate_presence_content(pcontent->user, pcontent->x);
+    generate_presence_content(pcontent->user, pcontent->x, 0);
     return TRUE;
   }
   return FALSE;
 }
 
-void generate_presence_name(char *name, cnu user)
+void generate_presence_name(char *name, cnu user, int startup)
 {
   // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   strcpy(name, "/ndn/broadcast/xmpp-muc/");
+  if (startup)
+    strcat(name, "startup/");
   strcat(name, user->room->id->user);
   strcat(name, "/");
   strcat(name, jid_ns(user->realid));
@@ -637,7 +639,7 @@ create_presence_content(cnu user, xmlnode x)
   int freshness;
   struct presence *pcontent;
   
-  generate_presence_name(content_name, user);
+  generate_presence_name(content_name, user, 0);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
