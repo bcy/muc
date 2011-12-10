@@ -675,6 +675,8 @@ create_presence_content(cnu user, xmlnode x)
   struct presence *pcontent;
   
   generate_presence_name(content_name, user, 0);
+  if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
+    strcat(content_name, "_exit");  
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
