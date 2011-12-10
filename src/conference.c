@@ -417,7 +417,8 @@ void _con_packets(void *arg)
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__GET && NSCHECK(jp->iq, NS_MUC_OWNER))
     {
       room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			  j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
 
       xdata_room_config(room,g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from))),1,jp->x);
 
@@ -429,7 +430,8 @@ void _con_packets(void *arg)
     {
       //create instant room
       room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			  j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
       //instant room are always non browsable
       room->public=0;
      
@@ -457,10 +459,12 @@ void _con_packets(void *arg)
     {
       if(master->dynamic == -1)
         room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1, 
-			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
       else
         room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
 
       /* fall through, so the presence goes to the room like normal */
       created = 1;
@@ -560,7 +564,8 @@ void _con_packets(void *arg)
   /* sending available presence will automatically get you a generic user, if you don't have one */
   if(u == NULL && priority >= 0)
   {
-    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+		    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
   }
 
   /* bcy: record status and create presence content */

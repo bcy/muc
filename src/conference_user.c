@@ -21,7 +21,7 @@
 #include "conference.h"
 extern int deliver__flag;
 
-cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
+cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 {
   pool p;
   cnu user;
@@ -75,11 +75,11 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
 
   /* bcy: initialization */
-  user->message_seq = random() % 65536;
+  user->message_seq = random() % 65536 + 1;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
-  user->last_seq = 0;
+  user->last_seq = seq - 1;
   
   // bcy: for user coming from outside
   if (external == 1)

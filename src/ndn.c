@@ -195,13 +195,16 @@ incoming_content_message(
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (user != NULL) // interest timed out, re-express it
       {
-	if (now - user->last_message > MESSAGE_FRESHNESS || user->last_seq == 0)
+	if (now - user->last_message > MESSAGE_FRESHNESS)
 	{
 	  create_message_interest(user, 0);
 	  return CCN_UPCALL_RESULT_OK;
 	}
 	else
-	  return CCN_UPCALL_RESULT_REEXPRESS;
+	{
+	  create_message_interest(user, user->last_seq + 1);
+	  return CCN_UPCALL_RESULT_OK;
+	}
       }
       else
 	return CCN_UPCALL_RESULT_OK;
@@ -421,8 +424,8 @@ incoming_content_presence(
     return CCN_UPCALL_RESULT_OK;
   }
 
-  if (j_strcmp(xmlnode_get_attrib(x, "seq_reset"), "1") == 0 && user != NULL)
-    user->last_seq = 0;
+  if (j_strcmp(xmlnode_get_attrib(x, "seq_reset"), "0") != 0 && user != NULL)
+    user->last_seq = atoi(xmlnode_get_attrib(x, "seq_reset")) - 1;
   
   // check hostname to determine whether the presence is from outside
   hostname = calloc(1, sizeof(char) * 50);
@@ -673,6 +676,7 @@ create_presence_content(cnu user, xmlnode x)
   xmlnode dup_x;
   int freshness;
   struct presence *pcontent;
+  char *str_seq;
   
   generate_presence_name(content_name, user, 0);
   if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
@@ -711,7 +715,10 @@ create_presence_content(cnu user, xmlnode x)
   hostname = calloc(1, sizeof(char) * 50);
   gethostname(hostname, 50);
   xmlnode_put_attrib(dup_x, "hostname", hostname);
-  xmlnode_put_attrib(dup_x, "seq_reset", "1");
+  str_seq = calloc(1, sizeof(char) * 20);
+  itoa(user->message_seq, str_seq);
+  xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
+  free(str_seq);
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
@@ -725,7 +732,7 @@ create_presence_content(cnu user, xmlnode x)
   {
     pcontent = (struct presence *) calloc(1, sizeof(struct presence));
     pcontent->user = user;
-    xmlnode_put_attrib(dup_x, "seq_reset", "0");
+    xmlnode_hide_attrib(dup_x, "seq_reset");
     pcontent->x = dup_x;
     g_hash_table_insert(user->room->presence, user, pcontent); // insert into presence table for local storage
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);

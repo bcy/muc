@@ -1416,7 +1416,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   return;
 }
 
-cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external)
+cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external, int seq)
 {
   cnr room;
   pool p;
@@ -1497,7 +1497,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   /* Assign owner to room */
   if(owner != NULL)
   {
-    admin = (void*)con_user_new(room, owner, name_prefix, external);
+    admin = (void*)con_user_new(room, owner, name_prefix, external, seq);
     add_roster(room, admin->realid);
 
     room->creator = jid_new(room->p, jid_full(jid_user(admin->realid)));
