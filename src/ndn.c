@@ -765,7 +765,7 @@ create_message_interest(cnu user, unsigned int seq)
   // append sequence number to the name
   interest = ccn_charbuf_create();
   ccn_name_from_uri(interest, name);
-  if (seq > 0)
+  if (seq > 1)
   {
     itoa(seq, str_seq);
     ccn_name_append_str(interest, str_seq);

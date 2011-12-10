@@ -75,7 +75,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
 
   /* bcy: initialization */
-  user->message_seq = random() % 65536 + 1;
+  user->message_seq = random() % 65536 + 2;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
@@ -478,7 +478,7 @@ void con_user_enter(cnu user, char *nick, int created)
     
     // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
     log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, jid_ns(user->realid));
-    create_message_interest(user, 0);
+    create_message_interest(user, user->last_seq + 1);
     free(name);
   }
 }
