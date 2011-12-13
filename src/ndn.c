@@ -316,7 +316,8 @@ incoming_content_presence(
   char *status;
   int l;
   time_t now, secs = 0;
-  
+  char *seq;
+
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
@@ -424,8 +425,10 @@ incoming_content_presence(
     return CCN_UPCALL_RESULT_OK;
   }
 
-  if (j_strcmp(xmlnode_get_attrib(x, "seq_reset"), "0") != 0 && user != NULL)
-    user->last_seq = atoi(xmlnode_get_attrib(x, "seq_reset")) - 1;
+  seq = xmlnode_get_attrib(x, "seq_reset");
+
+  if (seq != NULL && j_strcmp(seq, "0") != 0 && user != NULL)
+    user->last_seq = atoi(seq) - 1;
   
   // check hostname to determine whether the presence is from outside
   hostname = calloc(1, sizeof(char) * 50);
