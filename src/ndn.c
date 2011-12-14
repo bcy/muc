@@ -880,6 +880,7 @@ init_ndn_thread()
   nthread->ccn = ccn_create();
   if (nthread->ccn == NULL || ccn_connect(nthread->ccn, NULL) == -1)
   {
+    fprintf(stderr, "Faild to initialize ccn connection! Maybe ccnd has not been started?\n");
     log_error(NAME, "[%s] Failed to initialize ccn agent connection", FZONE);
     return 1;
   }
