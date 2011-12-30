@@ -23,6 +23,10 @@ if test "$libcrypto" == "no"; then
 	AC_MSG_ERROR([Could not find required libcrypto installation])
 fi
 
+#AC_ARG_WITH([ccnx], [AS_HELP_STRING([--with-ccnx],
+#	    [Where to find ccnx, defaults to /usr/local])],
+#	    [LIBS="${LIBS} -L$withval/lib -lccn", CFLAGS="${CFLAGS} -I$withval/include/ccn", libccn=yes],
+#	    [])
 AC_CHECK_LIB([ccn], [ccn_run], [], [libccn=no])
 if test "$libccn" == "no"; then
 	AC_MSG_ERROR([Could not find required libccn installation])
@@ -69,7 +73,7 @@ AC_TYPE_SIZE_T
 AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MKTIME
-AC_CHECK_FUNCS([bzero gethostbyname gethostname isascii memset mkdir modf socket strcasecmp strchr strdup strncasecmp strndup strrchr strstr uname])
+AC_CHECK_FUNCS([bzero gethostbyname gethostname isascii memset mkdir modf socket strcasecmp strchr strdup strncasecmp strncpy strrchr strstr uname])
 
 dnl define where the configuration file is located
 AC_DEFINE_DIR(CONFIG_DIR,sysconfdir,[where the configuration file can be found])

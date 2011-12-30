@@ -350,7 +350,8 @@ incoming_content_presence(
   // extract user name and insert it into exclusion_list
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&name, &size);
   element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
-  element->name = strndup(name, size);
+  element->name = calloc(1, sizeof(char) * (size + 1));
+  strncpy(element->name, name, size);
   if (list_find(room->exclusion_list, element->name) == 0)
   {
     element->timer = g_timer_new();
