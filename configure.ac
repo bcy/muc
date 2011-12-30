@@ -23,12 +23,20 @@ if test "$libcrypto" == "no"; then
 	AC_MSG_ERROR([Could not find required libcrypto installation])
 fi
 
-#AC_ARG_WITH([ccnx], [AS_HELP_STRING([--with-ccnx],
-#	    [Where to find ccnx, defaults to /usr/local])],
-#	    [LIBS="${LIBS} -L$withval/lib -lccn", CFLAGS="${CFLAGS} -I$withval/include/ccn", libccn=yes],
-#	    [])
-AC_CHECK_LIB([ccn], [ccn_run], [], [libccn=no])
-if test "$libccn" == "no"; then
+AC_ARG_WITH([ccnx], [AC_HELP_STRING([--with-ccnx=DIR],
+	    [Where to find ccnx, defaults to /usr/local])],
+	    [ccnx=$withval], [ccnx=yes])
+if test "$ccnx" != "no"; then
+	if test "$ccnx" != "yes"; then
+		LDFLAGS="${LDFLAGS} -L$ccnx/lib -lccn"
+		CFLAGS="${CFLAGS} -I$ccnx/include"
+	fi
+	AC_CHECK_HEADER(ccn/ccn.h,
+		       AC_CHECK_LIB(ccn, ccn_run,
+			    [ccnx=yes LIBS="-lccn ${LIBS}"], ccnx=no),
+			    ccnx=no)
+fi
+if test "$ccnx" == "no"; then
 	AC_MSG_ERROR([Could not find required libccn installation])
 fi
 
