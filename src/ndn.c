@@ -12,7 +12,6 @@ static struct pollfd pfds[1];
 static struct ccn_keystore *keystore;		// ccn keystore struct
 static GMutex *ccn_mutex;
 GHashTable *timer_valid;			// flags indicating if a timer is valid
-extern jcr_instance jcr;
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -179,7 +178,6 @@ incoming_content_message(
   char *pcontent = NULL;
   unsigned int seq;
   size_t len, size;
-  char *changed;
   xmlnode x;
   int now = time(NULL);
   int l;
@@ -289,12 +287,7 @@ incoming_content_message(
   
   // add external field to indicate the message comes from outside
   xmlnode_put_attrib(x, "external", "1");
-  changed = xmlnode2str(x);
-  if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0) // deliver the message to MUC
-  {
-    log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
-  }
-  xmlnode_free(x);
+  deliver(dpacket_new(x), NULL);
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -436,23 +429,17 @@ incoming_content_presence(
   gethostname(hostname, 50);
   if (j_strcmp(xmlnode_get_attrib(x, "hostname"), hostname) != 0)
   {
-    char *changed;
     // insert external field to show it's from outside and then deliver it to MUC
     xmlnode_put_attrib(x, "external", "1");
-    changed = xmlnode2str(x);
     while (room->locked == 1)
     {
       log_debug(NAME, "[%s] sleep 500ms waiting for room unlocked", FZONE);
       usleep(500000);
     }
-    if (XML_Parse(jcr->parser, changed, strlen(changed), 0) == 0)
-    {
-      log_warn(JDBG, "XML Parsing Error: '%s'", (char *)XML_ErrorString(XML_GetErrorCode(jcr->parser)));
-    }
+    deliver(dpacket_new(x), NULL);
   }
   free(status);
   free(hostname);
-  xmlnode_free(x);
   return CCN_UPCALL_RESULT_OK;
 }
 
