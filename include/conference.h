@@ -137,6 +137,21 @@ typedef struct cni_struct
 #endif
 } *cni, _cni;
 
+typedef struct cnr_plus
+{
+  GHashTable *presence;		/* bcy: storage of generated presence packets */
+  GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
+
+  /* bcy: ccn closures */
+  struct ccn_closure *in_content_presence;
+  struct ccn_closure *in_interest_presence;
+  GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
+  int local_count;		/* bcy: # of local users in the room */
+  int zapping;		/* bcy: to flag room is being zapped */
+  int startup;		/* bcy: to flag room is just startup */
+  int cleaning;		/* bcy: to flag remote users are being cleaned */
+} *cnrplus;
+
 /* conference room */
 typedef struct cnr_struct
 {
@@ -184,19 +199,22 @@ typedef struct cnr_struct
     int logformat;		/* For log format */
     GQueue *queue;		/* used to remove zombie users  */
     
-    GHashTable *presence;	/* bcy: storage of generated presence packets */
-    GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
-
-    /* bcy: ccn closures */
-    struct ccn_closure *in_content_presence;
-    struct ccn_closure *in_interest_presence;
-    
-    GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
-    int local_count;		/* bcy: # of local users in the room */
-    int zapping;		/* bcy: to flag room is being zapped */
-    int startup;		/* bcy: to flag room is just startup */
-    int cleaning;		/* bcy: to flag remote users are being cleaned */
+    cnrplus roomplus;
 } *cnr, _cnr;
+
+typedef struct cnu_plus
+{
+  char *name_prefix;	/* bcy: name prefix */
+  int message_seq;	/* bcy: message sequence number */
+  int remote;		/* bcy: remote flag */
+  char *status;		/* bcy: current status */
+  int last_presence;	/* bcy: last presence from user */
+  int last_message;	/* bcy: last message from user */
+  int last_seq;		/* bcy: last message sequence from user */
+
+  /* bcy: ccn closure */
+  struct ccn_closure *in_content_message;
+} *cnuplus;
 
 /* conference user */
 struct cnu_struct
@@ -212,16 +230,7 @@ struct cnu_struct
     int legacy;			/* To denote gc clients */
     int leaving;		/* To flag user is leaving the room */
     
-    char *name_prefix;		/* bcy: name prefix */
-    int message_seq;		/* bcy: message sequence number */
-    int remote;			/* bcy: remote flag */
-    char *status;		/* bcy: current status */
-    int last_presence;		/* bcy: last presence from user */
-    int last_message;		/* bcy: last message from user */
-    int last_seq;		/* bcy: last message sequence from user */
-    
-    /* bcy: ccn closure */
-    struct ccn_closure *in_content_message;
+    cnuplus userplus;
 };
 
 /* bcy: element struct in exclusion list */

@@ -73,30 +73,32 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   }
   
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
+  
+  user->userplus = calloc(1, sizeof(struct cnu_plus));
 
   /* bcy: initialization */
-  user->message_seq = random() % 65536 + 2;
-  user->name_prefix = strdup(name_prefix);
-  user->remote = external;
-  user->status = NULL;
-  user->last_seq = seq - 1;
+  user->userplus->message_seq = random() % 65536 + 2;
+  user->userplus->name_prefix = strdup(name_prefix);
+  user->userplus->remote = external;
+  user->userplus->status = NULL;
+  user->userplus->last_seq = seq - 1;
   
   // bcy: for user coming from outside
   if (external == 1)
   {
-    user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-    user->in_content_message->data = user;
-    user->in_content_message->p = &incoming_content_message;
+    user->userplus->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+    user->userplus->in_content_message->data = user;
+    user->userplus->in_content_message->p = &incoming_content_message;
   }
   else
-    user->in_content_message = NULL;
+    user->userplus->in_content_message = NULL;
   
   return user;
 }
 
 int _con_user_history_send(cnu to, xmlnode node)
 {
-  if(to == NULL || node == NULL || to->remote == 1)
+  if(to == NULL || node == NULL || to->userplus->remote == 1)
   {
     return 0;
   }
@@ -116,7 +118,7 @@ void _con_user_nick(gpointer key, gpointer data, gpointer arg)
   xmlnode element;
   jid fullid;
   
-  if (to->remote == 1) // bcy: only send to local users
+  if (to->userplus->remote == 1) // bcy: only send to local users
     return;
 
   /* send unavail pres w/ old nick */
@@ -270,7 +272,7 @@ void _con_user_enter(gpointer key, gpointer data, gpointer arg)
   xmlnode element;
 
   /* bcy: only send to local user */
-  if (to->remote == 1)
+  if (to->userplus->remote == 1)
     return;
   
   /* mirror */
@@ -320,8 +322,8 @@ void con_user_enter(cnu user, char *nick, int created)
   jid_set(user->localid, nick, JID_RESOURCE);
 
   room->count++;
-  if (user->remote == 0) // bcy: count local users
-    room->local_count++;
+  if (user->userplus->remote == 0) // bcy: count local users
+    room->roomplus->local_count++;
 
 #ifdef HAVE_MYSQL
   sql_update_nb_users(room->master->sql, room);
@@ -347,7 +349,7 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room MOTD */
-  if(room->description != NULL && *room->description != '\0' && user->remote == 0)
+  if(room->description != NULL && *room->description != '\0' && user->userplus->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, room->description);
     xmlnode_put_attrib(message,"from", jid_full(room->id));
@@ -355,7 +357,7 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room protocol message to legacy clients */
-  if(is_legacy(user) && user->remote == 0)
+  if(is_legacy(user) && user->userplus->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room supports the MUC protocol.", user->p));
     xmlnode_put_attrib(message,"from", jid_full(room->id));
@@ -363,7 +365,7 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room Lock warning if necessary */
-  if(room->locked > 0 && user->remote == 0)
+  if(room->locked > 0 && user->userplus->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room is locked from entry until configuration is confirmed.", user->p));
     xmlnode_put_attrib(message,"from", jid_full(room->id));
@@ -471,14 +473,14 @@ void con_user_enter(cnu user, char *nick, int created)
   if(room->visible == 1)
     con_send_alert(user, NULL, NULL, STATUS_MUC_SHOWN_JID);
   
-  if (user->remote == 1)
+  if (user->userplus->remote == 1)
   {
     char *name = calloc(1, sizeof(char) * 100);
-    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
+    g_hash_table_insert(room->roomplus->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
     
     // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
     log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, jid_ns(user->realid));
-    create_message_interest(user, user->last_seq + 1);
+    create_message_interest(user, user->userplus->last_seq + 1);
     free(name);
   }
 }
@@ -493,7 +495,7 @@ void con_user_process(cnu to, cnu from, jpacket jp)
   /* we handle all iq's for this id, it's *our* id */
   if(jp->type == JPACKET_IQ)
   {
-    if (to->remote == 1)
+    if (to->userplus->remote == 1)
       return;
 
     if(NSCHECK(jp->iq,NS_BROWSE))
@@ -534,7 +536,7 @@ void con_user_process(cnu to, cnu from, jpacket jp)
 
       xmlnode_put_attrib(node ,"seconds", str);
 
-      if (from->remote == 0)
+      if (from->userplus->remote == 0)
 	deliver(dpacket_new(jp->x), NULL);
       else
 	create_message_content(to, xmlnode2str(jp->x));
@@ -579,7 +581,7 @@ void con_user_process(cnu to, cnu from, jpacket jp)
     }
   }
 
-  if (to->remote == 0) // bcy: directly send to local users
+  if (to->userplus->remote == 0) // bcy: directly send to local users
     con_user_send(to, from, jp->x);
   else
     create_message_content(from, xmlnode2str(jp->x)); // create NDN message for remote users
@@ -592,7 +594,7 @@ void con_user_send(cnu to, cnu from, xmlnode node)
     return;
   }
   
-  if (to->remote == 1) // bcy: only send to local users
+  if (to->userplus->remote == 1) // bcy: only send to local users
     return;
 
   xmlnode_put_attrib(node, "to", jid_full(to->realid));
@@ -657,8 +659,8 @@ void con_user_zap(cnu user, xmlnode data)
     con_user_nick(user, NULL, data); /* sends unavailable */
 
     room->count--;
-    if (user->remote == 0)
-      room->local_count--;
+    if (user->userplus->remote == 0)
+      room->roomplus->local_count--;
 #ifdef HAVE_MYSQL
     sql_update_nb_users(room->master->sql, room);
 #endif
@@ -728,24 +730,24 @@ void con_user_zap(cnu user, xmlnode data)
   xmlnode_free(user->nick);
 
   // bcy: free allocated memory
-  free(user->name_prefix);
-  free(user->status);
+  free(user->userplus->name_prefix);
+  free(user->userplus->status);
   
   log_debug(NAME, "[%s] Removing presence stored in local table", FZONE);
-  g_hash_table_remove(room->presence, user);
+  g_hash_table_remove(room->roomplus->presence, user);
   
-  if (user->remote == 1)
+  if (user->userplus->remote == 1)
   {
     log_debug(NAME, "[%s] Removing from remote user list", FZONE);
-    if (room->zapping == 0 && room->cleaning == 0)
-      g_hash_table_remove(room->remote_users, jid_ns(user->realid));
-    user->in_content_message->data = NULL;
+    if (room->roomplus->zapping == 0 && room->roomplus->cleaning == 0)
+      g_hash_table_remove(room->roomplus->remote_users, jid_ns(user->realid));
+    user->userplus->in_content_message->data = NULL;
   }
   
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
   
-  if (room->local_count == 0 && room->zapping == 0)
+  if (room->roomplus->local_count == 0 && room->roomplus->zapping == 0)
   {
     if (room->persistent == 0)
     {
@@ -753,15 +755,15 @@ void con_user_zap(cnu user, xmlnode data)
       room->locked = 1;
       con_room_zap(room);
     }
-    else if (room->cleaning == 0)
+    else if (room->roomplus->cleaning == 0)
     {
-      room->cleaning = 1;
-      room->in_content_presence->data = NULL;
-      room->in_interest_presence->data = NULL;
+      room->roomplus->cleaning = 1;
+      room->roomplus->in_content_presence->data = NULL;
+      room->roomplus->in_interest_presence->data = NULL;
       set_interest_filter(room, NULL);
       log_debug(NAME, "[%s] zapping remote users", FZONE);
-      g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);
-      room->cleaning = 0;
+      g_hash_table_foreach_remove(room->roomplus->remote_users, cleanup_remote_user, NULL);
+      room->roomplus->cleaning = 0;
     }
   }
 }

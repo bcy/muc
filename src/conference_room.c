@@ -1491,8 +1491,9 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->logformat = LOG_TEXT;
   room->description = j_strdup(room->name);
   
+  room->roomplus = calloc(1, sizeof(struct cnu_plus));
   // bcy: init table for storing remote users
-  room->remote_users = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
+  room->roomplus->remote_users = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
   
   /* Assign owner to room */
   if(owner != NULL)
@@ -1523,24 +1524,24 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   sql_add_room_lists(master->sql, room);
 #endif
   
-  room->exclusion_list = g_queue_new(); // bcy: create exclusion list
+  room->roomplus->exclusion_list = g_queue_new(); // bcy: create exclusion list
   
   /*bcy: ccn_closure initialization*/
-  room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_content_presence->data = room;
-  room->in_content_presence->p = &incoming_content_presence;
+  room->roomplus->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->roomplus->in_content_presence->data = room;
+  room->roomplus->in_content_presence->p = &incoming_content_presence;
 
-  room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_interest_presence->data = room;
-  room->in_interest_presence->p = &incoming_interest_presence;
+  room->roomplus->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->roomplus->in_interest_presence->data = room;
+  room->roomplus->in_interest_presence->p = &incoming_interest_presence;
 
-  room->local_count = 0;
-  room->zapping = 0;
-  room->startup = 1;
-  room->cleaning = 0;
+  room->roomplus->local_count = 0;
+  room->roomplus->zapping = 0;
+  room->roomplus->startup = 1;
+  room->roomplus->cleaning = 0;
   
   // bcy: init tables for storing NDN packets
-  room->presence = g_hash_table_new_full(NULL, NULL, NULL, ght_remove_prs);
+  room->roomplus->presence = g_hash_table_new_full(NULL, NULL, NULL, ght_remove_prs);
     
   return room;
 }
@@ -1551,7 +1552,7 @@ void _con_room_send(gpointer key, gpointer data, gpointer arg)
   xmlnode x = (xmlnode)arg;
   xmlnode output;
   
-  if (user->remote == 1)
+  if (user->userplus->remote == 1)
     return;
 
   if(user == NULL || x == NULL) 
@@ -1573,7 +1574,7 @@ void _con_room_send_legacy(gpointer key, gpointer data, gpointer arg)
   xmlnode x = (xmlnode)arg;
   xmlnode output;
   
-  if (user->remote == 1)
+  if (user->userplus->remote == 1)
     return;
 
   if(user == NULL || x == NULL) 
@@ -1656,8 +1657,8 @@ void con_room_cleanup(cnr room)
   log_debug(NAME, "[%s] cleaning room %s", FZONE, roomid);
   
   log_debug(NAME, "[%s] zapping remote users", FZONE);
-  g_hash_table_foreach(room->remote_users, cleanup_remote_user, NULL);
-  g_hash_table_destroy(room->remote_users);
+  g_hash_table_foreach(room->roomplus->remote_users, cleanup_remote_user, NULL);
+  g_hash_table_destroy(room->roomplus->remote_users);
   
   /* Clear old hashes */
   log_debug(NAME, "[%s] zapping list remote in room %s", FZONE, roomid);
@@ -1698,7 +1699,7 @@ void con_room_cleanup(cnr room)
   xmlnode_free(room->topic);
   
   log_debug(NAME, "[%s] Clearing presence stored in room %s", FZONE, roomid);
-  g_hash_table_destroy(room->presence);
+  g_hash_table_destroy(room->roomplus->presence);
   
   log_debug(NAME, "[%s] Clearing strings and legacy messages in room %s", FZONE, roomid);
   free(room->name);
@@ -1711,16 +1712,16 @@ void con_room_cleanup(cnr room)
   free(roomid);
   
   /* bcy: free exclusion_list and destroy hash table */
-  g_queue_foreach(room->exclusion_list, &free_list, NULL);
-  g_queue_free(room->exclusion_list);
+  g_queue_foreach(room->roomplus->exclusion_list, &free_list, NULL);
+  g_queue_free(room->roomplus->exclusion_list);
   
   // bcy: stop sending interest
-  room->in_content_presence->data = NULL;
+  room->roomplus->in_content_presence->data = NULL;
   
   // bcy: stop handling incoming interest
   set_interest_filter(room, NULL);
-  room->in_interest_presence->data = NULL;
-  free(room->in_interest_presence);
+  room->roomplus->in_interest_presence->data = NULL;
+  free(room->roomplus->in_interest_presence);
   
   return;
 }
@@ -1734,7 +1735,7 @@ void con_room_zap(cnr room)
     return;
   }
   
-  room->zapping = 1;
+  room->roomplus->zapping = 1;
 
   log_debug(NAME, "[%s] cleaning up room %s", FZONE, jid_full(room->id));
 
