@@ -513,10 +513,10 @@ void _con_packets(void *arg)
             con_user_zap(u, node);
 
             xmlnode_free(jp->x);
+            */
             g_mutex_unlock(master->lock);
             
             return;
-	    */
           }
         }
       }
