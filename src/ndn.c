@@ -285,7 +285,8 @@ incoming_content_message(
 	xmlnode_free(x);
 	return CCN_UPCALL_RESULT_OK;
       }
-      g_mutex_unlock(user->room->roomplus->table_mutex);
+      else
+	g_mutex_unlock(user->room->roomplus->table_mutex);
     }
   }
   
@@ -399,6 +400,7 @@ incoming_content_presence(
   if (user != NULL && user->userplus->last_presence > secs)
   {
     xmlnode_free(x);
+    g_mutex_lock(room->roomplus->table_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
   
@@ -421,6 +423,7 @@ incoming_content_presence(
     }
     free(status);
     xmlnode_free(x);
+    g_mutex_lock(room->roomplus->table_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
 

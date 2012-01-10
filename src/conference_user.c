@@ -768,5 +768,5 @@ void con_user_zap(cnu user, xmlnode data)
       g_hash_table_foreach_remove(room->roomplus->remote_users, cleanup_remote_user, NULL);
       room->roomplus->cleaning = 0;
     }
-  }  
+  }
 }
