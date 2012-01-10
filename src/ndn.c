@@ -277,7 +277,8 @@ incoming_content_message(
     {
       char *nick = to + strlen(jid_full(user->room->id)) + 1;
       cnu u;
-      g_mutex_lock(user->room->roomplus->table_mutex);
+      while (g_mutex_trylock(user->room->roomplus->table_mutex) == FALSE)
+	fprintf(stderr, "[%s] wait for locking\n", FZONE);
       u = g_hash_table_lookup(user->room->local, nick);
       if (u == NULL || u->userplus->remote == 1) // the destination user should be local
       {
@@ -394,7 +395,8 @@ incoming_content_presence(
   tmp = strrchr(id, '/');
   if (tmp != NULL)
     *tmp = '\0';
-  g_mutex_lock(room->roomplus->table_mutex);
+  while (g_mutex_trylock(room->roomplus->table_mutex) == FALSE)
+    fprintf(stderr, "[%s] wait for locking\n", FZONE);
   user = g_hash_table_lookup(room->roomplus->remote_users, id);
   free(id);
   if (user != NULL && user->userplus->last_presence > secs)

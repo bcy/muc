@@ -651,8 +651,9 @@ void con_user_zap(cnu user, xmlnode data)
     return;
   }
   
-  g_mutex_lock(room->roomplus->table_mutex);
-
+  while (g_mutex_trylock(room->roomplus->table_mutex) == FALSE)
+    fprintf(stderr, "[%s] wait for locking\n", FZONE);
+  
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
   if(user->localid != NULL)
