@@ -141,6 +141,7 @@ typedef struct cnr_plus
 {
   GHashTable *presence;		/* bcy: storage of generated presence packets */
   GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
+  GMutex *table_mutex;
 
   /* bcy: ccn closures */
   struct ccn_closure *in_content_presence;

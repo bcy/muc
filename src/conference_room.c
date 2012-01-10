@@ -363,7 +363,7 @@ void con_room_send_invite(cnu sender, xmlnode node)
   deliver(dpacket_new(result), NULL);
   return;
 
-}    
+}
 
 void con_room_forward_decline(cnr room, jpacket jp, xmlnode decline)
 {
@@ -1525,6 +1525,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
 #endif
   
   room->roomplus->exclusion_list = g_queue_new(); // bcy: create exclusion list
+  room->roomplus->table_mutex = g_mutex_new();
   
   /*bcy: ccn_closure initialization*/
   room->roomplus->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
@@ -1715,6 +1716,8 @@ void con_room_cleanup(cnr room)
   g_queue_foreach(room->roomplus->exclusion_list, &free_list, NULL);
   g_queue_free(room->roomplus->exclusion_list);
   
+  g_mutex_free(room->roomplus->table_mutex);
+  
   // bcy: stop sending interest
   room->roomplus->in_content_presence->data = NULL;
   
@@ -1722,6 +1725,8 @@ void con_room_cleanup(cnr room)
   set_interest_filter(room, NULL);
   room->roomplus->in_interest_presence->data = NULL;
   free(room->roomplus->in_interest_presence);
+  
+  free(room->roomplus);
   
   return;
 }

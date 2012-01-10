@@ -606,7 +606,7 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
-static guint cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
+static gboolean cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
 {
   cnu user = (cnu) value;
   xmlnode node;
@@ -650,6 +650,8 @@ void con_user_zap(cnu user, xmlnode data)
     xmlnode_free(data);
     return;
   }
+  
+  g_mutex_lock(room->roomplus->table_mutex);
 
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
@@ -746,12 +748,13 @@ void con_user_zap(cnu user, xmlnode data)
   
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
+  g_mutex_unlock(room->roomplus->table_mutex);
   
   if (room->roomplus->local_count == 0 && room->roomplus->zapping == 0)
   {
     if (room->persistent == 0)
     {
-      log_debug(NAME, "[%s] No local user: Locking room %s and remove", FZONE, room->id->user);
+      log_debug(NAME, "[%s] No local user in dynamic room: Locking room %s and remove", FZONE, room->id->user);
       room->locked = 1;
       con_room_zap(room);
     }
@@ -761,9 +764,9 @@ void con_user_zap(cnu user, xmlnode data)
       room->roomplus->in_content_presence->data = NULL;
       room->roomplus->in_interest_presence->data = NULL;
       set_interest_filter(room, NULL);
-      log_debug(NAME, "[%s] zapping remote users", FZONE);
+      log_debug(NAME, "[%s] No local user in persistent room: zapping remote users", FZONE);
       g_hash_table_foreach_remove(room->roomplus->remote_users, cleanup_remote_user, NULL);
       room->roomplus->cleaning = 0;
     }
-  }
+  }  
 }

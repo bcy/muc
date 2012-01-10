@@ -993,12 +993,14 @@ void _con_beat_user(gpointer key, gpointer data, gpointer arg)
     return;
   }
 
+  /*
   if((user->localid == NULL && (t - user->last) > 120) || (user->userplus->remote == 1 && (t - user->userplus->last_presence) > 200))
   {
     log_debug(NAME, "[%s] Marking zombie", FZONE);
 
     g_queue_push_tail(user->room->queue, g_strdup(jid_full(user->realid)));
   }
+  */
 }
 
 /* callback for walking each room */
