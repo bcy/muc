@@ -472,13 +472,13 @@ void _con_packets(void *arg)
   }
   else
   {
-    if (room->persistent == 1 && room->roomplus->local_count == 0)
+    if (room->persistent == 1 && room->local_count == 0)
     {
-      room->roomplus->in_content_presence->data = room;
-      room->roomplus->in_interest_presence->data = room;
-      set_interest_filter(room, room->roomplus->in_interest_presence);
+      room->in_content_presence->data = room;
+      room->in_interest_presence->data = room;
+      set_interest_filter(room, room->in_interest_presence);
       // bcy: create presence interest for the persistent room
-      room->roomplus->startup = 1;
+      room->startup = 1;
       create_presence_interest(room);
     }
   }
@@ -571,18 +571,18 @@ void _con_packets(void *arg)
   /* bcy: record status and create presence content */
   if (jp->type == JPACKET_PRESENCE && u != NULL)
   {
-    if (u->userplus->status != NULL)
-      free(u->userplus->status);
-    u->userplus->status = calloc(1, sizeof(char) * 100);
-    u->userplus->status[0] = '\0';
-    j_strcat(u->userplus->status, xmlnode_get_attrib(jp->x, "type"));
-    if (strlen(u->userplus->status) == 0)
-      j_strcat(u->userplus->status, xmlnode_get_tag_data(jp->x, "show"));
-    if (strlen(u->userplus->status) == 0)
-      j_strcat(u->userplus->status, "available");
-    j_strcat(u->userplus->status, xmlnode_get_tag_data(jp->x, "status"));
-    u->userplus->last_presence = now;
-    if (u->userplus->remote == 0)
+    if (u->status != NULL)
+      free(u->status);
+    u->status = calloc(1, sizeof(char) * 100);
+    u->status[0] = '\0';
+    j_strcat(u->status, xmlnode_get_attrib(jp->x, "type"));
+    if (strlen(u->status) == 0)
+      j_strcat(u->status, xmlnode_get_tag_data(jp->x, "show"));
+    if (strlen(u->status) == 0)
+      j_strcat(u->status, "available");
+    j_strcat(u->status, xmlnode_get_tag_data(jp->x, "status"));
+    u->last_presence = now;
+    if (u->remote == 0)
       create_presence_content(u, jp->x);
   }
   
@@ -686,10 +686,10 @@ void _con_packets(void *arg)
     /* Room has been locked against entry */
     if(room->locked && !is_owner(room, u->realid))
     {
-      if (u->userplus->remote == 1)
+      if (u->remote == 1)
       {
-	free(u->userplus->status);
-	u->userplus->status = NULL;
+	free(u->status);
+	u->status = NULL;
 	g_mutex_unlock(master->lock);
 	return;
       }
@@ -993,7 +993,7 @@ void _con_beat_user(gpointer key, gpointer data, gpointer arg)
     return;
   }
 
-  if((user->localid == NULL && (t - user->last) > 120) || (user->userplus->remote == 1 && (t - user->userplus->last_presence) > 200))
+  if((user->localid == NULL && (t - user->last) > 120) || (user->remote == 1 && (t - user->last_presence) > 200))
   {
     log_debug(NAME, "[%s] Marking zombie", FZONE);
 
@@ -1034,7 +1034,7 @@ void _con_beat_idle(gpointer key, gpointer data, gpointer arg)
   g_queue_free(room->queue);
 
   /* Destroy timed-out dynamic room */
-  if(room->persistent == 0 && room->roomplus->local_count == 0 && (t - room->last) > 240)
+  if(room->persistent == 0 && room->local_count == 0 && (t - room->last) > 240)
   {
     log_debug(NAME, "[%s] HBTICK: Locking room and adding %s to remove queue", FZONE, (char*) key);
     room->locked = 1;

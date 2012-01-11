@@ -110,36 +110,79 @@ typedef struct mysql_struct {
 /* conference instance */
 typedef struct cni_struct
 {
-    instance i;
-    void *xdbc;
-    GHashTable *rooms;		/* Hash of all rooms available */
-    GHashTable *extbrowse;	/* Hash of external rooms to report via server browse */
-    xmlnode config; 		/* config data, mostly for public right now */
-    int public; 		/* if we're public or not */
-    int history; 		/* max history items */
-    int start; 			/* startup time */
-    char *day;			/* To keep track of log rotation information */
-    GHashTable *sadmin;		/* Server admin, able to override admin locks */
-    char *logdir;		/* Directory where to store logs */
-    char *stylesheet;		/* URL of the log stylesheet */
-    int loader;			/* Used to delay loading from xdb */
-    int roomlock;		/* Stop dynamic room creation */
-    int dynamic;		/* If dynamic is -1 then all rooms are persistent.  If dynamic is 0 then implicitly created rooms are temporary and reserved rooms are persistent.  If dynamic is 1 then all rooms are temporary.*/
-    int locknicks;		/* All rooms have locked nicknames */
-    int hideempty;		/* Empty rooms are not shown on disco/browse */
-    int shutdown;		/* Service shutting down */
-    GMutex *lock;		/* Used for hasGHashTable *locking */
-    GQueue *queue;		/* used to remove zombie rooms  */
-    int flatLogs;   /* tell if the logs must be in one dir per room or one dir per day and room */
-    int logsEnabled; /* tell if the logs are enabled */
+  instance i;
+  void *xdbc;
+  GHashTable *rooms;		/* Hash of all rooms available */
+  GHashTable *extbrowse;	/* Hash of external rooms to report via server browse */
+  xmlnode config; 		/* config data, mostly for public right now */
+  int public; 			/* if we're public or not */
+  int history; 			/* max history items */
+  int start; 			/* startup time */
+  char *day;			/* To keep track of log rotation information */
+  GHashTable *sadmin;		/* Server admin, able to override admin locks */
+  char *logdir;			/* Directory where to store logs */
+  char *stylesheet;		/* URL of the log stylesheet */
+  int loader;			/* Used to delay loading from xdb */
+  int roomlock;			/* Stop dynamic room creation */
+  int dynamic;			/* If dynamic is -1 then all rooms are persistent.  If dynamic is 0 then implicitly created rooms are temporary and reserved rooms are persistent.  If dynamic is 1 then all rooms are temporary.*/
+  int locknicks;		/* All rooms have locked nicknames */
+  int hideempty;		/* Empty rooms are not shown on disco/browse */
+  int shutdown;			/* Service shutting down */
+  GMutex *lock;			/* Used for hasGHashTable *locking */
+  GQueue *queue;		/* used to remove zombie rooms  */
+  int flatLogs; 		/* tell if the logs must be in one dir per room or one dir per day and room */
+  int logsEnabled; 		/* tell if the logs are enabled */
 #ifdef HAVE_MYSQL
-    mysql sql; /* sql struct */
+  mysql sql; /* sql struct */
 #endif
 } *cni, _cni;
 
-typedef struct cnr_plus
+/* conference room */
+typedef struct cnr_struct
 {
   pool p;
+  cni master;			/* Reference to cni struct for service */
+  jid id; 			/* room id */
+  jid creator;			/* room creator */
+  char *name; 			/* friendly name of the room */
+  char *description;		/* Short description of the room */
+  char *secret; 		/* if there's a secret */
+  GHashTable *owner; 		/* Owners of the room */
+  GHashTable *remote;		/* users associated w/ the room, key is remote jid */
+  GHashTable *local; 		/* users associated w/ the room, key is local jid */
+  GHashTable *roster;		/* room roster, key is bare remote jid */
+  GHashTable *admin;		/* users associated w/ the room, key is remote jid */
+  GHashTable *member; 		/* members invited, key is remote jid */
+  GHashTable *outcast;		/* users banned, key is remote jid */
+  GHashTable *moderator;	/* users with voice ability, key is local jid */
+  GHashTable *participant;	/* users with voice ability, key is local jid */
+  int start;			/* Time room was started */
+  int created;			/* Time room was created */
+  int last; 			/* last time there was any traffic to the room */
+  int private;			/* if private is allowed in this room */
+  int public;			/* Is this room publicly searchable */
+  int subjectlock;		/* Is changing subject locked to admins? */
+  int maxusers;			/* Maximum allowed users, 0 = unlimited */
+  int locknicks;		/* Nicknames locked to JID usernames */
+  int persistent;		/* Will this room avoid autocleanup */
+  int moderated;		/* Is this room moderated */
+  int defaulttype;		/* Do users default to members in moderated rooms? */
+  int visible;			/* Are real jid's visible to non-admins */
+  int invitation;		/* Do users require an invite to enter */
+  int invites;			/* Can users send invitations in an invitation-only room */
+  int locked;			/* Stops any users connecting - used for create+config (Creation via IQ) */
+  int privmsg;			/* Are private messages between users forbidden? */
+  int legacy;			/* Are all clients considered legacy? */
+  int count; 			/* # of users in the room */
+  int hlast; 			/* last history message */
+  int packets; 			/* total packets to this room */
+  xmlnode topic; 		/* <t i='time(NULL)' from='nick' subject='room subject'>Some Intro Text: room subject</t> */
+  cnh *history;			/* an array of history messages (vattrib cnu='') */
+  char *note_leave, *note_join, *note_rename;   	/* notices */
+  FILE *logfile; 		/* for logging of this room */
+  int logformat;		/* For log format */
+  GQueue *queue;		/* used to remove zombie users  */
+
   GHashTable *presence;		/* bcy: storage of generated presence packets */
   GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
   GMutex *table_mutex;
@@ -149,91 +192,35 @@ typedef struct cnr_plus
   struct ccn_closure *in_interest_presence;
   GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
   int local_count;		/* bcy: # of local users in the room */
-  int zapping;		/* bcy: to flag room is being zapped */
-  int startup;		/* bcy: to flag room is just startup */
-  int cleaning;		/* bcy: to flag remote users are being cleaned */
-} *cnrplus;
-
-/* conference room */
-typedef struct cnr_struct
-{
-    pool p;
-    cni master;			/* Reference to cni struct for service */
-    jid id; 			/* room id */
-    jid creator;		/* room creator */
-    char *name; 		/* friendly name of the room */
-    char *description;		/* Short description of the room */
-    char *secret; 		/* if there's a secret */
-    GHashTable *owner; 		/* Owners of the room */
-    GHashTable *remote; 	/* users associated w/ the room, key is remote jid */
-    GHashTable *local; 		/* users associated w/ the room, key is local jid */
-    GHashTable *roster;		/* room roster, key is bare remote jid */
-    GHashTable *admin; 		/* users associated w/ the room, key is remote jid */
-    GHashTable *member; 	/* members invited, key is remote jid */
-    GHashTable *outcast; 	/* users banned, key is remote jid */
-    GHashTable *moderator;	/* users with voice ability, key is local jid */
-    GHashTable *participant;	/* users with voice ability, key is local jid */
-    int start;			/* Time room was started */
-    int created;		/* Time room was created */
-    int last; 			/* last time there was any traffic to the room */
-    int private; 		/* if private is allowed in this room */
-    int public;			/* Is this room publicly searchable */
-    int subjectlock;		/* Is changing subject locked to admins? */
-    int maxusers;		/* Maximum allowed users, 0 = unlimited */
-    int locknicks;		/* Nicknames locked to JID usernames */
-    int persistent;		/* Will this room avoid autocleanup */
-    int moderated;		/* Is this room moderated */
-    int defaulttype;		/* Do users default to members in moderated rooms? */
-    int visible;		/* Are real jid's visible to non-admins */
-    int invitation;		/* Do users require an invite to enter */
-    int invites;		/* Can users send invitations in an invitation-only room */
-    int locked;			/* Stops any users connecting - used for create+config (Creation via IQ) */
-    int privmsg;		/* Are private messages between users forbidden? */
-    int legacy;			/* Are all clients considered legacy? */
-    int count; 			/* # of users in the room */
-    int hlast; 			/* last history message */
-    int packets; 		/* total packets to this room */
-    xmlnode topic; 		/* <t i='time(NULL)' from='nick' subject='room subject'>Some Intro Text: room subject</t> */
-    cnh *history;               /* an array of history messages (vattrib cnu='') */
-    char *note_leave, *note_join, *note_rename; 
-    				/* notices */
-    FILE *logfile; 		/* for logging of this room */
-    int logformat;		/* For log format */
-    GQueue *queue;		/* used to remove zombie users  */
-    
-    cnrplus roomplus;
+  int zapping;			/* bcy: to flag room is being zapped */
+  int startup;			/* bcy: to flag room is just startup */
+  int cleaning;			/* bcy: to flag remote users are being cleaned */
 } *cnr, _cnr;
-
-typedef struct cnu_plus
-{
-  pool p;
-  char *name_prefix;	/* bcy: name prefix */
-  int message_seq;	/* bcy: message sequence number */
-  int remote;		/* bcy: remote flag */
-  char *status;		/* bcy: current status */
-  int last_presence;	/* bcy: last presence from user */
-  int last_message;	/* bcy: last message from user */
-  int last_seq;		/* bcy: last message sequence from user */
-
-  /* bcy: ccn closure */
-  struct ccn_closure *in_content_message;
-} *cnuplus;
 
 /* conference user */
 struct cnu_struct
 {
-    cnr room;
-    pool p;
-    jid realid, localid;	/* remote and local jids */
-    xmlnode nick; 		/* <n>nickname</n> */
-    xmlnode presence; 		/* cached presence */
-    int last; 			/* last activity to/from user */
-    int private; 		/* private flag */
-    int packets; 		/* number of packets from this user */
-    int legacy;			/* To denote gc clients */
-    int leaving;		/* To flag user is leaving the room */
-    
-    cnuplus userplus;
+  cnr room;
+  pool p;
+  jid realid, localid;		/* remote and local jids */
+  xmlnode nick; 		/* <n>nickname</n> */
+  xmlnode presence; 		/* cached presence */
+  int last; 			/* last activity to/from user */
+  int private; 			/* private flag */
+  int packets; 			/* number of packets from this user */
+  int legacy;			/* To denote gc clients */
+  int leaving;			/* To flag user is leaving the room */
+  
+  char *name_prefix;		/* bcy: name prefix */
+  int message_seq;		/* bcy: message sequence number */
+  int remote;			/* bcy: remote flag */
+  char *status;			/* bcy: current status */
+  int last_presence;		/* bcy: last presence from user */
+  int last_message;		/* bcy: last message from user */
+  int last_seq;			/* bcy: last message sequence from user */
+
+  /* bcy: ccn closure */
+  struct ccn_closure *in_content_message;
 };
 
 /* bcy: element struct in exclusion list */

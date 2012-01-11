@@ -159,9 +159,9 @@ incoming_interest_presence(
   if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
 
-  if (g_hash_table_size(room->roomplus->presence) != 0)
+  if (g_hash_table_size(room->presence) != 0)
   {
-    g_hash_table_foreach(room->roomplus->presence, send_presence, NULL);
+    g_hash_table_foreach(room->presence, send_presence, NULL);
   }
 
   return CCN_UPCALL_RESULT_OK;
@@ -191,14 +191,14 @@ incoming_content_message(
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (user != NULL) // interest timed out, re-express it
       {
-	if (now - user->userplus->last_message > MESSAGE_FRESHNESS)
+	if (now - user->last_message > MESSAGE_FRESHNESS)
 	{
 	  create_message_interest(user, 0);
 	  return CCN_UPCALL_RESULT_OK;
 	}
 	else
 	{
-	  create_message_interest(user, user->userplus->last_seq + 1);
+	  create_message_interest(user, user->last_seq + 1);
 	  return CCN_UPCALL_RESULT_OK;
 	}
       }
@@ -238,7 +238,7 @@ incoming_content_message(
       dt = dt * 256.0 + (double)blob[i];
     dt /= 4096.0;
     secs = dt; // truncates
-    if (secs < user->userplus->last_presence)
+    if (secs < user->last_presence)
     {
       log_debug(NAME, "[%s] Too old message, ignore", FZONE);
       create_message_interest(user, 0);
@@ -249,11 +249,11 @@ incoming_content_message(
   // extract sequence number from content name, increase one and send new interest
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
   seq = atoi(seq_str);
-  if (seq == user->userplus->last_seq)
+  if (seq == user->last_seq)
     return CCN_UPCALL_RESULT_OK;
-  user->userplus->last_seq = seq;
+  user->last_seq = seq;
   user->last = now;
-  user->userplus->last_message = now;
+  user->last_message = now;
   seq++;
   if (seq == 0)
     seq = 1;
@@ -275,17 +275,17 @@ incoming_content_message(
     {
       char *nick = to + strlen(jid_full(user->room->id)) + 1;
       cnu u;
-      while (g_mutex_trylock(user->room->roomplus->table_mutex) == FALSE)
+      while (g_mutex_trylock(user->room->table_mutex) == FALSE)
 	fprintf(stderr, "[%s] wait for locking\n", FZONE);
       u = g_hash_table_lookup(user->room->local, nick);
-      if (u == NULL || u->userplus->remote == 1) // the destination user should be local
+      if (u == NULL || u->remote == 1) // the destination user should be local
       {
-	g_mutex_unlock(user->room->roomplus->table_mutex);
+	g_mutex_unlock(user->room->table_mutex);
 	xmlnode_free(x);
 	return CCN_UPCALL_RESULT_OK;
       }
       else
-	g_mutex_unlock(user->room->roomplus->table_mutex);
+	g_mutex_unlock(user->room->table_mutex);
     }
   }
   
@@ -323,7 +323,7 @@ incoming_content_presence(
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (room != NULL)
       {
-	room->roomplus->startup = 0;
+	room->startup = 0;
 	create_presence_interest(room); // interest timed out, re-express using new exclusion_list
       }
       return CCN_UPCALL_RESULT_OK;
@@ -349,10 +349,10 @@ incoming_content_presence(
   element = (struct exclusion_element *) calloc(1, sizeof(struct exclusion_element));
   element->name = calloc(1, sizeof(char) * (size + 1));
   strncpy(element->name, name, size);
-  if (list_find(room->roomplus->exclusion_list, element->name) == 0)
+  if (list_find(room->exclusion_list, element->name) == 0)
   {
     element->timer = g_timer_new();
-    g_queue_push_head(room->roomplus->exclusion_list, element);
+    g_queue_push_head(room->exclusion_list, element);
   }
   else
   {
@@ -393,14 +393,14 @@ incoming_content_presence(
   tmp = strrchr(id, '/');
   if (tmp != NULL)
     *tmp = '\0';
-  while (g_mutex_trylock(room->roomplus->table_mutex) == FALSE)
+  while (g_mutex_trylock(room->table_mutex) == FALSE)
     fprintf(stderr, "[%s] wait for locking\n", FZONE);
-  user = g_hash_table_lookup(room->roomplus->remote_users, id);
+  user = g_hash_table_lookup(room->remote_users, id);
   free(id);
-  if (user != NULL && user->userplus->last_presence > secs)
+  if (user != NULL && user->last_presence > secs)
   {
     xmlnode_free(x);
-    g_mutex_unlock(room->roomplus->table_mutex);
+    g_mutex_unlock(room->table_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
   
@@ -414,23 +414,23 @@ incoming_content_presence(
   if (strlen(status) == 0)
     j_strcat(status, "available");
   j_strcat(status, xmlnode_get_tag_data(x, "status"));
-  if ((user != NULL && j_strcmp(status, user->userplus->status) == 0) || (user == NULL && j_strcmp(status, "unavailable") == 0))
+  if ((user != NULL && j_strcmp(status, user->status) == 0) || (user == NULL && j_strcmp(status, "unavailable") == 0))
   {
     if (user != NULL)
     {
       user->last = now;
-      user->userplus->last_presence = now;
+      user->last_presence = now;
     }
     free(status);
     xmlnode_free(x);
-    g_mutex_unlock(room->roomplus->table_mutex);
+    g_mutex_unlock(room->table_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
 
   seq = xmlnode_get_attrib(x, "seq_reset");
 
   if (seq != NULL && j_strcmp(seq, "0") != 0 && user != NULL)
-    user->userplus->last_seq = atoi(seq) - 1;
+    user->last_seq = atoi(seq) - 1;
   
   // check hostname to determine whether the presence is from outside
   hostname = calloc(1, sizeof(char) * 50);
@@ -446,7 +446,7 @@ incoming_content_presence(
     }
     deliver(dpacket_new(x), NULL);
   }
-  g_mutex_unlock(room->roomplus->table_mutex);
+  g_mutex_unlock(room->table_mutex);
   free(status);
   free(hostname);
   return CCN_UPCALL_RESULT_OK;
@@ -543,7 +543,7 @@ check_delete(gpointer data, gpointer user_data)
 int
 create_presence_interest(cnr room)
 {
-  GQueue *exclusion_list = room->roomplus->exclusion_list;
+  GQueue *exclusion_list = room->exclusion_list;
   struct ccn_charbuf *interest;
   struct ccn_charbuf **excl = NULL;
   int begin, i, length;
@@ -556,7 +556,7 @@ create_presence_interest(cnr room)
   // the interest name has the form of "/ndn/broadcast/xmpp-muc/<roomID>"
   interest = ccn_charbuf_create();
   strcpy(interest_name, "/ndn/broadcast/xmpp-muc/");
-  if (room->roomplus->startup)
+  if (room->startup)
     strcat(interest_name, "startup/");
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
@@ -569,7 +569,7 @@ create_presence_interest(cnr room)
     int res;
     struct ccn_charbuf *templ = NULL;
     
-    res = ccn_express_interest(nthread->ccn, interest, room->roomplus->in_content_presence, templ);
+    res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     if (res < 0)
     {
       log_warn(NAME, "[%s] ccn_express_interest failed", FZONE);
@@ -626,7 +626,7 @@ create_presence_interest(cnr room)
     
     ccn_charbuf_append_closer(templ); // </Exclude>
     ccn_charbuf_append_closer(templ); // </Interest>
-    int res = ccn_express_interest(nthread->ccn, interest, room->roomplus->in_content_presence, templ);
+    int res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     if (res < 0)
     {
       log_warn(NAME, "[%s] ccn_express_interest failed!", FZONE);
@@ -716,7 +716,7 @@ create_presence_content(cnu user, xmlnode x)
   gethostname(hostname, 50);
   xmlnode_put_attrib(dup_x, "hostname", hostname);
   str_seq = calloc(1, sizeof(char) * 20);
-  itoa(user->userplus->message_seq, str_seq);
+  itoa(user->message_seq, str_seq);
   xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
   free(str_seq);
   data = xmlnode2str(dup_x);
@@ -734,7 +734,7 @@ create_presence_content(cnu user, xmlnode x)
     pcontent->user = user;
     xmlnode_hide_attrib(dup_x, "seq_reset");
     pcontent->x = dup_x;
-    g_hash_table_insert(user->room->roomplus->presence, user, pcontent); // insert into presence table for local storage
+    g_hash_table_insert(user->room->presence, user, pcontent); // insert into presence table for local storage
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
     g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   }
@@ -756,7 +756,7 @@ create_message_interest(cnu user, unsigned int seq)
   char *str_seq = calloc(1, sizeof(char) * 20);
   char *name = calloc(1, sizeof(char) * 100);
   
-  strcpy(name, user->userplus->name_prefix);
+  strcpy(name, user->name_prefix);
   strcat(name, "/");
   strcat(name, jid_ns(user->realid));
   strcat(name, "/");
@@ -772,7 +772,7 @@ create_message_interest(cnu user, unsigned int seq)
   }
   
   // express interest
-  res = ccn_express_interest(nthread->ccn, interest, user->userplus->in_content_message, NULL);
+  res = ccn_express_interest(nthread->ccn, interest, user->in_content_message, NULL);
   if (res < 0)
   {
     log_warn(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);
@@ -802,7 +802,7 @@ create_message_content(cnu user, char *data)
   char *seq_char = calloc(1, sizeof(char) * 20);
   
   // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
-  strcpy(content_name, user->userplus->name_prefix);
+  strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
   strcat(content_name, jid_ns(user->realid));
   strcat(content_name, "/");
@@ -810,7 +810,7 @@ create_message_content(cnu user, char *data)
   interest_filter = ccn_charbuf_create();
   ccn_name_from_uri(interest_filter, content_name);  
   strcat(content_name, "/");
-  itoa(user->userplus->message_seq, seq_char);
+  itoa(user->message_seq, seq_char);
   strcat(content_name, seq_char);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
@@ -848,7 +848,7 @@ create_message_content(cnu user, char *data)
   ccn_charbuf_append_charbuf(dup_content, content);
   
   ccn_put(nthread->ccn, content->buf, content->length);
-  user->userplus->message_seq++;
+  user->message_seq++;
   
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
