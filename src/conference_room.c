@@ -1419,7 +1419,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external, int seq)
 {
   cnr room;
-  pool p;
+  pool p, pp;
   cnu admin;
   char *key;
   time_t now = time(NULL);
@@ -1491,7 +1491,9 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->logformat = LOG_TEXT;
   room->description = j_strdup(room->name);
   
-  room->roomplus = calloc(1, sizeof(struct cnu_plus));
+  pp = pool_new();
+  room->roomplus = pmalloco(pp, sizeof(struct cnu_plus));
+  room->roomplus->p = pp;
   // bcy: init table for storing remote users
   room->roomplus->remote_users = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
   
@@ -1725,9 +1727,8 @@ void con_room_cleanup(cnr room)
   set_interest_filter(room, NULL);
   room->roomplus->in_interest_presence->data = NULL;
   free(room->roomplus->in_interest_presence);
-  
-  free(room->roomplus);
-  
+  pool_free(room->roomplus->p);
+
   return;
 }
 

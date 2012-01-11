@@ -139,6 +139,7 @@ typedef struct cni_struct
 
 typedef struct cnr_plus
 {
+  pool p;
   GHashTable *presence;		/* bcy: storage of generated presence packets */
   GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
   GMutex *table_mutex;
@@ -205,6 +206,7 @@ typedef struct cnr_struct
 
 typedef struct cnu_plus
 {
+  pool p;
   char *name_prefix;	/* bcy: name prefix */
   int message_seq;	/* bcy: message sequence number */
   int remote;		/* bcy: remote flag */

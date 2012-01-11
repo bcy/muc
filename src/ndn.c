@@ -185,8 +185,6 @@ incoming_content_message(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
-      if (user != NULL)
-	free(user);
       free(selfp);
       return CCN_UPCALL_RESULT_OK;
     

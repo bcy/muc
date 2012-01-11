@@ -23,7 +23,7 @@ extern int deliver__flag;
 
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 {
-  pool p;
+  pool p, pp;
   cnu user;
   char *key;
 
@@ -74,7 +74,9 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
   
-  user->userplus = calloc(1, sizeof(struct cnu_plus));
+  pp = pool_new();
+  user->userplus = pmalloco(pp, sizeof(struct cnu_plus));
+  user->userplus->p = pp;
 
   /* bcy: initialization */
   user->userplus->message_seq = random() % 65536 + 2;
