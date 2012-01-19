@@ -417,7 +417,8 @@ void _con_packets(void *arg)
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__GET && NSCHECK(jp->iq, NS_MUC_OWNER))
     {
       room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			  j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
 
       xdata_room_config(room,g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from))),1,jp->x);
 
@@ -429,7 +430,8 @@ void _con_packets(void *arg)
     {
       //create instant room
       room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			  j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
       //instant room are always non browsable
       room->public=0;
      
@@ -457,10 +459,12 @@ void _con_packets(void *arg)
     {
       if(master->dynamic == -1)
         room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1, 
-			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
       else
         room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+			    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
 
       /* fall through, so the presence goes to the room like normal */
       created = 1;
@@ -470,11 +474,12 @@ void _con_packets(void *arg)
   {
     if (room->persistent == 1 && room->local_count == 0)
     {
-      room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
       room->in_content_presence->data = room;
-      room->in_content_presence->p = &incoming_content_presence;
-      // bcy: create presnce interest for the persistent room
-      create_presence_interest(room, 1);
+      room->in_interest_presence->data = room;
+      set_interest_filter(room, room->in_interest_presence);
+      // bcy: create presence interest for the persistent room
+      room->startup = 1;
+      create_presence_interest(room);
     }
   }
 
@@ -508,10 +513,10 @@ void _con_packets(void *arg)
             con_user_zap(u, node);
 
             xmlnode_free(jp->x);
+            */
             g_mutex_unlock(master->lock);
             
             return;
-	    */
           }
         }
       }
@@ -559,7 +564,8 @@ void _con_packets(void *arg)
   /* sending available presence will automatically get you a generic user, if you don't have one */
   if(u == NULL && priority >= 0)
   {
-    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0));
+    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+		    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
   }
 
   /* bcy: record status and create presence content */
@@ -987,7 +993,7 @@ void _con_beat_user(gpointer key, gpointer data, gpointer arg)
     return;
   }
 
-  if((user->localid == NULL && (t - user->last) > 120) || (user->remote == 1 && (t - user->last_presence) > 600))
+  if((user->localid == NULL && (t - user->last) > 120) || (user->remote == 1 && (t - user->last_presence) > 200))
   {
     log_debug(NAME, "[%s] Marking zombie", FZONE);
 
@@ -1124,6 +1130,9 @@ void conference(instance i, xmlnode x)
   xmlnode node;
   pool tp;
   time_t now = time(NULL);
+
+  /* bcy: srand */
+  srandom(now);
 
   log_debug(NAME, "[%s] mu-conference loading  - Service ID: %s", FZONE, i->id);
   

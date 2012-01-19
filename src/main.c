@@ -23,6 +23,10 @@
 #include "jcomp.h"
 #include "lib.h"
 
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+
 void usage() {
     printf("Usage: mu-conference [-B] [-s] [-h] [-d LEVEL] -c FILE\n");
     printf("          -B         Put the daemon in background\n");
@@ -81,9 +85,12 @@ int main(int argc, char *argv[]) {
 
   /* The configuration file must be specified, and there is no default */
   if (config_file == NULL) {
+  /*
     fprintf(stderr, "%s: Configuration file not specified, exiting.\n", JDBG);
     usage();
     return 1;
+  */
+    config_file = CONFIG_DIR "/muc.xml";
   }
 
   /* Parse the XML in the config file -- store it as a node */

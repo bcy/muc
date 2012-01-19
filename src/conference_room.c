@@ -363,7 +363,7 @@ void con_room_send_invite(cnu sender, xmlnode node)
   deliver(dpacket_new(result), NULL);
   return;
 
-}    
+}
 
 void con_room_forward_decline(cnr room, jpacket jp, xmlnode decline)
 {
@@ -1416,7 +1416,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   return;
 }
 
-cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external)
+cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external, int seq)
 {
   cnr room;
   pool p;
@@ -1490,14 +1490,14 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->logfile = NULL;
   room->logformat = LOG_TEXT;
   room->description = j_strdup(room->name);
-  
+
   // bcy: init table for storing remote users
   room->remote_users = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
   
   /* Assign owner to room */
   if(owner != NULL)
   {
-    admin = (void*)con_user_new(room, owner, name_prefix, external);
+    admin = (void*)con_user_new(room, owner, name_prefix, external, seq);
     add_roster(room, admin->realid);
 
     room->creator = jid_new(room->p, jid_full(jid_user(admin->realid)));
@@ -1524,27 +1524,25 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
 #endif
   
   room->exclusion_list = g_queue_new(); // bcy: create exclusion list
+  room->table_mutex = g_mutex_new();
   
   /*bcy: ccn_closure initialization*/
   room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_presence->data = room;
   room->in_content_presence->p = &incoming_content_presence;
-  room->in_interest_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_interest_message->data = room;
-  room->in_interest_message->p = &incoming_interest_message;
+
+  room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_interest_presence->data = room;
+  room->in_interest_presence->p = &incoming_interest_presence;
 
   room->local_count = 0;
   room->zapping = 0;
-  room->stale = 1;
+  room->startup = 1;
+  room->cleaning = 0;
   
   // bcy: init tables for storing NDN packets
-  room->presence = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_prs);
-  room->message = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
-  room->message_latest = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, ght_remove_pkt);
-  
-  // bcy: create presnce interest for the persistent room
-  // create_presence_interest(room, 1);
-  
+  room->presence = g_hash_table_new_full(NULL, NULL, NULL, ght_remove_prs);
+    
   return room;
 }
 
@@ -1702,10 +1700,6 @@ void con_room_cleanup(cnr room)
   
   log_debug(NAME, "[%s] Clearing presence stored in room %s", FZONE, roomid);
   g_hash_table_destroy(room->presence);
-
-  log_debug(NAME, "[%s] Clearing messages stored in room %s", FZONE, roomid);
-  g_hash_table_destroy(room->message);
-  g_hash_table_destroy(room->message_latest);
   
   log_debug(NAME, "[%s] Clearing strings and legacy messages in room %s", FZONE, roomid);
   free(room->name);
@@ -1721,24 +1715,23 @@ void con_room_cleanup(cnr room)
   g_queue_foreach(room->exclusion_list, &free_list, NULL);
   g_queue_free(room->exclusion_list);
   
+  g_mutex_free(room->table_mutex);
+  
   // bcy: stop sending interest
   room->in_content_presence->data = NULL;
-  room->in_interest_message->data = NULL;
   
-  /*
-  room->in_interest_message->p = NULL;
-  room->in_content_presence->p = NULL;
-  free(room->in_interest_message);
-  free(room->in_content_presence);
-  */
-  
+  // bcy: stop handling incoming interest
+  set_interest_filter(room, NULL);
+  room->in_interest_presence->data = NULL;
+  free(room->in_interest_presence);
+
   return;
 }
 
 /* Zap room entry */
 void con_room_zap(cnr room)
 {
-  if(room == NULL) 
+  if(room == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL room attribute found", FZONE);
     return;

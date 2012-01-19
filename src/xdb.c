@@ -357,8 +357,10 @@ void xdb_rooms_get(cni master)
         continue;
       }
 
-      room = con_room_new(master, jidroom, NULL, xmlnode_get_tag_data(result,"name"), xmlnode_get_tag_data(result, "secret"), j_atoi(xmlnode_get_tag_data(result, "private"), 0), 0, 
-			  xmlnode_get_tag_data(result, "name_prefix"), j_atoi(xmlnode_get_tag_data(result, "external"), 0));
+      room = con_room_new(master, jidroom, NULL, xmlnode_get_tag_data(result,"name"), 
+		      xmlnode_get_tag_data(result, "secret"), j_atoi(xmlnode_get_tag_data(result, "private"), 0), 0, 
+		      xmlnode_get_tag_data(result, "name_prefix"), j_atoi(xmlnode_get_tag_data(result, "external"), 0),
+		      j_atoi(xmlnode_get_attrib(result, "seq_reset"), 1));
 
       room->subjectlock = j_atoi(xmlnode_get_tag_data(result, "subjectlock"), 0);
       room->maxusers = j_atoi(xmlnode_get_tag_data(result, "maxusers"), 30);

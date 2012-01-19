@@ -21,7 +21,7 @@
 #include "conference.h"
 extern int deliver__flag;
 
-cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
+cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 {
   pool p;
   cnu user;
@@ -75,10 +75,11 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external)
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
 
   /* bcy: initialization */
-  user->message_seq = 1;
+  user->message_seq = random() % 65536 + 2;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
+  user->last_seq = seq - 1;
   
   // bcy: for user coming from outside
   if (external == 1)
@@ -476,13 +477,8 @@ void con_user_enter(cnu user, char *nick, int created)
     g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
     
     // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
-    strcpy(name, user->name_prefix);
-    strcat(name, "/");
-    strcat(name, jid_ns(user->realid));
-    strcat(name, "/");
-    strcat(name, user->room->id->user);
-    log_debug(NAME, "[%s] Creating message interest %s", FZONE, name);
-    create_message_interest(user, name, -1);
+    log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, jid_ns(user->realid));
+    create_message_interest(user, user->last_seq + 1);
     free(name);
   }
 }
@@ -608,13 +604,16 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
-void remove_presence(GHashTable *table, cnu user)
+static gboolean cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
 {
-  char *name = calloc(1, sizeof(char) * 100);
+  cnu user = (cnu) value;
+  xmlnode node;
   
-  generate_presence_name(name, user);
-  g_hash_table_remove(table, name);
-  free(name);
+  node = xmlnode_new_tag("reason");
+  xmlnode_insert_cdata(node, "Local persistent room closed, clearing remote users", -1);
+  con_user_zap(user, node);
+
+  return TRUE;
 }
 
 void con_user_zap(cnu user, xmlnode data)
@@ -649,7 +648,10 @@ void con_user_zap(cnu user, xmlnode data)
     xmlnode_free(data);
     return;
   }
-
+  
+  while (g_mutex_trylock(room->table_mutex) == FALSE)
+    fprintf(stderr, "[%s] wait for locking\n", FZONE);
+  
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
   if(user->localid != NULL)
@@ -733,30 +735,37 @@ void con_user_zap(cnu user, xmlnode data)
   free(user->status);
   
   log_debug(NAME, "[%s] Removing presence stored in local table", FZONE);
-  remove_presence(room->presence, user);
+  g_hash_table_remove(room->presence, user);
   
   if (user->remote == 1)
   {
     log_debug(NAME, "[%s] Removing from remote user list", FZONE);
-    if (room->zapping == 0)
+    if (room->zapping == 0 && room->cleaning == 0)
       g_hash_table_remove(room->remote_users, jid_ns(user->realid));
     user->in_content_message->data = NULL;
   }
   
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
+  g_mutex_unlock(room->table_mutex);
   
   if (room->local_count == 0 && room->zapping == 0)
   {
     if (room->persistent == 0)
     {
-      log_debug(NAME, "[%s] No local user: Locking room %s and remove", FZONE, room->id->user);
+      log_debug(NAME, "[%s] No local user in dynamic room: Locking room %s and remove", FZONE, room->id->user);
       room->locked = 1;
       con_room_zap(room);
     }
-    else
+    else if (room->cleaning == 0)
     {
+      room->cleaning = 1;
       room->in_content_presence->data = NULL;
+      room->in_interest_presence->data = NULL;
+      set_interest_filter(room, NULL);
+      log_debug(NAME, "[%s] No local user in persistent room: zapping remote users", FZONE);
+      g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);
+      room->cleaning = 0;
     }
   }
 }
