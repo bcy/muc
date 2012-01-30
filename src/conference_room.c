@@ -50,8 +50,6 @@ char * _con_room_xhtml_strescape(pool p, char * buf) {
   return temp;
 }
 
-
-
 /* Handles logging for each room, simply returning if logfile is not defined */
 void con_room_log(cnr room, char *nick, char *message)
 {
@@ -1100,11 +1098,11 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     }
 
     if(jp->subtype != JPACKET__GROUPCHAT)
-    {                                   
-      jutil_error(jp->x, TERROR_BAD);                                    
-      deliver(dpacket_new(jp->x), NULL);                                 
-      return;                            
-    }                                                                     
+    {
+      jutil_error(jp->x, TERROR_BAD);
+      deliver(dpacket_new(jp->x), NULL);
+      return;
+    }
 
     /* ensure type="groupchat" */
     xmlnode_put_attrib(jp->x,"type","groupchat");
@@ -1534,6 +1532,10 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_presence->data = room;
   room->in_interest_presence->p = &incoming_interest_presence;
+  
+  room->in_content_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_content_history->data = room;
+  room->in_content_history->p = &incoming_interest_history;
 
   room->local_count = 0;
   room->zapping = 0;

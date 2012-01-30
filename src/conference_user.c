@@ -87,9 +87,22 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     user->in_content_message->data = user;
     user->in_content_message->p = &incoming_content_message;
+    user->in_interest_history = NULL;
+    
+    if (room->startup == 1 && g_hash_table_size(room->remote_users) == 0)
+    {
+      int i;
+      for (i = 1; i < 10; i++)
+	create_history_interest(user, i);
+    }
   }
   else
+  {
     user->in_content_message = NULL;
+    user->in_interest_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+    user->in_interest_history->data = user;
+    user->in_interest_history->p = &incoming_interest_history;
+  }
   
   return user;
 }
@@ -744,6 +757,8 @@ void con_user_zap(cnu user, xmlnode data)
       g_hash_table_remove(room->remote_users, jid_ns(user->realid));
     user->in_content_message->data = NULL;
   }
+  else
+    user->in_interest_history->data = NULL;
   
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
@@ -762,6 +777,7 @@ void con_user_zap(cnu user, xmlnode data)
       room->cleaning = 1;
       room->in_content_presence->data = NULL;
       room->in_interest_presence->data = NULL;
+      room->in_content_history->data = NULL;
       set_interest_filter(room, NULL);
       log_debug(NAME, "[%s] No local user in persistent room: zapping remote users", FZONE);
       g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);

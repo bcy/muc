@@ -3,6 +3,7 @@
 
 #define PRESENCE_FRESHNESS 2
 #define MESSAGE_FRESHNESS 10
+#define HISTORY_FRESHNESS 5
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 1
 #define SEND_PRESENCE_INTERVAL 60
@@ -452,6 +453,114 @@ incoming_content_presence(
   return CCN_UPCALL_RESULT_OK;
 }
 
+enum ccn_upcall_res
+incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info)
+{
+  cnr room = (cnr) selfp->data;
+  int hi, seq;
+  char *msg;
+  
+  switch (kind)
+  {
+    case CCN_UPCALL_FINAL:
+      free(selfp);
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_INTEREST:
+      break;
+      
+    default:
+      return CCN_UPCALL_RESULT_OK;
+  }
+  
+  if (room == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
+  hi = room->hlast;
+  msg = calloc(1, sizeof(char) * 1100);
+  seq = 0;
+  while (1)
+  {
+    hi++;
+    if (hi > room->master->history)
+      hi = 0;
+    if (hi == room->hlast)
+      break;
+    
+    if (room->history[hi] == NULL)
+      continue;
+    
+    if (strlen(msg) + room->history[hi]->content_length < 1000)
+    {
+      if (strlen(msg) != 0)
+	strcat(msg, "||");
+      strcat(msg, xmlnode2str(room->history[hi]->x));
+      continue;
+    }
+    else
+    {
+      int i;
+      char *name = calloc(1, sizeof(char) * 100);
+      for (i = 0; i < info->interest_comps->n - 1; i++)
+      {
+	char *comp;
+	int size;
+	
+	ccn_name_comp_get(info->interest_ccnb, info->interest_comps, i, (const unsigned char **)&comp, &size);
+	strncat(name, comp, size);	
+      }
+      create_history_content(name, msg, seq);
+      free(name);
+      seq++;
+      msg[0] = '\0';
+    }
+  }
+  
+  free(msg);
+  return CCN_UPCALL_RESULT_OK;
+}
+
+enum ccn_upcall_res
+incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info)
+{
+  cnu user = (cnu) selfp->data;
+  char *pcontent, *start;
+  int len;
+  
+  switch (kind)
+  {
+    case CCN_UPCALL_FINAL:
+      free(selfp);
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_INTEREST_TIMED_OUT:
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_CONTENT:
+      break;
+      
+    default:
+      return CCN_UPCALL_RESULT_OK;
+  }
+  
+  if (user == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
+  start = pcontent;
+  while (start - pcontent < len)
+  {
+    char *end = strstr(start, "||");
+    xmlnode x;
+
+    x = xmlnode_str(pcontent, end - pcontent);
+    deliver(dpacket_new(x), NULL);
+    
+    start = end + 2;
+  }
+
+}
+
 void
 set_interest_filter(cnr room, struct ccn_closure *in_interest)
 {
@@ -465,6 +574,27 @@ set_interest_filter(cnr room, struct ccn_closure *in_interest)
 
   ccn_set_interest_filter(nthread->ccn, interest, in_interest);
 
+  free(interest_name);
+  ccn_charbuf_destroy(&interest);
+}
+
+void
+set_history_interest_filter(cnu user, struct ccn_closure *in_interest)
+{
+  struct ccn_charbuf *interest;
+  char *interest_name = calloc(1, sizeof(char) * 100);
+  
+  interest = ccn_charbuf_create();
+  strcpy(interest_name, user->name_prefix);
+  strcat(interest_name, "/");
+  strcat(interest_name, jid_ns(user->realid));
+  strcat(interest_name, "/");
+  strcat(interest_name, user->room->id->user);
+  strcat(interest_name, "/history");
+  ccn_name_from_uri(interest, interest_name);
+  
+  ccn_set_interest_filter(nthread->ccn, interest, in_interest);
+  
   free(interest_name);
   ccn_charbuf_destroy(&interest);
 }
@@ -793,10 +923,9 @@ int
 create_message_content(cnu user, char *data)
 {
   struct ccn_charbuf *pname;
-  struct ccn_charbuf *interest_filter;
   struct ccn_charbuf *signed_info;
   struct ccn_charbuf *keylocator;
-  struct ccn_charbuf *content, *dup_content;
+  struct ccn_charbuf *content;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
   char *seq_char = calloc(1, sizeof(char) * 20);
@@ -807,8 +936,6 @@ create_message_content(cnu user, char *data)
   strcat(content_name, jid_ns(user->realid));
   strcat(content_name, "/");
   strcat(content_name, user->room->id->user);
-  interest_filter = ccn_charbuf_create();
-  ccn_name_from_uri(interest_filter, content_name);  
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);
   strcat(content_name, seq_char);
@@ -833,7 +960,6 @@ create_message_content(cnu user, char *data)
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&pname);
-    ccn_charbuf_destroy(&interest_filter);
     return 1;
   }
   
@@ -842,18 +968,111 @@ create_message_content(cnu user, char *data)
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
-  
-  dup_content = ccn_charbuf_create();
-  ccn_charbuf_reset(dup_content);
-  ccn_charbuf_append_charbuf(dup_content, content);
-  
+    
   ccn_put(nthread->ccn, content->buf, content->length);
   user->message_seq++;
   
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
-  ccn_charbuf_destroy(&interest_filter);
+  free(seq_char);
+  return 0;
+}
+
+/* create interest for history */
+int
+create_history_interest(cnu user, unsigned int seq)
+{
+  struct ccn_charbuf *interest;
+  int res;
+  char *str_seq = calloc(1, sizeof(char) * 20);
+  char *name = calloc(1, sizeof(char) * 100);
+  
+  strcpy(name, user->name_prefix);
+  strcat(name, "/");
+  strcat(name, jid_ns(user->realid));
+  strcat(name, "/");
+  strcat(name, user->room->id->user);
+  strcat(name, "/history/");
+  
+  // append sequence number to the name
+  interest = ccn_charbuf_create();
+  ccn_name_from_uri(interest, name);
+  if (seq >= 1)
+  {
+    itoa(seq, str_seq);
+    ccn_name_append_str(interest, str_seq);
+  }
+  
+  // express interest
+  res = ccn_express_interest(nthread->ccn, interest, user->room->in_content_history, NULL);
+  if (res < 0)
+  {
+    log_warn(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);
+    free(name);
+    free(str_seq);
+    ccn_charbuf_destroy(&interest);
+    return 1;
+  }
+  
+  free(name);
+  free(str_seq);
+  ccn_charbuf_destroy(&interest);
+  return 0;
+}
+
+/* create content for history */
+int
+create_history_content(char *name, char *data, unsigned int seq)
+{
+  struct ccn_charbuf *pname;
+  struct ccn_charbuf *signed_info;
+  struct ccn_charbuf *keylocator;
+  struct ccn_charbuf *content;
+  int res;
+  char *content_name = calloc(1, sizeof(char) * 100);
+  char *seq_char = calloc(1, sizeof(char) * 20);
+  
+  // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
+  strcpy(content_name, name);
+  strcat(content_name, "/");
+  itoa(seq, seq_char);
+  strcat(content_name, seq_char);
+  pname = ccn_charbuf_create();
+  ccn_name_from_uri(pname, content_name);
+  
+  // create keylocator and signed_info for content
+  keylocator = ccn_charbuf_create();
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
+  signed_info = ccn_charbuf_create();
+  res = ccn_signed_info_create(signed_info,
+		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+		/*datetime*/ NULL,
+		/*type*/ CCN_CONTENT_DATA,
+		/*freshness*/ HISTORY_FRESHNESS,
+		/*finalblockid*/ NULL,
+		/*keylocator*/ keylocator);
+  if (res < 0)
+  {
+    log_warn(NAME, "[%s] failed to create signed_info (res == %d)", FZONE, res);
+    ccn_charbuf_destroy(&keylocator);
+    ccn_charbuf_destroy(&signed_info);
+    ccn_charbuf_destroy(&pname);
+    return 1;
+  }
+  
+  // encode content packet
+  content = ccn_charbuf_create();
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data), 
+			NULL, ccn_keystore_private_key(keystore));
+    
+  ccn_put(nthread->ccn, content->buf, content->length);
+  
+  ccn_charbuf_destroy(&keylocator);
+  ccn_charbuf_destroy(&signed_info);
+  ccn_charbuf_destroy(&pname);
   free(seq_char);
   return 0;
 }
