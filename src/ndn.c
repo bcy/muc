@@ -69,7 +69,7 @@ generate_presence_name(char *name, cnu user, int startup)
   // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   strcpy(name, "/ndn/broadcast/xmpp-muc/");
   if (startup)
-    strcat(name, "startup/");
+    strcat(name, "%C1.M.startup/");
   strcat(name, user->room->id->user);
   strcat(name, "/");
   strcat(name, jid_ns(user->realid));
@@ -175,7 +175,7 @@ incoming_content_message(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  char *seq_str;
+  char *seq_str, *temp;
   char *pcontent = NULL;
   unsigned int seq;
   size_t len, size;
@@ -219,7 +219,11 @@ incoming_content_message(
   
   if (user == NULL) // user has been zapped
     return CCN_UPCALL_RESULT_OK;
-    
+
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 3, (const unsigned char **)&temp, &size);
+  if (j_strcmp(temp, "%C1.M.history") == 0)
+    return CCN_UPCALL_RESULT_OK;
+  
   /* Timestamp checking */ 
   l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
   if (l > 0)
@@ -577,7 +581,7 @@ set_interest_filter(cnr room, struct ccn_closure *in_interest)
   char *interest_name = calloc(1, sizeof(char) * 100);
 
   interest = ccn_charbuf_create();
-  strcpy(interest_name, "/ndn/broadcast/xmpp-muc/startup/");
+  strcpy(interest_name, "/ndn/broadcast/xmpp-muc/%M.C1.startup/");
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
 
@@ -599,7 +603,7 @@ set_history_interest_filter(cnu user, struct ccn_closure *in_interest)
   strcat(interest_name, jid_ns(user->realid));
   strcat(interest_name, "/");
   strcat(interest_name, user->room->id->user);
-  strcat(interest_name, "/history");
+  strcat(interest_name, "/%C1.M.history");
   ccn_name_from_uri(interest, interest_name);
   
   ccn_set_interest_filter(nthread->ccn, interest, in_interest);
@@ -696,7 +700,7 @@ create_presence_interest(cnr room)
   interest = ccn_charbuf_create();
   strcpy(interest_name, "/ndn/broadcast/xmpp-muc/");
   if (room->startup)
-    strcat(interest_name, "startup/");
+    strcat(interest_name, "%C1.M.startup/");
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
   free(interest_name);
@@ -1002,7 +1006,7 @@ create_history_interest(cnu user, unsigned int seq)
   strcat(name, jid_ns(user->realid));
   strcat(name, "/");
   strcat(name, user->room->id->user);
-  strcat(name, "/history/");
+  strcat(name, "/%C1.M.history/");
   
   // append sequence number to the name
   interest = ccn_charbuf_create();
