@@ -456,9 +456,10 @@ incoming_content_presence(
 enum ccn_upcall_res
 incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info)
 {
-  cnr room = (cnr) selfp->data;
-  int hi, seq;
-  char *msg;
+  cnu user = (cnu) selfp->data;
+  cnr room = user->room;
+  int hi, seq, i;
+  char *msg, *name;
   
   switch (kind)
   {
@@ -476,11 +477,24 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
   if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
   
+  seq = 0;
+  name = calloc(1, sizeof(char) * 100);
+  for (i = 0; i < info->interest_comps->n - 1; i++)
+  {
+    char *comp;
+    size_t size;
+    
+    ccn_name_comp_get(info->interest_ccnb, info->interest_comps, i, (const unsigned char **)&comp, &size);
+    strcat(name, "/");
+    strncat(name, comp, size);
+  }
+  
   hi = room->hlast;
   msg = calloc(1, sizeof(char) * 1100);
-  seq = 0;
   while (1)
   {
+    char *temp;
+    
     hi++;
     if (hi > room->master->history)
       hi = 0;
@@ -490,33 +504,24 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
     if (room->history[hi] == NULL)
       continue;
     
-    if (strlen(msg) + room->history[hi]->content_length < 1000)
+    temp = xmlnode2str(room->history[hi]->x);
+    if (strlen(msg) + strlen(temp) < 1000)
     {
       if (strlen(msg) != 0)
 	strcat(msg, "||");
-      strcat(msg, xmlnode2str(room->history[hi]->x));
+      strcat(msg, temp);
       continue;
     }
     else
     {
-      int i;
-      char *name = calloc(1, sizeof(char) * 100);
-      for (i = 0; i < info->interest_comps->n - 1; i++)
-      {
-	char *comp;
-	size_t size;
-	
-	ccn_name_comp_get(info->interest_ccnb, info->interest_comps, i, (const unsigned char **)&comp, &size);
-	strncat(name, comp, size);	
-      }
       create_history_content(name, msg, seq);
-      free(name);
       seq++;
       msg[0] = '\0';
     }
   }
   
   free(msg);
+  free(name);
   return CCN_UPCALL_RESULT_OK;
 }
 
