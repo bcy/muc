@@ -1150,7 +1150,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       hist = pmalloco(hist_p, sizeof(_cnh));
       hist->p = hist_p;
       hist->x = node;
-      hist->content_length = j_strlen(xmlnode_get_tag_data(node,"body"));
+      hist->content_length = j_strlen(xmlnode_get_tag_data(node, "body"));
       hist->timestamp = time(NULL);
 
       if(++room->hlast == room->master->history)
@@ -1544,7 +1544,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   
   // bcy: init tables for storing NDN packets
   room->presence = g_hash_table_new_full(NULL, NULL, NULL, ght_remove_prs);
-    
+  
   return room;
 }
 

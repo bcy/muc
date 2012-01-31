@@ -334,7 +334,10 @@ void con_user_enter(cnu user, char *nick, int created)
 
   room->count++;
   if (user->remote == 0) // bcy: count local users
+  {
     room->local_count++;
+    set_history_interest_filter(user, user->in_interest_history);
+  }
 
 #ifdef HAVE_MYSQL
   sql_update_nb_users(room->master->sql, room);
@@ -411,7 +414,7 @@ void con_user_enter(cnu user, char *nick, int created)
     if (max_stanzas > room->master->history)
       max_stanzas = room->master->history;
 
-    if (max_chars>0) {
+    if (max_chars > 0) {
       /* loop (backwards) through history to get num of stanzas to reach num_chars */
       h = (room->hlast + room->master->history - max_stanzas) % room->master->history;
       while(1) {
@@ -421,7 +424,7 @@ void con_user_enter(cnu user, char *nick, int created)
           max_chars_stanzas++;
         else
           break;
-        if (h==0)
+        if (h == 0)
           h = room->master->history;
         h--;
         if (h == room->hlast)
@@ -438,7 +441,7 @@ void con_user_enter(cnu user, char *nick, int created)
     h = (room->hlast + room->master->history - max_stanzas) % room->master->history;
     while(1)
     {
-      log_debug(NAME, "h: %i",h);
+      log_debug(NAME, "h: %i", h);
       if (num_stanzas >= max_stanzas)
         break;
 
@@ -743,10 +746,7 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Un-alloc nick xmlnode", FZONE);
   xmlnode_free(user->nick);
 
-  // bcy: free allocated memory
-  free(user->name_prefix);
-  free(user->status);
-  
+  // bcy: remove stored presences
   log_debug(NAME, "[%s] Removing presence stored in local table", FZONE);
   g_hash_table_remove(room->presence, user);
   
@@ -758,7 +758,14 @@ void con_user_zap(cnu user, xmlnode data)
     user->in_content_message->data = NULL;
   }
   else
+  {
+    set_history_interest_filter(user, NULL);
     user->in_interest_history->data = NULL;
+  }
+  
+  // bcy: free allocated memory
+  free(user->name_prefix);
+  free(user->status);
   
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));

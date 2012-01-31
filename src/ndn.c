@@ -504,7 +504,7 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
       for (i = 0; i < info->interest_comps->n - 1; i++)
       {
 	char *comp;
-	int size;
+	size_t size;
 	
 	ccn_name_comp_get(info->interest_ccnb, info->interest_comps, i, (const unsigned char **)&comp, &size);
 	strncat(name, comp, size);	
@@ -525,7 +525,7 @@ incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, s
 {
   cnu user = (cnu) selfp->data;
   char *pcontent, *start;
-  int len;
+  size_t len;
   
   switch (kind)
   {
@@ -558,7 +558,6 @@ incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, s
     
     start = end + 2;
   }
-
 }
 
 void
