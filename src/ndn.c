@@ -457,14 +457,13 @@ enum ccn_upcall_res
 incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  cnr room = user->room;
+  cnr room;
   int hi, seq, i;
   char *msg, *name;
   
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
-      free(selfp);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST:
@@ -474,12 +473,14 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
       return CCN_UPCALL_RESULT_OK;
   }
   
-  if (room == NULL)
+  if (user == NULL)
     return CCN_UPCALL_RESULT_OK;
   
-  seq = 0;
+  room = user->room;
+  seq = 1;
+  
   name = calloc(1, sizeof(char) * 100);
-  for (i = 0; i < info->interest_comps->n - 1; i++)
+  for (i = 0; i < info->interest_comps->n - 2; i++)
   {
     char *comp;
     size_t size;
@@ -498,8 +499,6 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
     hi++;
     if (hi > room->master->history)
       hi = 0;
-    if (hi == room->hlast)
-      break;
     
     if (room->history[hi] == NULL)
       continue;
@@ -510,7 +509,6 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
       if (strlen(msg) != 0)
 	strcat(msg, "||");
       strcat(msg, temp);
-      continue;
     }
     else
     {
@@ -518,7 +516,13 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
       seq++;
       msg[0] = '\0';
     }
+    
+    if (hi == room->hlast)
+      break;
   }
+  
+  if (strlen(msg) != 0)
+    create_history_content(name, msg, seq);
   
   free(msg);
   free(name);
@@ -559,6 +563,7 @@ incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, s
     xmlnode x;
 
     x = xmlnode_str(pcontent, end - pcontent);
+    xmlnode_put_attrib(x, "to", jid_full(user->realid));
     deliver(dpacket_new(x), NULL);
     
     start = end + 2;
@@ -1009,7 +1014,7 @@ create_history_interest(cnu user, unsigned int seq)
   }
   
   // express interest
-  res = ccn_express_interest(nthread->ccn, interest, user->room->in_content_history, NULL);
+  res = ccn_express_interest(nthread->ccn, interest, user->in_content_history, NULL);
   if (res < 0)
   {
     log_warn(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);

@@ -190,7 +190,6 @@ typedef struct cnr_struct
   /* bcy: ccn closures */
   struct ccn_closure *in_content_presence;
   struct ccn_closure *in_interest_presence;
-  struct ccn_closure *in_content_history;
   GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
   int local_count;		/* bcy: # of local users in the room */
   int zapping;			/* bcy: to flag room is being zapped */
@@ -222,6 +221,7 @@ struct cnu_struct
 
   /* bcy: ccn closure */
   struct ccn_closure *in_content_message;
+  struct ccn_closure *in_content_history;
   struct ccn_closure *in_interest_history;
 };
 
