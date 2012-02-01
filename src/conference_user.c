@@ -95,7 +95,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
       for (i = 1; i <= user->room->master->history; i++)
 	create_history_interest(user, i);
       sleep(2);
-      deliver_history();
+      deliver_history(user->room);
     }
   }
   else

@@ -556,14 +556,27 @@ compare_history(gconstpointer a, gconstpointer b)
   return ha->seq - hb->seq;
 }
 
+static void
+do_delivery(gpointer key, gpointer value, gpointer user_data)
+{
+  cnu user = (cnu) value;
+  xmlnode x = (xmlnode) user_data;
+  
+  if (user->remote == 0)
+  {
+    xmlnode_put_attrib(x, "to", jid_full(user->realid));
+    deliver(dpacket_new(x), NULL);
+  }
+}
+
 void
-deliver_history()
+deliver_history(cnr room)
 {
   GList *l = g_list_sort(hlist, compare_history);
   while (l != NULL)
   {
     struct history *h = l->data;
-    deliver(dpacket_new(h->x), NULL);
+    g_hash_table_foreach(room->remote, do_delivery, h->x);
     l = g_list_next(l);
   }
 }
