@@ -1776,6 +1776,7 @@ void con_room_history_clear(cnr room)
         log_debug(NAME, "[%s] Clearing history entry %d", FZONE, h);
         xmlnode_free(room->history[h]->x);
         pool_free(room->history[h]->p);
+        room->history[h] = NULL;
       }
       else
       {
