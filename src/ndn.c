@@ -1047,7 +1047,7 @@ create_history_content(cnu user, char *data, unsigned int seq)
   strcat(content_name, jid_ns(user->realid));
   strcat(content_name, "/");
   strcat(content_name, user->room->id->user);
-  strcat(content_name, "/%C1.M.history/");
+  strcat(content_name, "/\xC1.M.history/");
   itoa(seq, seq_char);
   strcat(content_name, seq_char);
   pname = ccn_charbuf_create();
@@ -1115,7 +1115,6 @@ init_ndn_thread()
   
   ccn_mutex = g_mutex_new();
   timer_valid = g_hash_table_new(NULL, NULL);
-  hlist = calloc(1, sizeof(GList));
 
   // initialize ccn_keystore
   temp = ccn_charbuf_create();
