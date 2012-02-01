@@ -536,11 +536,11 @@ incoming_content_history(
   
   if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
-  
+
+  h = calloc(1, sizeof(struct history));
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
   h->seq = atoi(seq_str);
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
-  h = calloc(1, sizeof(struct history));
   h->x = xmlnode_str(pcontent, len);
   hlist = g_list_append(hlist, h);
   
