@@ -513,7 +513,7 @@ incoming_content_history(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;
+  cnr room = (cnr) selfp->data;
   char *pcontent, *seq_str;
   size_t len;
   struct history *h;
@@ -534,7 +534,7 @@ incoming_content_history(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  if (user == NULL)
+  if (room == NULL)
     return CCN_UPCALL_RESULT_OK;
   
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
@@ -542,7 +542,6 @@ incoming_content_history(
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   h = calloc(1, sizeof(struct history));
   h->x = xmlnode_str(pcontent, len);
-  xmlnode_put_attrib(h->x, "to", jid_full(user->realid));
   hlist = g_list_append(hlist, h);
   
   return CCN_UPCALL_RESULT_OK;
@@ -1013,7 +1012,7 @@ create_history_interest(cnu user, unsigned int seq)
   }
   
   // express interest
-  res = ccn_express_interest(nthread->ccn, interest, user->in_content_history, NULL);
+  res = ccn_express_interest(nthread->ccn, interest, user->room->in_content_history, NULL);
   if (res < 0)
   {
     log_warn(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);

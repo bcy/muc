@@ -88,7 +88,6 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     user->in_content_message->data = user;
     user->in_content_message->p = &incoming_content_message;
     user->in_interest_history = NULL;
-    user->in_content_history = NULL;
     
     if (room->startup == 1 && g_hash_table_size(room->remote_users) == 0)
     {
@@ -102,9 +101,6 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   else
   {
     user->in_content_message = NULL;
-    user->in_content_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-    user->in_content_history->data = user;
-    user->in_content_history->p = &incoming_content_history;
     
     user->in_interest_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     user->in_interest_history->data = user;
@@ -767,7 +763,6 @@ void con_user_zap(cnu user, xmlnode data)
   else
   {
     set_history_interest_filter(user, NULL);
-    user->in_content_history->data = NULL;
     user->in_interest_history->data = NULL;
     free(user->in_interest_history);
   }
