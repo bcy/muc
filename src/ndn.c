@@ -8,11 +8,12 @@
 #define UNAVAILABLE_FRESHNESS 1
 #define SEND_PRESENCE_INTERVAL 60
 
-struct ndn_thread *nthread;			// ndn thread struct
+static struct ndn_thread *nthread;		// ndn thread struct
 static struct pollfd pfds[1];
 static struct ccn_keystore *keystore;		// ccn keystore struct
 static GMutex *ccn_mutex;
 GHashTable *timer_valid;			// flags indicating if a timer is valid
+static GList *hlist;
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -175,7 +176,7 @@ incoming_content_message(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  char *seq_str, *temp;
+  char *seq_str;
   char *pcontent = NULL;
   unsigned int seq;
   size_t len, size;
@@ -218,10 +219,6 @@ incoming_content_message(
   }
   
   if (user == NULL) // user has been zapped
-    return CCN_UPCALL_RESULT_OK;
-
-  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 3, (const unsigned char **)&temp, &size);
-  if (j_strcmp(temp, "\xC1.M.history") == 0)
     return CCN_UPCALL_RESULT_OK;
   
   /* Timestamp checking */ 
@@ -458,12 +455,16 @@ incoming_content_presence(
 }
 
 enum ccn_upcall_res
-incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info)
+incoming_interest_history(
+  struct ccn_closure *selfp,
+  enum ccn_upcall_kind kind,
+  struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
   cnr room;
-  int hi, seq, i;
-  char *msg, *name;
+  int hi, seq;
+  char *temp;
+  size_t size;
   
   switch (kind)
   {
@@ -480,26 +481,16 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
   if (user == NULL)
     return CCN_UPCALL_RESULT_OK;
   
+  ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
+  if (j_strncmp(temp, "\xC1.M.history", size) != 0)
+    return CCN_UPCALL_RESULT_OK;
+  
   room = user->room;
   seq = 1;
   
-  name = calloc(1, sizeof(char) * 100);
-  for (i = 0; i < info->interest_comps->n - 2; i++)
-  {
-    char *comp;
-    size_t size;
-    
-    ccn_name_comp_get(info->interest_ccnb, info->interest_comps, i, (const unsigned char **)&comp, &size);
-    strcat(name, "/");
-    strncat(name, comp, size);
-  }
-  
   hi = room->hlast;
-  msg = calloc(1, sizeof(char) * 1100);
   while (1)
   {
-    char *temp;
-    
     hi++;
     if (hi > room->master->history)
       hi = 0;
@@ -507,38 +498,25 @@ incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, 
     if (room->history[hi] == NULL)
       continue;
     
-    temp = xmlnode2str(room->history[hi]->x);
-    if (strlen(msg) + strlen(temp) < 1000)
-    {
-      if (strlen(msg) != 0)
-	strcat(msg, "||");
-      strcat(msg, temp);
-    }
-    else
-    {
-      create_history_content(name, msg, seq);
-      seq++;
-      msg[0] = '\0';
-    }
+    create_history_content(user, xmlnode2str(room->history[hi]->x), seq++);
     
     if (hi == room->hlast)
       break;
   }
   
-  if (strlen(msg) != 0)
-    create_history_content(name, msg, seq);
-  
-  free(msg);
-  free(name);
   return CCN_UPCALL_RESULT_OK;
 }
 
 enum ccn_upcall_res
-incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info)
+incoming_content_history(
+  struct ccn_closure *selfp,
+  enum ccn_upcall_kind kind,
+  struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  char *pcontent, *start;
+  char *pcontent, *seq_str;
   size_t len;
+  struct history *h;
   
   switch (kind)
   {
@@ -559,18 +537,35 @@ incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, s
   if (user == NULL)
     return CCN_UPCALL_RESULT_OK;
   
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
+  h->seq = atoi(seq_str);
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
-  start = pcontent;
-  while (start - pcontent < len)
-  {
-    char *end = strstr(start, "||");
-    xmlnode x;
+  h = calloc(1, sizeof(struct history));
+  h->x = xmlnode_str(pcontent, len);
+  xmlnode_put_attrib(h->x, "to", jid_full(user->realid));
+  hlist = g_list_append(hlist, h);
+  
+  return CCN_UPCALL_RESULT_OK;
+}
 
-    x = xmlnode_str(pcontent, end - pcontent);
-    xmlnode_put_attrib(x, "to", jid_full(user->realid));
-    deliver(dpacket_new(x), NULL);
-    
-    start = end + 2;
+static gint
+compare_history(gconstpointer a, gconstpointer b)
+{
+  struct history *ha = (struct history*) a;
+  struct history *hb = (struct history*) b; 
+  
+  return ha->seq - hb->seq;
+}
+
+void
+deliver_history()
+{
+  GList *l = g_list_sort(hlist, compare_history);
+  while (l != NULL)
+  {
+    struct history *h = l->data;
+    deliver(dpacket_new(h->x), NULL);
+    l = g_list_next(l);
   }
 }
 
@@ -1036,7 +1031,7 @@ create_history_interest(cnu user, unsigned int seq)
 
 /* create content for history */
 int
-create_history_content(char *name, char *data, unsigned int seq)
+create_history_content(cnu user, char *data, unsigned int seq)
 {
   struct ccn_charbuf *pname;
   struct ccn_charbuf *signed_info;
@@ -1046,9 +1041,13 @@ create_history_content(char *name, char *data, unsigned int seq)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *seq_char = calloc(1, sizeof(char) * 20);
   
-  // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
-  strcpy(content_name, name);
+  // content name has the form of "<name_prefix>/<userID>/<roomID>/%C1.M.history/<seq>"
+  strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
+  strcat(content_name, jid_ns(user->realid));
+  strcat(content_name, "/");
+  strcat(content_name, user->room->id->user);
+  strcat(content_name, "/%C1.M.history/");
   itoa(seq, seq_char);
   strcat(content_name, seq_char);
   pname = ccn_charbuf_create();
@@ -1116,6 +1115,7 @@ init_ndn_thread()
   
   ccn_mutex = g_mutex_new();
   timer_valid = g_hash_table_new(NULL, NULL);
+  hlist = calloc(1, sizeof(GList));
 
   // initialize ccn_keystore
   temp = ccn_charbuf_create();

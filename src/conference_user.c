@@ -93,8 +93,10 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     if (room->startup == 1 && g_hash_table_size(room->remote_users) == 0)
     {
       int i;
-      for (i = 1; i < 10; i++)
+      for (i = 1; i <= user->room->master->history; i++)
 	create_history_interest(user, i);
+      sleep(2);
+      deliver_history();
     }
   }
   else
@@ -791,6 +793,7 @@ void con_user_zap(cnu user, xmlnode data)
       room->cleaning = 1;
       room->in_content_presence->data = NULL;
       room->in_interest_presence->data = NULL;
+      con_room_history_clear(room);
       set_interest_filter(room, NULL);
       log_debug(NAME, "[%s] No local user in persistent room: zapping remote users", FZONE);
       g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);

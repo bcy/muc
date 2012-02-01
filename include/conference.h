@@ -228,30 +228,30 @@ struct cnu_struct
 /* bcy: element struct in exclusion list */
 struct exclusion_element
 {
-    char *name;		/* exclusion name */
-    GTimer *timer;	/* exclusion timer, remove element when outdated */
+  char *name;		/* exclusion name */
+  GTimer *timer;	/* exclusion timer, remove element when outdated */
 };
 
 /* conference room history */
 struct cnh_struct
 {
-	pool p;
-	int content_length;
-	int timestamp;
-	xmlnode x;
+  pool p;
+  int content_length;
+  int timestamp;
+  xmlnode x;
 };
 
 /* Roles and Associations */
 typedef struct trole_struct
 {
-    int  code;
-    char msg[64];
+  int  code;
+  char msg[64];
 } trole;
 
 typedef struct taffil_struct
 {
-    int  code;
-    char msg[64];
+  int  code;
+  char msg[64];
 } taffil;
 
 #define TAFFIL_OWNER		(taffil){3, "owner"}
@@ -395,6 +395,12 @@ struct presence
   xmlnode x;
 };
 
+struct history
+{
+  xmlnode x;
+  int seq;
+};
+
 /* bcy: upcall functions for incoming interest/content */
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
@@ -410,6 +416,7 @@ int create_message_interest(cnu user, unsigned int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
 int create_history_interest(cnu user, unsigned int seq);
-int create_history_content(char *name, char* data, unsigned int seq);
+int create_history_content(cnu user, char* data, unsigned int seq);
 void set_interest_filter(cnr room, struct ccn_closure *in_interest);
 void set_history_interest_filter(cnu user, struct ccn_closure *in_interest);
+void deliver_history();
