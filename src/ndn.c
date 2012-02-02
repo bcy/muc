@@ -569,6 +569,15 @@ do_delivery(gpointer key, gpointer value, gpointer user_data)
   }
 }
 
+static void
+free_history(gpointer data)
+{
+  struct history *h = (struct history*) data;
+  
+  xmlnode_free(h->x);
+  free(h);
+}
+
 void
 deliver_history(cnr room)
 {
@@ -576,9 +585,10 @@ deliver_history(cnr room)
   while (l != NULL)
   {
     struct history *h = l->data;
-    g_hash_table_foreach(room->remote, do_delivery, h->x);
+    g_hash_table_foreach(room->remote, do_delivery, xmlnode_dup(h->x));
     l = g_list_next(l);
   }
+  g_list_free_full(g_list_first(hlist), free_history);
 }
 
 void
