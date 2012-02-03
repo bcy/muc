@@ -1524,17 +1524,21 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->table_mutex = g_mutex_new();
   
   /*bcy: ccn_closure initialization*/
+  /*
   room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_presence->data = room;
   room->in_content_presence->p = &incoming_content_presence;
+  */
 
   room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_presence->data = room;
   room->in_interest_presence->p = &incoming_interest_presence;
   
+  /*
   room->in_content_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_history->data = room;
   room->in_content_history->p = &incoming_content_history;
+  */
 
   room->local_count = 0;
   room->zapping = 0;

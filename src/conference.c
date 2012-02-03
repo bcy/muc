@@ -474,7 +474,12 @@ void _con_packets(void *arg)
   {
     if (room->persistent == 1 && room->local_count == 0)
     {
+      room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+      room->in_content_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
       room->in_content_presence->data = room;
+      room->in_content_presence->p = &incoming_content_presence;
+      room->in_content_history->data = room;
+      room->in_content_history->p = &incoming_content_history;
       room->in_interest_presence->data = room;
       set_interest_filter(room, room->in_interest_presence);
       // bcy: create presence interest for the persistent room
