@@ -321,6 +321,7 @@ incoming_content_presence(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
+      free(selfp);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
@@ -521,7 +522,7 @@ incoming_content_history(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
-      //free(selfp);
+      free(selfp);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
@@ -920,6 +921,7 @@ create_presence_content(cnu user, xmlnode x)
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
   ccn_charbuf_destroy(&content);
+  free(content_name);
   free(hostname);
   return 0;
 }
@@ -1007,6 +1009,7 @@ create_message_content(cnu user, char *data)
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&pname);
+    free(content_name);
     return 1;
   }
   
@@ -1022,6 +1025,8 @@ create_message_content(cnu user, char *data)
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&content);
+  free(content_name);
   free(seq_char);
   return 0;
 }
