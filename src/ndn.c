@@ -122,6 +122,7 @@ generate_presence_content(cnu user, xmlnode x, int startup)
 			NULL, ccn_keystore_private_key(keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
+  free(content_name);
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
