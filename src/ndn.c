@@ -590,7 +590,7 @@ deliver_history(cnr room)
       pool hist_p = pool_new();
       cnh hist = pmalloco(hist_p, sizeof(_cnh));
       hist->p = hist_p;
-      hist->x = h->x;
+      hist->x = xmlnode_dup(h->x);
       hist->content_length = j_strlen(xmlnode_get_tag_data(h->x, "body"));
       hist->timestamp = time(NULL);
 
