@@ -491,14 +491,13 @@ incoming_interest_history(
   hi = room->hlast;
   while (1)
   {
-    hi++;
-    if (hi > room->master->history)
-      hi = 0;
+    if (room->history[hi] != NULL)
+      create_history_content(user, xmlnode2str(room->history[hi]->x), seq++);
     
-    if (room->history[hi] == NULL)
-      continue;
+    hi--;
     
-    create_history_content(user, xmlnode2str(room->history[hi]->x), seq++);
+    if (hi < 0)
+      hi = room->master->history - 1;
     
     if (hi == room->hlast)
       break;
@@ -521,7 +520,7 @@ incoming_content_history(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
-      free(selfp);
+      //free(selfp);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
@@ -553,7 +552,7 @@ compare_history(gconstpointer a, gconstpointer b)
   struct history *ha = (struct history*) a;
   struct history *hb = (struct history*) b; 
   
-  return ha->seq - hb->seq;
+  return hb->seq - ha->seq;
 }
 
 static void
@@ -586,9 +585,26 @@ deliver_history(cnr room)
   {
     struct history *h = l->data;
     g_hash_table_foreach(room->remote, do_delivery, xmlnode_dup(h->x));
+    if(room->master->history > 0)
+    {
+      pool hist_p = pool_new();
+      cnh hist = pmalloco(hist_p, sizeof(_cnh));
+      hist->p = hist_p;
+      hist->x = h->x;
+      hist->content_length = j_strlen(xmlnode_get_tag_data(h->x, "body"));
+      hist->timestamp = time(NULL);
+
+      if(++room->hlast == room->master->history)
+        room->hlast = 0;
+
+      log_debug(NAME, "[%s] adding history entry %d", FZONE, room->hlast);
+      room->history[room->hlast] = hist;
+    }
     l = g_list_next(l);
   }
-  g_list_free_full(g_list_first(hlist), free_history);
+  hlist = g_list_first(hlist);
+  g_list_free_full(hlist, free_history);
+  hlist = NULL;
 }
 
 void

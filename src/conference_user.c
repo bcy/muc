@@ -92,9 +92,12 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     if (room->startup == 1 && g_hash_table_size(room->remote_users) == 0)
     {
       int i;
+      
+      room->in_content_history->data = room;
       for (i = 1; i <= user->room->master->history; i++)
 	create_history_interest(user, i);
       sleep(2);
+      room->in_content_history->data = NULL;
       deliver_history(user->room);
     }
   }

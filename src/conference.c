@@ -379,7 +379,7 @@ void _con_packets(void *arg)
   int created = 0;
   time_t now = time(NULL);
 
-  if((jid_fix(jp->from) == NULL) || (jid_fix(jp->to) == NULL))
+  if ((jid_fix(jp->from) == NULL) || (jid_fix(jp->to) == NULL))
   {
     log_debug(NAME, "[%s] ignoring packets, invalid to or from", FZONE);
     return;
@@ -536,10 +536,9 @@ void _con_packets(void *arg)
   if(jp->type == JPACKET_MESSAGE && u == NULL)
   {
     //check if this is a decline to an invitation
-    if (( node = xmlnode_get_tag(xmlnode_get_tag(jp->x,"x?xmlns=http://jabber.org/protocol/muc#user"),"decline")) != NULL);
-    if (node!=NULL)
+    if ((node = xmlnode_get_tag(xmlnode_get_tag(jp->x, "x?xmlns=http://jabber.org/protocol/muc#user"), "decline")) != NULL)
     {
-      con_room_forward_decline(room,jp,node);
+      con_room_forward_decline(room, jp, node);
       g_mutex_unlock(master->lock);
       return;
     }
@@ -603,12 +602,12 @@ void _con_packets(void *arg)
     u2 = g_hash_table_lookup(room->local, jp->to->resource); /* existing user w/ this nick? */
 
     /* it's just us updating our presence */
-    if(u2 == u)
+    if (u2 == u)
     {
       jp->to = jid_user(jp->to);
       xmlnode_put_attrib(jp->x, "to", jid_full(jp->to));
 
-      if(u)
+      if (u)
       {
         xmlnode_free(u->presence);
         u->presence = xmlnode_dup(jp->x);

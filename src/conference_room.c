@@ -1145,7 +1145,6 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     if(room->master->history > 0)
     {
-
       hist_p = pool_new();
       hist = pmalloco(hist_p, sizeof(_cnh));
       hist->p = hist_p;
