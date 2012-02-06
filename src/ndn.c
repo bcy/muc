@@ -113,6 +113,14 @@ generate_presence_content(cnu user, xmlnode x, int startup)
     ccn_charbuf_destroy(&pname);
     return 1;
   }
+  
+  if (startup)
+  {
+    char *str_seq = calloc(1, sizeof(char) * 20);
+    itoa(user->message_seq, str_seq);
+    xmlnode_put_attrib(x, "seq_reset", str_seq);
+    free(str_seq);
+  }
 
   data = xmlnode2str(x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
