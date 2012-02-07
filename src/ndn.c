@@ -3,7 +3,7 @@
 
 #define PRESENCE_FRESHNESS 2
 #define MESSAGE_FRESHNESS 10
-#define HISTORY_FRESHNESS 5
+#define HISTORY_FRESHNESS 3
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 1
 #define SEND_PRESENCE_INTERVAL 60
@@ -182,7 +182,7 @@ incoming_content_message(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  char *seq_str;
+  char *comp;
   char *pcontent = NULL;
   unsigned int seq;
   size_t len, size;
@@ -227,6 +227,10 @@ incoming_content_message(
   if (user == NULL) // user has been zapped
     return CCN_UPCALL_RESULT_OK;
   
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 3, (const unsigned char **)&comp, &size);
+  if (j_strcmp(comp, "\xC1.M.history") == 0)
+    return CCN_UPCALL_RESULT_REEXPRESS;
+  
   /* Timestamp checking */ 
   l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
   if (l > 0)
@@ -255,8 +259,8 @@ incoming_content_message(
   }
   
   // extract sequence number from content name, increase one and send new interest
-  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
-  seq = atoi(seq_str);
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&comp, &size);
+  seq = atoi(comp);
   if (seq == user->last_seq)
     return CCN_UPCALL_RESULT_OK;
   user->last_seq = seq;
