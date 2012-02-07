@@ -895,15 +895,6 @@ result con_packets(instance i, dpacket dp, void *arg)
     deliver(dpacket_new(jp->x),NULL);
     return r_DONE;
   }
-  
-  /* bcy: get name_prefix from config file */
-  if (jp->type == JPACKET_PRESENCE)
-  {
-    if (xmlnode_get_tag_data(jp->x, "name_prefix") == NULL)
-    {
-      xmlnode_insert_cdata(xmlnode_insert_tag(jp->x, "name_prefix"), xmlnode_get_tag_data(jcr->config, "name_prefix"), -1);
-    }
-  }
 
   /* we want things processed in order, and don't like re-entrancy! */
   jp->aux1 = (void*)master;

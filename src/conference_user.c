@@ -75,7 +75,10 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
 
   /* bcy: initialization */
-  user->name_prefix = strdup(name_prefix);
+  if (name_prefix == NULL)
+    user->name_prefix = strdup(xmlnode_get_tag_data(jcr->config, "name_prefix"));
+  else
+    user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
   

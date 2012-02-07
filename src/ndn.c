@@ -902,6 +902,7 @@ create_presence_content(cnu user, xmlnode x)
   itoa(user->message_seq, str_seq);
   xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
   free(str_seq);
+  xmlnode_insert_cdata(xmlnode_insert_tag(dup_x, "name_prefix"), xmlnode_get_tag_data(jcr->config, "name_prefix"), -1);
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
