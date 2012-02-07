@@ -75,15 +75,14 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
 
   /* bcy: initialization */
-  user->message_seq = random() % 65536 + 2;
   user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
-  user->last_seq = seq - 1;
   
   // bcy: for user coming from outside
   if (external == 1)
   {
+    user->last_seq = seq - 1;
     user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     user->in_content_message->data = user;
     user->in_content_message->p = &incoming_content_message;
@@ -103,6 +102,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   }
   else
   {
+    user->message_seq = random() % 65536 + 2;
     user->in_content_message = NULL;
     
     user->in_interest_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
@@ -780,6 +780,10 @@ void con_user_zap(cnu user, xmlnode data)
   
   if (room->local_count == 0 && room->zapping == 0)
   {
+    room->in_content_presence->data = NULL;
+    set_interest_filter(room, NULL);
+    room->in_interest_presence->data = NULL;
+    
     if (room->persistent == 0)
     {
       log_debug(NAME, "[%s] No local user in dynamic room: Locking room %s and remove", FZONE, room->id->user);
@@ -789,10 +793,7 @@ void con_user_zap(cnu user, xmlnode data)
     else if (room->cleaning == 0)
     {
       room->cleaning = 1;
-      room->in_content_presence->data = NULL;
-      room->in_interest_presence->data = NULL;
       con_room_history_clear(room);
-      set_interest_filter(room, NULL);
       log_debug(NAME, "[%s] No local user in persistent room: zapping remote users", FZONE);
       g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);
       room->cleaning = 0;

@@ -1413,7 +1413,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   return;
 }
 
-cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external, int seq)
+cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist)
 {
   cnr room;
   pool p;
@@ -1494,7 +1494,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   /* Assign owner to room */
   if(owner != NULL)
   {
-    admin = (void*)con_user_new(room, owner, name_prefix, external, seq);
+    admin = (void*)con_user_new(room, owner, NULL, 0, 0);
     add_roster(room, admin->realid);
 
     room->creator = jid_new(room->p, jid_full(jid_user(admin->realid)));
@@ -1524,21 +1524,17 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->table_mutex = g_mutex_new();
   
   /*bcy: ccn_closure initialization*/
-  /*
   room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_presence->data = room;
   room->in_content_presence->p = &incoming_content_presence;
-  */
 
   room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_interest_presence->data = room;
   room->in_interest_presence->p = &incoming_interest_presence;
   
-  /*
   room->in_content_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_history->data = room;
   room->in_content_history->p = &incoming_content_history;
-  */
 
   room->local_count = 0;
   room->zapping = 0;
@@ -1721,13 +1717,8 @@ void con_room_cleanup(cnr room)
   g_queue_free(room->exclusion_list);
   
   g_mutex_free(room->table_mutex);
-  
-  // bcy: stop sending interest
-  room->in_content_presence->data = NULL;
-  
+    
   // bcy: stop handling incoming interest
-  set_interest_filter(room, NULL);
-  room->in_interest_presence->data = NULL;
   free(room->in_interest_presence);
 
   return;

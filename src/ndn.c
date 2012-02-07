@@ -86,6 +86,7 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   struct ccn_charbuf *signed_info;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
+  char *str_seq = calloc(1, sizeof(char) * 20);
   char *data;
   
   generate_presence_name(content_name, user, startup);
@@ -114,13 +115,9 @@ generate_presence_content(cnu user, xmlnode x, int startup)
     return 1;
   }
   
-  if (startup)
-  {
-    char *str_seq = calloc(1, sizeof(char) * 20);
-    itoa(user->message_seq, str_seq);
-    xmlnode_put_attrib(x, "seq_reset", str_seq);
-    free(str_seq);
-  }
+  itoa(user->message_seq, str_seq);
+  xmlnode_put_attrib(x, "seq_reset", str_seq);
+  free(str_seq);
 
   data = xmlnode2str(x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
