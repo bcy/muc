@@ -499,10 +499,10 @@ void con_user_enter(cnu user, char *nick, int created)
   if (user->remote == 1)
   {
     char *name = calloc(1, sizeof(char) * 100);
-    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
+    g_hash_table_insert(room->remote_users, j_strdup(user->realid->user), (gpointer)user);
     
     // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
-    log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, jid_ns(user->realid));
+    log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, user->realid->user);
     create_message_interest(user, user->last_seq + 1);
     free(name);
   }
@@ -763,7 +763,7 @@ void con_user_zap(cnu user, xmlnode data)
   {
     log_debug(NAME, "[%s] Removing from remote user list", FZONE);
     if (room->zapping == 0 && room->cleaning == 0)
-      g_hash_table_remove(room->remote_users, jid_ns(user->realid));
+      g_hash_table_remove(room->remote_users, user->realid->user);
     user->in_content_message->data = NULL;
   }
   else

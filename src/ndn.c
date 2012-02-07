@@ -73,7 +73,7 @@ generate_presence_name(char *name, cnu user, int startup)
     strcat(name, "\xC1.M.startup/");
   strcat(name, user->room->id->user);
   strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
+  strcat(name, user->realid->user);
 }
 
 /* create content packet for presence */
@@ -644,7 +644,7 @@ set_history_interest_filter(cnu user, struct ccn_closure *in_interest)
   interest = ccn_charbuf_create();
   strcpy(interest_name, user->name_prefix);
   strcat(interest_name, "/");
-  strcat(interest_name, jid_ns(user->realid));
+  strcat(interest_name, user->realid->user);
   strcat(interest_name, "/");
   strcat(interest_name, user->room->id->user);
   strcat(interest_name, "/\xC1.M.history");
@@ -947,7 +947,7 @@ create_message_interest(cnu user, unsigned int seq)
   
   strcpy(name, user->name_prefix);
   strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
+  strcat(name, user->realid->user);
   strcat(name, "/");
   strcat(name, user->room->id->user);
   
@@ -992,7 +992,7 @@ create_message_content(cnu user, char *data)
   // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
-  strcat(content_name, jid_ns(user->realid));
+  strcat(content_name, user->realid->user);
   strcat(content_name, "/");
   strcat(content_name, user->room->id->user);
   strcat(content_name, "/");
@@ -1052,7 +1052,7 @@ create_history_interest(cnu user, unsigned int seq)
   
   strcpy(name, user->name_prefix);
   strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
+  strcat(name, user->realid->user);
   strcat(name, "/");
   strcat(name, user->room->id->user);
   strcat(name, "/\xC1.M.history/");
@@ -1098,7 +1098,7 @@ create_history_content(cnu user, char *data, unsigned int seq)
   // content name has the form of "<name_prefix>/<userID>/<roomID>/%C1.M.history/<seq>"
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
-  strcat(content_name, jid_ns(user->realid));
+  strcat(content_name, user->realid->user);
   strcat(content_name, "/");
   strcat(content_name, user->room->id->user);
   strcat(content_name, "/\xC1.M.history/");
@@ -1125,6 +1125,7 @@ create_history_content(cnu user, char *data, unsigned int seq)
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&pname);
+    free(content_name);
     return 1;
   }
   
@@ -1139,7 +1140,9 @@ create_history_content(cnu user, char *data, unsigned int seq)
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&content);
   free(seq_char);
+  free(content_name);
   return 0;
 }
 
