@@ -403,7 +403,7 @@ incoming_content_presence(
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
   id = j_strdup(xmlnode_get_attrib(x, "from"));
-  tmp = strrchr(id, '/');
+  tmp = strrchr(id, '@');
   if (tmp != NULL)
     *tmp = '\0';
   while (g_mutex_trylock(room->table_mutex) == FALSE)
@@ -867,7 +867,7 @@ create_presence_content(cnu user, xmlnode x)
   
   generate_presence_name(content_name, user, 0);
   if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
-    strcat(content_name, "_exit");  
+    strcat(content_name, "_exit");
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
@@ -902,10 +902,13 @@ create_presence_content(cnu user, xmlnode x)
   hostname = calloc(1, sizeof(char) * 50);
   gethostname(hostname, 50);
   xmlnode_put_attrib(dup_x, "hostname", hostname);
-  str_seq = calloc(1, sizeof(char) * 20);
-  itoa(user->message_seq, str_seq);
-  xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
-  free(str_seq);
+  if (j_strcmp(xmlnode_get_attrib(dup_x, "type"), "unavailable") != 0)
+  {
+    str_seq = calloc(1, sizeof(char) * 20);
+    itoa(user->message_seq, str_seq);
+    xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
+    free(str_seq);
+  }
   xmlnode_insert_cdata(xmlnode_insert_tag(dup_x, "name_prefix"), xmlnode_get_tag_data(jcr->config, "name_prefix"), -1);
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
