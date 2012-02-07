@@ -621,7 +621,7 @@ set_interest_filter(cnr room, struct ccn_closure *in_interest)
   char *interest_name = calloc(1, sizeof(char) * 100);
 
   interest = ccn_charbuf_create();
-  strcpy(interest_name, "/ndn/broadcast/xmpp-muc/%M.C1.startup/");
+  strcpy(interest_name, "/ndn/broadcast/xmpp-muc/\xC1.M.startup/");
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
 
