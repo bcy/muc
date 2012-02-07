@@ -14,6 +14,7 @@ static struct ccn_keystore *keystore;		// ccn keystore struct
 static GMutex *ccn_mutex;
 GHashTable *timer_valid;			// flags indicating if a timer is valid
 static GList *hlist;
+static GMutex *hlist_mutex;
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -200,18 +201,11 @@ incoming_content_message(
       if (user != NULL) // interest timed out, re-express it
       {
 	if (now - user->last_message > MESSAGE_FRESHNESS)
-	{
 	  create_message_interest(user, 0);
-	  return CCN_UPCALL_RESULT_OK;
-	}
 	else
-	{
 	  create_message_interest(user, user->last_seq + 1);
-	  return CCN_UPCALL_RESULT_OK;
-	}
       }
-      else
-	return CCN_UPCALL_RESULT_OK;
+      return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
       log_warn(NAME, "[%s] Unverified message content received", FZONE);
@@ -499,6 +493,7 @@ incoming_interest_history(
   room = user->room;
   seq = 1;
   
+  g_mutex_lock(room->history_mutex);
   hi = room->hlast;
   while (1)
   {
@@ -513,6 +508,7 @@ incoming_interest_history(
     if (hi == room->hlast)
       break;
   }
+  g_mutex_unlock(room->history_mutex);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -552,7 +548,11 @@ incoming_content_history(
   h->seq = atoi(seq_str);
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   h->x = xmlnode_str(pcontent, len);
-  hlist = g_list_append(hlist, h);
+  if (g_mutex_trylock(hlist_mutex))
+  {
+    hlist = g_list_append(hlist, h);
+    g_mutex_unlock(hlist_mutex);
+  }
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -591,7 +591,11 @@ free_history(gpointer data)
 void
 deliver_history(cnr room)
 {
-  GList *l = g_list_sort(hlist, compare_history);
+  GList *l;
+  
+  g_mutex_lock(hlist_mutex);
+  g_mutex_lock(room->history_mutex);
+  l = g_list_sort(hlist, compare_history);
   while (l != NULL)
   {
     struct history *h = l->data;
@@ -613,9 +617,11 @@ deliver_history(cnr room)
     }
     l = g_list_next(l);
   }
+  g_mutex_unlock(room->history_mutex);
   hlist = g_list_first(hlist);
   g_list_free_full(hlist, free_history);
   hlist = NULL;
+  g_mutex_unlock(hlist_mutex);
 }
 
 void
@@ -1175,6 +1181,7 @@ init_ndn_thread()
   
   ccn_mutex = g_mutex_new();
   timer_valid = g_hash_table_new(NULL, NULL);
+  hlist_mutex = g_mutex_new();
 
   // initialize ccn_keystore
   temp = ccn_charbuf_create();
@@ -1212,6 +1219,7 @@ stop_ndn_thread()
   ccn_destroy(&nthread->ccn);
   ccn_keystore_destroy(&keystore);
   g_mutex_free(ccn_mutex);
+  g_mutex_free(hlist_mutex);
   g_hash_table_destroy(timer_valid);
   free(nthread);
   return 0;

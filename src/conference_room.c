@@ -1152,6 +1152,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       hist->content_length = j_strlen(xmlnode_get_tag_data(node, "body"));
       hist->timestamp = time(NULL);
 
+      g_mutex_lock(room->history_mutex);
       if(++room->hlast == room->master->history)
         room->hlast = 0;
 
@@ -1164,6 +1165,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
       log_debug(NAME, "[%s] adding history entry %d", FZONE, room->hlast);
       room->history[room->hlast] = hist;
+      g_mutex_unlock(room->history_mutex);
     }
     else
     {
@@ -1522,6 +1524,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   
   room->exclusion_list = g_queue_new(); // bcy: create exclusion list
   room->table_mutex = g_mutex_new();
+  room->history_mutex = g_mutex_new();
   
   /*bcy: ccn_closure initialization*/
   room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
@@ -1720,6 +1723,7 @@ void con_room_cleanup(cnr room)
   g_queue_free(room->exclusion_list);
   
   g_mutex_free(room->table_mutex);
+  g_mutex_free(room->history_mutex);
     
   // bcy: stop handling incoming interest
   free(room->in_interest_presence);
@@ -1758,6 +1762,7 @@ void con_room_history_clear(cnr room)
 
   if(room->master->history > 0)
   {
+    g_mutex_lock(room->history_mutex);
 
     h = room->hlast;
 
@@ -1783,5 +1788,6 @@ void con_room_history_clear(cnr room)
       if(h == room->hlast)
         break;
     }
+    g_mutex_unlock(room->history_mutex);
   }
 }
