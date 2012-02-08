@@ -919,8 +919,8 @@ create_presence_content(cnu user, xmlnode x)
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
-  ccn_encode_ContentObject(content, pname, signed_info, 
-			data, strlen(data), 
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data),
 			NULL, ccn_keystore_private_key(keystore));
   
   ccn_put(nthread->ccn, content->buf, content->length);

@@ -21,6 +21,8 @@
 #include "conference.h"
 extern int deliver__flag;
 
+#define HISTORY 15
+
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 {
   pool p;
@@ -96,7 +98,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
       int i;
       
       room->in_content_history->data = room;
-      for (i = 1; i <= user->room->master->history; i++)
+      for (i = 1; i <= MIN(user->room->master->history, HISTORY); i++)
 	create_history_interest(user, i);
       sleep(1);
       room->in_content_history->data = NULL;
