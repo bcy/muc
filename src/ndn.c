@@ -935,6 +935,8 @@ create_presence_content(cnu user, xmlnode x)
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
     g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   }
+  else
+    xmlnode_free(dup_x);
   
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
