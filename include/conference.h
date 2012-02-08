@@ -421,3 +421,5 @@ int create_history_content(cnu user, char* data, unsigned int seq);
 void set_interest_filter(cnr room, struct ccn_closure *in_interest);
 void set_history_interest_filter(cnu user, struct ccn_closure *in_interest);
 void deliver_history(cnr room);
+
+#define HISTORY 15

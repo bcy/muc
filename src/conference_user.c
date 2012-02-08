@@ -21,8 +21,6 @@
 #include "conference.h"
 extern int deliver__flag;
 
-#define HISTORY 15
-
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 {
   pool p;

@@ -505,7 +505,7 @@ incoming_interest_history(
     if (hi < 0)
       hi = room->master->history - 1;
     
-    if (hi == room->hlast)
+    if (seq > HISTORY || hi == room->hlast)
       break;
   }
   g_mutex_unlock(room->history_mutex);
