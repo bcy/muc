@@ -570,12 +570,13 @@ static void
 do_delivery(gpointer key, gpointer value, gpointer user_data)
 {
   cnu user = (cnu) value;
-  xmlnode x = xmlnode_dup((xmlnode) user_data);
+  xmlnode x = (xmlnode) user_data;
   
   if (user->remote == 0)
   {
-    xmlnode_put_attrib(x, "to", jid_full(user->realid));
-    deliver(dpacket_new(x), NULL);
+    xmlnode dup_x = xmlnode_dup(x);
+    xmlnode_put_attrib(dup_x, "to", jid_full(user->realid));
+    deliver(dpacket_new(dup_x), NULL);
   }
 }
 
