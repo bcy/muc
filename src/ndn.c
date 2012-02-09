@@ -324,7 +324,7 @@ incoming_content_presence(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
-      free(selfp);
+      //free(selfp);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
@@ -527,7 +527,7 @@ incoming_content_history(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
-      free(selfp);
+      //free(selfp);
       return CCN_UPCALL_RESULT_OK;
       
     case CCN_UPCALL_INTEREST_TIMED_OUT:
