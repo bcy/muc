@@ -570,7 +570,7 @@ static void
 do_delivery(gpointer key, gpointer value, gpointer user_data)
 {
   cnu user = (cnu) value;
-  xmlnode x = (xmlnode) user_data;
+  xmlnode x = xmlnode_dup((xmlnode) user_data);
   
   if (user->remote == 0)
   {
@@ -599,7 +599,7 @@ deliver_history(cnr room)
   while (l != NULL)
   {
     struct history *h = l->data;
-    g_hash_table_foreach(room->remote, do_delivery, xmlnode_dup(h->x));
+    g_hash_table_foreach(room->remote, do_delivery, h->x);
     if(room->master->history > 0)
     {
       pool hist_p = pool_new();
