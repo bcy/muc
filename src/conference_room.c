@@ -1014,7 +1014,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       item = xmlnode_dup(xmlnode_get_tag(jp->x,"x"));
       nick = xmlnode_get_attrib(xmlnode_get_tag(item, "invite"), "to");
 
-      if( nick == NULL)
+      if (nick == NULL)
       {
         log_debug(NAME, "[%s] No receipient, returning error", FZONE);
 
@@ -1025,7 +1025,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
         return;
       }
 
-      if(room->invitation == 1)
+      if (room->invitation == 1)
       {
         id = jid_new(xmlnode_pool(item), nick);
 
@@ -1109,9 +1109,9 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     /* check if the message is a discussion history */
     cont = 0;
-    for( node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
+    for (node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
       if (xmlnode_get_name(node)==NULL || strcmp("x",xmlnode_get_name(node))!=0) continue; // check if the node is a "x" node
-      if(!NSCHECK(node, NS_DELAY)) continue;
+      if (!NSCHECK(node, NS_DELAY)) continue;
       if ((xmlnode_get_attrib(node, "from")!= NULL) && (xmlnode_get_attrib(node, "stamp")) && (is_owner(room,from->realid))) {
         cont = 1;
         break;

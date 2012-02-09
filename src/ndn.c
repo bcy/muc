@@ -600,7 +600,6 @@ deliver_history(cnr room)
   while (l != NULL)
   {
     struct history *h = l->data;
-    g_hash_table_foreach(room->remote, do_delivery, h->x);
     if(room->master->history > 0)
     {
       pool hist_p = pool_new();
@@ -612,10 +611,18 @@ deliver_history(cnr room)
 
       if(++room->hlast == room->master->history)
         room->hlast = 0;
+      
+      if (room->history[room->hlast] != NULL)
+      {
+        log_debug(NAME, "[%s] clearing old history entry %d", FZONE, room->hlast);
+        xmlnode_free(room->history[room->hlast]->x);
+        pool_free(room->history[room->hlast]->p);
+      }
 
       log_debug(NAME, "[%s] adding history entry %d", FZONE, room->hlast);
       room->history[room->hlast] = hist;
     }
+    g_hash_table_foreach(room->remote, do_delivery, h->x);
     l = g_list_next(l);
   }
   g_mutex_unlock(room->history_mutex);
