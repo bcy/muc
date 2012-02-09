@@ -298,7 +298,7 @@ incoming_content_message(
   // add external field to indicate the message comes from outside
   xmlnode_put_attrib(x, "external", "1");
   deliver(dpacket_new(x), NULL);
-  return CCN_UPCALL_RESULT_OK;
+  return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
 }
 
 enum ccn_upcall_res
@@ -554,7 +554,7 @@ incoming_content_history(
     g_mutex_unlock(hlist_mutex);
   }
   
-  return CCN_UPCALL_RESULT_OK;
+  return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
 }
 
 static gint
