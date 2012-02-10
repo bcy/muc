@@ -224,6 +224,7 @@ struct cnu_struct
   /* bcy: ccn closure */
   struct ccn_closure *in_content_message;
   struct ccn_closure *in_interest_history;
+  GMutex *user_mutex;
 };
 
 /* bcy: element struct in exclusion list */

@@ -225,6 +225,8 @@ incoming_content_message(
   if (j_strcmp(comp, "\xC1.M.history") == 0)
     return CCN_UPCALL_RESULT_REEXPRESS;
   
+  g_mutex_lock(user->user_mutex);
+  
   /* Timestamp checking */ 
   l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
   if (l > 0)
@@ -248,6 +250,7 @@ incoming_content_message(
     {
       log_debug(NAME, "[%s] Too old message, ignore", FZONE);
       create_message_interest(user, 0);
+      g_mutex_unlock(user->user_mutex);
       return CCN_UPCALL_RESULT_OK;
     }
   }
@@ -256,7 +259,10 @@ incoming_content_message(
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&comp, &size);
   seq = atoi(comp);
   if (seq == user->last_seq)
+  {
+    g_mutex_unlock(user->user_mutex);
     return CCN_UPCALL_RESULT_OK;
+  }
   user->last_seq = seq;
   user->last = now;
   user->last_message = now;
@@ -275,18 +281,19 @@ incoming_content_message(
     if (strstr(to, jid_full(user->room->id)) == NULL) // "to" field should be in the form of <roomID>/<nick>
     {
       xmlnode_free(x);
+      g_mutex_unlock(user->user_mutex);
       return CCN_UPCALL_RESULT_OK;
     }
     else
     {
       char *nick = to + strlen(jid_full(user->room->id)) + 1;
       cnu u;
-      while (g_mutex_trylock(user->room->table_mutex) == FALSE)
-	fprintf(stderr, "[%s] wait for locking\n", FZONE);
+      g_mutex_lock(user->room->table_mutex);
       u = g_hash_table_lookup(user->room->local, nick);
       if (u == NULL || u->remote == 1) // the destination user should be local
       {
 	g_mutex_unlock(user->room->table_mutex);
+	g_mutex_unlock(user->user_mutex);
 	xmlnode_free(x);
 	return CCN_UPCALL_RESULT_OK;
       }
@@ -294,6 +301,8 @@ incoming_content_message(
 	g_mutex_unlock(user->room->table_mutex);
     }
   }
+  
+  g_mutex_unlock(user->user_mutex);
   
   // add external field to indicate the message comes from outside
   xmlnode_put_attrib(x, "external", "1");
@@ -483,13 +492,14 @@ incoming_interest_history(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  if (user == NULL)
-    return CCN_UPCALL_RESULT_OK;
-  
   ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
   if (j_strncmp(temp, "\xC1.M.history", size) != 0)
     return CCN_UPCALL_RESULT_OK;
   
+  if (user == NULL)
+    return CCN_UPCALL_RESULT_OK;
+  
+  g_mutex_lock(user->user_mutex);
   room = user->room;
   seq = 1;
   
@@ -509,6 +519,7 @@ incoming_interest_history(
       break;
   }
   g_mutex_unlock(room->history_mutex);
+  g_mutex_unlock(user->user_mutex);
   
   return CCN_UPCALL_RESULT_OK;
 }

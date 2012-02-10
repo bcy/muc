@@ -81,6 +81,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
+  user->user_mutex = g_mutex_new();
   
   // bcy: for user coming from outside
   if (external == 1)
@@ -658,6 +659,7 @@ void con_user_zap(cnu user, xmlnode data)
     return;
   }
 
+  g_mutex_lock(user->user_mutex);
   user->leaving = 1;
 
   status = xmlnode_get_attrib(data, "status");
@@ -674,8 +676,7 @@ void con_user_zap(cnu user, xmlnode data)
     return;
   }
   
-  while (g_mutex_trylock(room->table_mutex) == FALSE)
-    fprintf(stderr, "[%s] wait for locking\n", FZONE);
+  g_mutex_lock(room->table_mutex);
   
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
@@ -776,6 +777,9 @@ void con_user_zap(cnu user, xmlnode data)
   // bcy: free allocated memory
   free(user->name_prefix);
   free(user->status);
+  
+  g_mutex_unlock(user->user_mutex);
+  g_mutex_free(user->user_mutex);
   
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
