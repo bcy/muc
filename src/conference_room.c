@@ -1163,7 +1163,6 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       hist->content_length = j_strlen(xmlnode_get_tag_data(node, "body"));
       hist->timestamp = time(NULL);
 
-      g_mutex_lock(room->history_mutex);
       if(++room->hlast == room->master->history)
         room->hlast = 0;
 
@@ -1176,7 +1175,6 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
       log_debug(NAME, "[%s] adding history entry %d", FZONE, room->hlast);
       room->history[room->hlast] = hist;
-      g_mutex_unlock(room->history_mutex);
     }
     else
     {
