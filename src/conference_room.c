@@ -1142,6 +1142,17 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     /* store in history */
     if (cont == 0)
       jutil_delay(node, jid_full(room->id));
+    
+    g_mutex_lock(room->history_mutex);
+    
+    xmlnode dup = xmlnode_dup(node);
+    if (g_queue_get_length(room->history_message) == HISTORY)
+    {
+      char *data = g_queue_pop_tail(room->history_message);
+      free(data);
+    }
+    g_queue_push_head(room->history_message, strdup(xmlnode2str(dup)));
+    xmlnode_free(dup);
 
     if(room->master->history > 0)
     {
@@ -1171,6 +1182,8 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     {
       xmlnode_free(node);
     }
+    
+    g_mutex_unlock(room->history_mutex);
 
     xmlnode_free(jp->x);
     return;
@@ -1525,6 +1538,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->exclusion_list = g_queue_new(); // bcy: create exclusion list
   room->table_mutex = g_mutex_new();
   room->history_mutex = g_mutex_new();
+  room->history_message = g_queue_new();
   
   /*bcy: ccn_closure initialization*/
   room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
@@ -1646,6 +1660,20 @@ static void cleanup_remote_user(gpointer key, gpointer value, gpointer user_data
   con_user_zap(user, node);
 }
 
+static void clear_history_queue(cnr room)
+{
+  GQueue *queue = room->history_message;
+  
+  while (!g_queue_is_empty(queue))
+  {
+    char *element = g_queue_pop_head(queue);
+    if (element != NULL)
+      free(element);
+  }
+  
+  g_queue_free(queue);
+}
+
 /* Clear up room hashes */
 void con_room_cleanup(cnr room)
 {
@@ -1757,11 +1785,12 @@ void con_room_zap(cnr room)
 void con_room_history_clear(cnr room)
 {
   int h;
+  
+  g_mutex_lock(room->history_mutex);
 
+  clear_history_queue(room);
   if(room->master->history > 0)
   {
-    g_mutex_lock(room->history_mutex);
-
     h = room->hlast;
 
     while(1)
@@ -1786,6 +1815,7 @@ void con_room_history_clear(cnr room)
       if(h == room->hlast)
         break;
     }
-    g_mutex_unlock(room->history_mutex);
   }
+  
+  g_mutex_unlock(room->history_mutex);
 }

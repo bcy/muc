@@ -185,6 +185,7 @@ typedef struct cnr_struct
 
   GHashTable *presence;		/* bcy: storage of generated presence packets */
   GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
+  GQueue *history_message;
   GMutex *table_mutex;
   GMutex *history_mutex;
 

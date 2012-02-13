@@ -468,9 +468,10 @@ incoming_interest_history(
 {
   cnu user = (cnu) selfp->data;
   cnr room;
-  int hi, seq;
+  int seq;
   char *temp;
   size_t size;
+  GList *iterator;
   
   switch (kind)
   {
@@ -500,19 +501,13 @@ incoming_interest_history(
   seq = 1;
   
   g_mutex_lock(room->history_mutex);
-  hi = room->hlast;
-  while (1)
+  iterator = room->history_message->head;
+  while (iterator != NULL)
   {
-    if (room->history[hi] != NULL)
-      create_history_content(user, xmlnode2str(room->history[hi]->x), seq++);
-    
-    hi--;
-    
-    if (hi < 0)
-      hi = room->master->history - 1;
-    
-    if (seq > HISTORY || hi == room->hlast)
-      break;
+    char *history = iterator->data;
+    if (history != NULL)
+      create_history_content(user, history, seq++);
+    iterator = iterator->next;
   }
   g_mutex_unlock(room->history_mutex);
   g_mutex_unlock(user_mutex);
@@ -607,6 +602,14 @@ deliver_history(cnr room)
   while (l != NULL)
   {
     struct history *h = l->data;
+    
+    if (g_queue_get_length(room->history_message) == HISTORY)
+    {
+      char *data = g_queue_pop_tail(room->history_message);
+      free(data);
+    }
+    g_queue_push_head(room->history_message, strdup(xmlnode2str(h->x)));
+    
     if(room->master->history > 0)
     {
       pool hist_p = pool_new();
