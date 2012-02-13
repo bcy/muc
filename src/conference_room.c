@@ -1668,8 +1668,6 @@ static void clear_history_queue(cnr room)
     if (element != NULL)
       free(element);
   }
-  
-  g_queue_free(queue);
 }
 
 /* Clear up room hashes */
@@ -1745,6 +1743,8 @@ void con_room_cleanup(cnr room)
   /* bcy: free exclusion_list and destroy hash table */
   g_queue_foreach(room->exclusion_list, &free_list, NULL);
   g_queue_free(room->exclusion_list);
+  
+  g_queue_free(room->history_message);
   
   g_mutex_free(room->table_mutex);
   g_mutex_free(room->history_mutex);
