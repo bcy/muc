@@ -399,7 +399,7 @@ struct presence
 
 struct history
 {
-  xmlnode x;
+  char *msg;
   int seq;
 };
 

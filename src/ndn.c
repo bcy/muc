@@ -549,7 +549,8 @@ incoming_content_history(
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
   h->seq = atoi(seq_str);
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
-  h->x = xmlnode_str(pcontent, len);
+  h->msg = calloc(1, sizeof(char) * (len + 1));
+  strncpy(h->msg, pcontent, len);
   if (g_mutex_trylock(hlist_mutex))
   {
     hlist = g_list_append(hlist, h);
@@ -587,7 +588,7 @@ free_history(gpointer data)
 {
   struct history *h = (struct history*) data;
   
-  xmlnode_free(h->x);
+  free(h->msg);
   free(h);
 }
 
@@ -608,15 +609,18 @@ deliver_history(cnr room)
       char *data = g_queue_pop_tail(room->history_message);
       free(data);
     }
-    g_queue_push_head(room->history_message, strdup(xmlnode2str(h->x)));
+    g_queue_push_head(room->history_message, strdup(h->msg));
+    
+    xmlnode node = xmlnode_str(h->msg, strlen(h->msg));
+    g_hash_table_foreach(room->remote, do_delivery, node);
     
     if(room->master->history > 0)
     {
       pool hist_p = pool_new();
       cnh hist = pmalloco(hist_p, sizeof(_cnh));
       hist->p = hist_p;
-      hist->x = xmlnode_dup(h->x);
-      hist->content_length = j_strlen(xmlnode_get_tag_data(h->x, "body"));
+      hist->x = node;
+      hist->content_length = j_strlen(xmlnode_get_tag_data(node, "body"));
       hist->timestamp = time(NULL);
 
       if(++room->hlast == room->master->history)
@@ -632,7 +636,9 @@ deliver_history(cnr room)
       log_debug(NAME, "[%s] adding history entry %d", FZONE, room->hlast);
       room->history[room->hlast] = hist;
     }
-    g_hash_table_foreach(room->remote, do_delivery, h->x);
+    else
+      xmlnode_free(node);
+    
     l = g_list_next(l);
   }
   g_mutex_unlock(room->history_mutex);
