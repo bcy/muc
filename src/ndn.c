@@ -15,6 +15,7 @@ static GMutex *ccn_mutex;
 GHashTable *timer_valid;			// flags indicating if a timer is valid
 static GList *hlist;
 static GMutex *hlist_mutex;
+GMutex *user_mutex, *room_mutex;
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -218,14 +219,12 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  if (user == NULL) // user has been zapped
-    return CCN_UPCALL_RESULT_OK;
-  
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 3, (const unsigned char **)&comp, &size);
   if (j_strcmp(comp, "\xC1.M.history") == 0)
     return CCN_UPCALL_RESULT_REEXPRESS;
   
-  g_mutex_lock(user->user_mutex);
+  if (user == NULL || user->leaving == 1) // user has been zapped
+    return CCN_UPCALL_RESULT_OK;
   
   /* Timestamp checking */ 
   l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
@@ -250,7 +249,6 @@ incoming_content_message(
     {
       log_debug(NAME, "[%s] Too old message, ignore", FZONE);
       create_message_interest(user, 0);
-      g_mutex_unlock(user->user_mutex);
       return CCN_UPCALL_RESULT_OK;
     }
   }
@@ -260,7 +258,6 @@ incoming_content_message(
   seq = atoi(comp);
   if (seq == user->last_seq)
   {
-    g_mutex_unlock(user->user_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
   user->last_seq = seq;
@@ -281,7 +278,6 @@ incoming_content_message(
     if (strstr(to, jid_full(user->room->id)) == NULL) // "to" field should be in the form of <roomID>/<nick>
     {
       xmlnode_free(x);
-      g_mutex_unlock(user->user_mutex);
       return CCN_UPCALL_RESULT_OK;
     }
     else
@@ -293,7 +289,6 @@ incoming_content_message(
       if (u == NULL || u->remote == 1) // the destination user should be local
       {
 	g_mutex_unlock(user->room->table_mutex);
-	g_mutex_unlock(user->user_mutex);
 	xmlnode_free(x);
 	return CCN_UPCALL_RESULT_OK;
       }
@@ -301,8 +296,6 @@ incoming_content_message(
 	g_mutex_unlock(user->room->table_mutex);
     }
   }
-  
-  g_mutex_unlock(user->user_mutex);
   
   // add external field to indicate the message comes from outside
   xmlnode_put_attrib(x, "external", "1");
@@ -409,8 +402,7 @@ incoming_content_presence(
   tmp = strrchr(id, '@');
   if (tmp != NULL)
     *tmp = '\0';
-  while (g_mutex_trylock(room->table_mutex) == FALSE)
-    fprintf(stderr, "[%s] wait for locking\n", FZONE);
+  g_mutex_lock(room->table_mutex);
   user = g_hash_table_lookup(room->remote_users, id);
   free(id);
   if (user != NULL && user->last_presence > secs)
@@ -496,10 +488,14 @@ incoming_interest_history(
   if (j_strncmp(temp, "\xC1.M.history", size) != 0)
     return CCN_UPCALL_RESULT_OK;
   
-  if (user == NULL)
-    return CCN_UPCALL_RESULT_OK;
+  g_mutex_lock(user_mutex);
   
-  g_mutex_lock(user->user_mutex);
+  if (user == NULL || user->leaving == 1)
+  {
+    g_mutex_unlock(user_mutex);
+    return CCN_UPCALL_RESULT_OK;
+  }
+  
   room = user->room;
   seq = 1;
   
@@ -519,7 +515,7 @@ incoming_interest_history(
       break;
   }
   g_mutex_unlock(room->history_mutex);
-  g_mutex_unlock(user->user_mutex);
+  g_mutex_unlock(user_mutex);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -1203,6 +1199,9 @@ init_ndn_thread()
   ccn_mutex = g_mutex_new();
   timer_valid = g_hash_table_new(NULL, NULL);
   hlist_mutex = g_mutex_new();
+  
+  user_mutex = g_mutex_new();
+  room_mutex = g_mutex_new();
 
   // initialize ccn_keystore
   temp = ccn_charbuf_create();
@@ -1242,6 +1241,8 @@ stop_ndn_thread()
   g_mutex_free(ccn_mutex);
   g_mutex_free(hlist_mutex);
   g_hash_table_destroy(timer_valid);
+  g_mutex_free(user_mutex);
+  g_mutex_free(room_mutex);
   free(nthread);
   return 0;
 }

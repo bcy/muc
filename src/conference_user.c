@@ -39,7 +39,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 
   key = j_strdup(jid_full(user->realid));
   g_hash_table_insert(room->remote, key, (void*)user);
-
+  
   /* Add this user to the room roster */
   add_roster(room, user->realid);
 
@@ -81,12 +81,12 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
-  user->user_mutex = g_mutex_new();
   
   // bcy: for user coming from outside
   if (external == 1)
   {
     user->last_seq = seq - 1;
+    user->last_message = time(NULL);
     user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     user->in_content_message->data = user;
     user->in_content_message->p = &incoming_content_message;
@@ -648,6 +648,7 @@ void con_user_zap(cnu user, xmlnode data)
   char *reason;
   char *status;
   char *nick;
+  extern GMutex *user_mutex;
 
   if(user == NULL || data == NULL)
   {
@@ -658,16 +659,30 @@ void con_user_zap(cnu user, xmlnode data)
 
     return;
   }
-
-  g_mutex_lock(user->user_mutex);
+  
+  g_mutex_lock(user_mutex);
+  
   user->leaving = 1;
+  
+  room = user->room;
+  if (user->remote == 1)
+  {
+    user->in_content_message->data = NULL;
+    log_debug(NAME, "[%s] Removing from remote user list", FZONE);
+    if (room->zapping == 0 && room->cleaning == 0)
+      g_hash_table_remove(room->remote_users, user->realid->user);
+  }
+  else
+  {
+    set_history_interest_filter(user, NULL);
+    user->in_interest_history->data = NULL;
+    free(user->in_interest_history);
+  }
 
   status = xmlnode_get_attrib(data, "status");
   nick = xmlnode_get_attrib(data, "actnick");
 
   reason = xmlnode_get_data(data);
-
-  room = user->room;
 
   if(room == NULL)
   {
@@ -760,30 +775,15 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Removing presence stored in local table", FZONE);
   g_hash_table_remove(room->presence, user);
   
-  if (user->remote == 1)
-  {
-    log_debug(NAME, "[%s] Removing from remote user list", FZONE);
-    if (room->zapping == 0 && room->cleaning == 0)
-      g_hash_table_remove(room->remote_users, user->realid->user);
-    user->in_content_message->data = NULL;
-  }
-  else
-  {
-    set_history_interest_filter(user, NULL);
-    user->in_interest_history->data = NULL;
-    free(user->in_interest_history);
-  }
-  
   // bcy: free allocated memory
   free(user->name_prefix);
   free(user->status);
   
-  g_mutex_unlock(user->user_mutex);
-  g_mutex_free(user->user_mutex);
-  
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
   g_mutex_unlock(room->table_mutex);
+  
+  g_mutex_unlock(user_mutex);
   
   if (room->local_count == 0 && room->zapping == 0)
   {
