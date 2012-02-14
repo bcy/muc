@@ -119,7 +119,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 
 int _con_user_history_send(cnu to, xmlnode node)
 {
-  if(to == NULL || node == NULL || to->remote == 1)
+  if(to == NULL || node == NULL)
   {
     return 0;
   }
@@ -404,7 +404,7 @@ void con_user_enter(cnu user, char *nick, int created)
   log_debug(NAME,"x->maxchars: %i",j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"),-1));
 
   /* loop through history and send back */
-  if(room->master->history > 0)
+  if(room->master->history > 0 && user->remote == 0)
   {
     max_stanzas = j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"),room->master->history);
     max_chars = j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"),-1);
