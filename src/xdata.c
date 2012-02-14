@@ -65,12 +65,23 @@ static void add_xdata_desc(xmlnode parent, char *label)
   xmlnode_insert_cdata(xmlnode_insert_tag(node,"value"), label, -1);
 }
 
+struct room_idx {
+  char *id;
+  GHashTable *table;
+};
+
 static gboolean send_interest(gpointer data)
 {
-  cnr room = (cnr) data;
-
-  create_presence_interest(room);
-  set_interest_filter(room, room->in_interest_presence);
+  struct room_idx *idx = (struct room_idx *)data;
+  cnr room = g_hash_table_lookup(idx->table, idx->id);
+  
+  if (room != NULL && room->zapping == 0)
+  {
+    create_presence_interest(room);
+    set_interest_filter(room, room->in_interest_presence);
+  }
+  free(idx->id);
+  free(idx);
   return FALSE;
 }
 
@@ -154,7 +165,11 @@ int xdata_handler(cnr room, cnu user, jpacket packet)
       deliver(dpacket_new(message), NULL);
 
       room->locked = 0;
-      g_timeout_add_seconds(2, send_interest, room);
+      
+      struct room_idx *idx = calloc(1, sizeof(struct room_idx));
+      idx->id = strdup(jid_full(room->id));
+      idx->table = room->master->rooms;
+      g_timeout_add_seconds(2, send_interest, idx);
     }
 
     /* Protect text forms from broken clients */
