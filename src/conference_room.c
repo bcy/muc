@@ -430,6 +430,9 @@ void con_room_leaveall(gpointer key, gpointer data, gpointer arg)
     log_warn(NAME, "[%s] Aborting - NULL user attribute found", FZONE);
     return;
   }
+  
+  if (user->remote == 1)
+    return;
 
   presence = jutil_presnew(JPACKET__UNAVAILABLE, NULL, NULL);
   tag = xmlnode_insert_tag(presence,"x");
@@ -514,6 +517,9 @@ void con_room_sendwalk(gpointer key, gpointer data, gpointer arg)
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
   }
+  
+  if (to->remote == 1)
+    return;
 
   from = (cnu)xmlnode_get_vattrib(x,"cnu");
 

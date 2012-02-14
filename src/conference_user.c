@@ -618,9 +618,6 @@ void con_user_send(cnu to, cnu from, xmlnode node)
     return;
   }
   
-  if (to->remote == 1) // bcy: only send to local users
-    return;
-
   xmlnode_put_attrib(node, "to", jid_full(to->realid));
 
   if(xmlnode_get_attrib(node, "cnu") != NULL)
