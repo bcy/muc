@@ -392,30 +392,30 @@ void con_user_enter(cnu user, char *nick, int created)
   if(room->locked > 0 && user->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room is locked from entry until configuration is confirmed.", user->p));
-    xmlnode_put_attrib(message,"from", jid_full(room->id));
+    xmlnode_put_attrib(message, "from", jid_full(room->id));
     deliver(dpacket_new(message), NULL);
   }
 
   /* Switch to queue mode */
   deliver__flag = 0;
 
-  p_x_history = xmlnode_get_tag(user->presence,"x/history");
-  log_debug(NAME,"x->maxstanzas: %i",j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"),-1));
-  log_debug(NAME,"x->maxchars: %i",j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"),-1));
+  p_x_history = xmlnode_get_tag(user->presence, "x/history");
+  log_debug(NAME, "x->maxstanzas: %i", j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"), -1));
+  log_debug(NAME, "x->maxchars: %i", j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"), -1));
 
   /* loop through history and send back */
   if(room->master->history > 0 && user->remote == 0)
   {
-    max_stanzas = j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"),room->master->history);
-    max_chars = j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"),-1);
-    seconds = j_atoi(xmlnode_get_attrib(p_x_history,"seconds"),-1);
-    since_str = xmlnode_get_attrib(p_x_history,"since");
+    max_stanzas = j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"), room->master->history);
+    max_chars = j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"), -1);
+    seconds = j_atoi(xmlnode_get_attrib(p_x_history,"seconds"), -1);
+    since_str = xmlnode_get_attrib(p_x_history, "since");
     if (since_str != NULL) {
       since_tm = malloc(sizeof(struct tm));
-      bzero(since_tm,sizeof(struct tm));
+      bzero(since_tm, sizeof(struct tm));
 
       /* calc unix time */
-      strptime(since_str,"%Y-%m-%dT%T%z",since_tm);
+      strptime(since_str, "%Y-%m-%dT%T%z", since_tm);
       since = mktime(since_tm);
       free(since_tm);
     }

@@ -954,16 +954,18 @@ create_presence_content(cnu user, xmlnode x)
   
   if (j_strcmp(xmlnode_get_attrib(dup_x, "type"), "unavailable") != 0)
   {
+    xmlnode node = xmlnode_dup(dup_x);
+    
     pcontent = (struct presence *) calloc(1, sizeof(struct presence));
     pcontent->user = user;
-    xmlnode_hide_attrib(dup_x, "seq_reset");
-    pcontent->x = dup_x;
+    xmlnode_hide_attrib(node, "seq_reset");
+    pcontent->x = node;
     g_hash_table_insert(user->room->presence, user, pcontent); // insert into presence table for local storage
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
     g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   }
-  else
-    xmlnode_free(dup_x);
+
+  xmlnode_free(dup_x);
   
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
