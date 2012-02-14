@@ -1152,7 +1152,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     g_mutex_lock(room->history_mutex);
     
     xmlnode dup = xmlnode_dup(node);
-    if (g_queue_get_length(room->history_message) == HISTORY)
+    if (g_queue_get_length(room->history_message) == MIN(room->master->history, HISTORY))
     {
       char *data = g_queue_pop_tail(room->history_message);
       free(data);
@@ -1457,7 +1457,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
     room->name = j_strdup(room->id->user);
 
   /* room password */
-  room->secret = j_strdup(secret);
+    room->secret = j_strdup(secret);
   room->private = private;
 
   /* lock nicknames - defaults to off (unless overridden by master setting) */

@@ -505,7 +505,7 @@ incoming_interest_history(
   
   g_mutex_lock(room->history_mutex);
   iterator = room->history_message->head;
-  while (iterator != NULL)
+  while (iterator != NULL && seq <= MIN(room->master->history, HISTORY))
   {
     char *history = iterator->data;
     if (history != NULL)
@@ -607,7 +607,7 @@ deliver_history(cnr room)
   {
     struct history *h = l->data;
     
-    if (g_queue_get_length(room->history_message) == HISTORY)
+    if (g_queue_get_length(room->history_message) == MIN(room->master->history, HISTORY))
     {
       char *data = g_queue_pop_tail(room->history_message);
       free(data);
