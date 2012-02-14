@@ -3,15 +3,19 @@
 
 #define PRESENCE_FRESHNESS 2
 #define MESSAGE_FRESHNESS 10
+#define HISTORY_FRESHNESS 3
 #define EXCLUSION_TIMEOUT 2
 #define UNAVAILABLE_FRESHNESS 1
 #define SEND_PRESENCE_INTERVAL 60
 
-struct ndn_thread *nthread;			// ndn thread struct
+static struct ndn_thread *nthread;		// ndn thread struct
 static struct pollfd pfds[1];
 static struct ccn_keystore *keystore;		// ccn keystore struct
 static GMutex *ccn_mutex;
 GHashTable *timer_valid;			// flags indicating if a timer is valid
+static GList *hlist;
+static GMutex *hlist_mutex;
+GMutex *user_mutex, *room_mutex;
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -68,10 +72,10 @@ generate_presence_name(char *name, cnu user, int startup)
   // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   strcpy(name, "/ndn/broadcast/xmpp-muc/");
   if (startup)
-    strcat(name, "startup/");
+    strcat(name, "\xC1.M.startup/");
   strcat(name, user->room->id->user);
   strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
+  strcat(name, user->realid->user);
 }
 
 /* create content packet for presence */
@@ -84,7 +88,9 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   struct ccn_charbuf *signed_info;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
+  char *str_seq = calloc(1, sizeof(char) * 20);
   char *data;
+  xmlnode node;
   
   generate_presence_name(content_name, user, startup);
   pname = ccn_charbuf_create();
@@ -111,8 +117,13 @@ generate_presence_content(cnu user, xmlnode x, int startup)
     ccn_charbuf_destroy(&pname);
     return 1;
   }
+  
+  node = xmlnode_dup(x);
+  itoa(user->message_seq, str_seq);
+  xmlnode_put_attrib(node, "seq_reset", str_seq);
+  free(str_seq);
 
-  data = xmlnode2str(x);
+  data = xmlnode2str(node);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
@@ -120,6 +131,8 @@ generate_presence_content(cnu user, xmlnode x, int startup)
 			NULL, ccn_keystore_private_key(keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
+  free(content_name);
+  xmlnode_free(node);
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
@@ -174,7 +187,7 @@ incoming_content_message(
   struct ccn_upcall_info *info)
 {
   cnu user = (cnu) selfp->data;
-  char *seq_str;
+  char *comp;
   char *pcontent = NULL;
   unsigned int seq;
   size_t len, size;
@@ -192,18 +205,11 @@ incoming_content_message(
       if (user != NULL) // interest timed out, re-express it
       {
 	if (now - user->last_message > MESSAGE_FRESHNESS)
-	{
 	  create_message_interest(user, 0);
-	  return CCN_UPCALL_RESULT_OK;
-	}
 	else
-	{
 	  create_message_interest(user, user->last_seq + 1);
-	  return CCN_UPCALL_RESULT_OK;
-	}
       }
-      else
-	return CCN_UPCALL_RESULT_OK;
+      return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
       log_warn(NAME, "[%s] Unverified message content received", FZONE);
@@ -216,9 +222,13 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_OK;
   }
   
-  if (user == NULL) // user has been zapped
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 3, (const unsigned char **)&comp, &size);
+  if (j_strcmp(comp, "\xC1.M.history") == 0)
+    return CCN_UPCALL_RESULT_REEXPRESS;
+  
+  if (user == NULL || user->leaving == 1) // user has been zapped
     return CCN_UPCALL_RESULT_OK;
-    
+  
   /* Timestamp checking */ 
   l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
   if (l > 0)
@@ -247,10 +257,12 @@ incoming_content_message(
   }
   
   // extract sequence number from content name, increase one and send new interest
-  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &size);
-  seq = atoi(seq_str);
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&comp, &size);
+  seq = atoi(comp);
   if (seq == user->last_seq)
+  {
     return CCN_UPCALL_RESULT_OK;
+  }
   user->last_seq = seq;
   user->last = now;
   user->last_message = now;
@@ -275,8 +287,7 @@ incoming_content_message(
     {
       char *nick = to + strlen(jid_full(user->room->id)) + 1;
       cnu u;
-      while (g_mutex_trylock(user->room->table_mutex) == FALSE)
-	fprintf(stderr, "[%s] wait for locking\n", FZONE);
+      g_mutex_lock(user->room->table_mutex);
       u = g_hash_table_lookup(user->room->local, nick);
       if (u == NULL || u->remote == 1) // the destination user should be local
       {
@@ -292,7 +303,7 @@ incoming_content_message(
   // add external field to indicate the message comes from outside
   xmlnode_put_attrib(x, "external", "1");
   deliver(dpacket_new(x), NULL);
-  return CCN_UPCALL_RESULT_OK;
+  return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
 }
 
 enum ccn_upcall_res
@@ -318,6 +329,7 @@ incoming_content_presence(
   switch (kind)
   {
     case CCN_UPCALL_FINAL:
+      //free(selfp);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
@@ -390,11 +402,10 @@ incoming_content_presence(
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
   id = j_strdup(xmlnode_get_attrib(x, "from"));
-  tmp = strrchr(id, '/');
+  tmp = strrchr(id, '@');
   if (tmp != NULL)
     *tmp = '\0';
-  while (g_mutex_trylock(room->table_mutex) == FALSE)
-    fprintf(stderr, "[%s] wait for locking\n", FZONE);
+  g_mutex_lock(room->table_mutex);
   user = g_hash_table_lookup(room->remote_users, id);
   free(id);
   if (user != NULL && user->last_presence > secs)
@@ -452,6 +463,194 @@ incoming_content_presence(
   return CCN_UPCALL_RESULT_OK;
 }
 
+enum ccn_upcall_res
+incoming_interest_history(
+  struct ccn_closure *selfp,
+  enum ccn_upcall_kind kind,
+  struct ccn_upcall_info *info)
+{
+  cnu user = (cnu) selfp->data;
+  cnr room;
+  int seq;
+  char *temp;
+  size_t size;
+  GList *iterator;
+  
+  switch (kind)
+  {
+    case CCN_UPCALL_FINAL:
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_INTEREST:
+      break;
+      
+    default:
+      return CCN_UPCALL_RESULT_OK;
+  }
+  
+  ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
+  if (j_strncmp(temp, "\xC1.M.history", size) != 0)
+    return CCN_UPCALL_RESULT_OK;
+  
+  g_mutex_lock(user_mutex);
+  
+  if (user == NULL || user->leaving == 1)
+  {
+    g_mutex_unlock(user_mutex);
+    return CCN_UPCALL_RESULT_OK;
+  }
+  
+  room = user->room;
+  seq = 1;
+  
+  g_mutex_lock(room->history_mutex);
+  iterator = room->history_message->head;
+  while (iterator != NULL && seq <= MIN(room->master->history, HISTORY))
+  {
+    char *history = iterator->data;
+    if (history != NULL)
+      create_history_content(user, history, seq++);
+    iterator = iterator->next;
+  }
+  g_mutex_unlock(room->history_mutex);
+  g_mutex_unlock(user_mutex);
+  
+  return CCN_UPCALL_RESULT_OK;
+}
+
+enum ccn_upcall_res
+incoming_content_history(
+  struct ccn_closure *selfp,
+  enum ccn_upcall_kind kind,
+  struct ccn_upcall_info *info)
+{
+  cnr room = (cnr) selfp->data;
+  char *pcontent, *seq_str;
+  size_t len;
+  struct history *h;
+  
+  switch (kind)
+  {
+    case CCN_UPCALL_FINAL:
+      //free(selfp);
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_INTEREST_TIMED_OUT:
+      return CCN_UPCALL_RESULT_OK;
+      
+    case CCN_UPCALL_CONTENT:
+      break;
+      
+    default:
+      return CCN_UPCALL_RESULT_OK;
+  }
+  
+  if (room == NULL)
+    return CCN_UPCALL_RESULT_OK;
+
+  h = calloc(1, sizeof(struct history));
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
+  h->seq = atoi(seq_str);
+  ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E], info->pco, (const unsigned char **)&pcontent, &len);
+  h->msg = calloc(1, sizeof(char) * (len + 1));
+  strncpy(h->msg, pcontent, len);
+  if (g_mutex_trylock(hlist_mutex))
+  {
+    hlist = g_list_append(hlist, h);
+    g_mutex_unlock(hlist_mutex);
+  }
+  
+  return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
+}
+
+static gint
+compare_history(gconstpointer a, gconstpointer b)
+{
+  struct history *ha = (struct history*) a;
+  struct history *hb = (struct history*) b; 
+  
+  return hb->seq - ha->seq;
+}
+
+static void
+do_delivery(gpointer key, gpointer value, gpointer user_data)
+{
+  cnu user = (cnu) value;
+  xmlnode x = (xmlnode) user_data;
+  
+  if (user->remote == 0)
+  {
+    xmlnode dup_x = xmlnode_dup(x);
+    xmlnode_put_attrib(dup_x, "to", jid_full(user->realid));
+    deliver(dpacket_new(dup_x), NULL);
+  }
+}
+
+static void
+free_history(gpointer data)
+{
+  struct history *h = (struct history*) data;
+  
+  free(h->msg);
+  free(h);
+}
+
+void
+deliver_history(cnr room)
+{
+  GList *l;
+  
+  g_mutex_lock(hlist_mutex);
+  g_mutex_lock(room->history_mutex);
+  l = g_list_sort(hlist, compare_history);
+  while (l != NULL)
+  {
+    struct history *h = l->data;
+    
+    if (g_queue_get_length(room->history_message) == MIN(room->master->history, HISTORY))
+    {
+      char *data = g_queue_pop_tail(room->history_message);
+      free(data);
+    }
+    g_queue_push_head(room->history_message, strdup(h->msg));
+    
+    xmlnode node = xmlnode_str(h->msg, strlen(h->msg));
+    g_hash_table_foreach(room->remote, do_delivery, node);
+    
+    if(room->master->history > 0)
+    {
+      pool hist_p = pool_new();
+      cnh hist = pmalloco(hist_p, sizeof(_cnh));
+      hist->p = hist_p;
+      hist->x = node;
+      hist->content_length = j_strlen(xmlnode_get_tag_data(node, "body"));
+      hist->timestamp = time(NULL);
+
+      if(++room->hlast == room->master->history)
+        room->hlast = 0;
+      
+      if (room->history[room->hlast] != NULL)
+      {
+        log_debug(NAME, "[%s] clearing old history entry %d", FZONE, room->hlast);
+        xmlnode_free(room->history[room->hlast]->x);
+        pool_free(room->history[room->hlast]->p);
+      }
+
+      log_debug(NAME, "[%s] adding history entry %d", FZONE, room->hlast);
+      room->history[room->hlast] = hist;
+    }
+    else
+      xmlnode_free(node);
+    
+    l = g_list_next(l);
+  }
+  g_mutex_unlock(room->history_mutex);
+  hlist = g_list_first(hlist);
+  g_list_free_full(hlist, free_history);
+  hlist = NULL;
+  g_mutex_unlock(hlist_mutex);
+}
+
 void
 set_interest_filter(cnr room, struct ccn_closure *in_interest)
 {
@@ -459,12 +658,33 @@ set_interest_filter(cnr room, struct ccn_closure *in_interest)
   char *interest_name = calloc(1, sizeof(char) * 100);
 
   interest = ccn_charbuf_create();
-  strcpy(interest_name, "/ndn/broadcast/xmpp-muc/startup/");
+  strcpy(interest_name, "/ndn/broadcast/xmpp-muc/\xC1.M.startup/");
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
 
   ccn_set_interest_filter(nthread->ccn, interest, in_interest);
 
+  free(interest_name);
+  ccn_charbuf_destroy(&interest);
+}
+
+void
+set_history_interest_filter(cnu user, struct ccn_closure *in_interest)
+{
+  struct ccn_charbuf *interest;
+  char *interest_name = calloc(1, sizeof(char) * 100);
+  
+  interest = ccn_charbuf_create();
+  strcpy(interest_name, user->name_prefix);
+  strcat(interest_name, "/");
+  strcat(interest_name, user->realid->user);
+  strcat(interest_name, "/");
+  strcat(interest_name, user->room->id->user);
+  strcat(interest_name, "/\xC1.M.history");
+  ccn_name_from_uri(interest, interest_name);
+  
+  ccn_set_interest_filter(nthread->ccn, interest, in_interest);
+  
   free(interest_name);
   ccn_charbuf_destroy(&interest);
 }
@@ -557,7 +777,7 @@ create_presence_interest(cnr room)
   interest = ccn_charbuf_create();
   strcpy(interest_name, "/ndn/broadcast/xmpp-muc/");
   if (room->startup)
-    strcat(interest_name, "startup/");
+    strcat(interest_name, "\xC1.M.startup/");
   strcat(interest_name, room->id->user);
   ccn_name_from_uri(interest, interest_name);
   free(interest_name);
@@ -680,7 +900,7 @@ create_presence_content(cnu user, xmlnode x)
   
   generate_presence_name(content_name, user, 0);
   if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
-    strcat(content_name, "_exit");  
+    strcat(content_name, "_exit");
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
@@ -715,34 +935,43 @@ create_presence_content(cnu user, xmlnode x)
   hostname = calloc(1, sizeof(char) * 50);
   gethostname(hostname, 50);
   xmlnode_put_attrib(dup_x, "hostname", hostname);
-  str_seq = calloc(1, sizeof(char) * 20);
-  itoa(user->message_seq, str_seq);
-  xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
-  free(str_seq);
+  if (j_strcmp(xmlnode_get_attrib(dup_x, "type"), "unavailable") != 0)
+  {
+    str_seq = calloc(1, sizeof(char) * 20);
+    itoa(user->message_seq, str_seq);
+    xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
+    free(str_seq);
+  }
+  xmlnode_insert_cdata(xmlnode_insert_tag(dup_x, "name_prefix"), xmlnode_get_tag_data(jcr->config, "name_prefix"), -1);
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
-  ccn_encode_ContentObject(content, pname, signed_info, 
-			data, strlen(data), 
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data),
 			NULL, ccn_keystore_private_key(keystore));
   
   ccn_put(nthread->ccn, content->buf, content->length);
   
   if (j_strcmp(xmlnode_get_attrib(dup_x, "type"), "unavailable") != 0)
   {
+    xmlnode node = xmlnode_dup(dup_x);
+    
     pcontent = (struct presence *) calloc(1, sizeof(struct presence));
     pcontent->user = user;
-    xmlnode_hide_attrib(dup_x, "seq_reset");
-    pcontent->x = dup_x;
+    xmlnode_hide_attrib(node, "seq_reset");
+    pcontent->x = node;
     g_hash_table_insert(user->room->presence, user, pcontent); // insert into presence table for local storage
     g_hash_table_insert(timer_valid, pcontent, (gpointer)1);
     g_timeout_add_seconds(SEND_PRESENCE_INTERVAL, send_again, pcontent);
   }
+
+  xmlnode_free(dup_x);
   
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
   ccn_charbuf_destroy(&content);
+  free(content_name);
   free(hostname);
   return 0;
 }
@@ -758,7 +987,7 @@ create_message_interest(cnu user, unsigned int seq)
   
   strcpy(name, user->name_prefix);
   strcat(name, "/");
-  strcat(name, jid_ns(user->realid));
+  strcat(name, user->realid->user);
   strcat(name, "/");
   strcat(name, user->room->id->user);
   
@@ -793,10 +1022,9 @@ int
 create_message_content(cnu user, char *data)
 {
   struct ccn_charbuf *pname;
-  struct ccn_charbuf *interest_filter;
   struct ccn_charbuf *signed_info;
   struct ccn_charbuf *keylocator;
-  struct ccn_charbuf *content, *dup_content;
+  struct ccn_charbuf *content;
   int res;
   char *content_name = calloc(1, sizeof(char) * 100);
   char *seq_char = calloc(1, sizeof(char) * 20);
@@ -804,11 +1032,9 @@ create_message_content(cnu user, char *data)
   // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
-  strcat(content_name, jid_ns(user->realid));
+  strcat(content_name, user->realid->user);
   strcat(content_name, "/");
   strcat(content_name, user->room->id->user);
-  interest_filter = ccn_charbuf_create();
-  ccn_name_from_uri(interest_filter, content_name);  
   strcat(content_name, "/");
   itoa(user->message_seq, seq_char);
   strcat(content_name, seq_char);
@@ -833,7 +1059,7 @@ create_message_content(cnu user, char *data)
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&pname);
-    ccn_charbuf_destroy(&interest_filter);
+    free(content_name);
     return 1;
   }
   
@@ -842,19 +1068,121 @@ create_message_content(cnu user, char *data)
   ccn_encode_ContentObject(content, pname, signed_info,
 			data, strlen(data), 
 			NULL, ccn_keystore_private_key(keystore));
-  
-  dup_content = ccn_charbuf_create();
-  ccn_charbuf_reset(dup_content);
-  ccn_charbuf_append_charbuf(dup_content, content);
-  
+    
   ccn_put(nthread->ccn, content->buf, content->length);
   user->message_seq++;
   
   ccn_charbuf_destroy(&keylocator);
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
-  ccn_charbuf_destroy(&interest_filter);
+  ccn_charbuf_destroy(&content);
+  free(content_name);
   free(seq_char);
+  return 0;
+}
+
+/* create interest for history */
+int
+create_history_interest(cnu user, unsigned int seq)
+{
+  struct ccn_charbuf *interest;
+  int res;
+  char *str_seq = calloc(1, sizeof(char) * 20);
+  char *name = calloc(1, sizeof(char) * 100);
+  
+  strcpy(name, user->name_prefix);
+  strcat(name, "/");
+  strcat(name, user->realid->user);
+  strcat(name, "/");
+  strcat(name, user->room->id->user);
+  strcat(name, "/\xC1.M.history/");
+  
+  // append sequence number to the name
+  interest = ccn_charbuf_create();
+  ccn_name_from_uri(interest, name);
+  if (seq >= 1)
+  {
+    itoa(seq, str_seq);
+    ccn_name_append_str(interest, str_seq);
+  }
+  
+  // express interest
+  res = ccn_express_interest(nthread->ccn, interest, user->room->in_content_history, NULL);
+  if (res < 0)
+  {
+    log_warn(NAME, "[%s] ccn_express_interest %s failed", FZONE, name);
+    free(name);
+    free(str_seq);
+    ccn_charbuf_destroy(&interest);
+    return 1;
+  }
+  
+  free(name);
+  free(str_seq);
+  ccn_charbuf_destroy(&interest);
+  return 0;
+}
+
+/* create content for history */
+int
+create_history_content(cnu user, char *data, unsigned int seq)
+{
+  struct ccn_charbuf *pname;
+  struct ccn_charbuf *signed_info;
+  struct ccn_charbuf *keylocator;
+  struct ccn_charbuf *content;
+  int res;
+  char *content_name = calloc(1, sizeof(char) * 100);
+  char *seq_char = calloc(1, sizeof(char) * 20);
+  
+  // content name has the form of "<name_prefix>/<userID>/<roomID>/%C1.M.history/<seq>"
+  strcpy(content_name, user->name_prefix);
+  strcat(content_name, "/");
+  strcat(content_name, user->realid->user);
+  strcat(content_name, "/");
+  strcat(content_name, user->room->id->user);
+  strcat(content_name, "/\xC1.M.history/");
+  itoa(seq, seq_char);
+  strcat(content_name, seq_char);
+  pname = ccn_charbuf_create();
+  ccn_name_from_uri(pname, content_name);
+  
+  // create keylocator and signed_info for content
+  keylocator = ccn_charbuf_create();
+  ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
+  signed_info = ccn_charbuf_create();
+  res = ccn_signed_info_create(signed_info,
+		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+		/*datetime*/ NULL,
+		/*type*/ CCN_CONTENT_DATA,
+		/*freshness*/ HISTORY_FRESHNESS,
+		/*finalblockid*/ NULL,
+		/*keylocator*/ keylocator);
+  if (res < 0)
+  {
+    log_warn(NAME, "[%s] failed to create signed_info (res == %d)", FZONE, res);
+    ccn_charbuf_destroy(&keylocator);
+    ccn_charbuf_destroy(&signed_info);
+    ccn_charbuf_destroy(&pname);
+    free(content_name);
+    return 1;
+  }
+  
+  // encode content packet
+  content = ccn_charbuf_create();
+  ccn_encode_ContentObject(content, pname, signed_info,
+			data, strlen(data), 
+			NULL, ccn_keystore_private_key(keystore));
+    
+  ccn_put(nthread->ccn, content->buf, content->length);
+  
+  ccn_charbuf_destroy(&keylocator);
+  ccn_charbuf_destroy(&signed_info);
+  ccn_charbuf_destroy(&pname);
+  ccn_charbuf_destroy(&content);
+  free(seq_char);
+  free(content_name);
   return 0;
 }
 
@@ -884,6 +1212,10 @@ init_ndn_thread()
   
   ccn_mutex = g_mutex_new();
   timer_valid = g_hash_table_new(NULL, NULL);
+  hlist_mutex = g_mutex_new();
+  
+  user_mutex = g_mutex_new();
+  room_mutex = g_mutex_new();
 
   // initialize ccn_keystore
   temp = ccn_charbuf_create();
@@ -921,7 +1253,10 @@ stop_ndn_thread()
   ccn_destroy(&nthread->ccn);
   ccn_keystore_destroy(&keystore);
   g_mutex_free(ccn_mutex);
+  g_mutex_free(hlist_mutex);
   g_hash_table_destroy(timer_valid);
+  g_mutex_free(user_mutex);
+  g_mutex_free(room_mutex);
   free(nthread);
   return 0;
 }

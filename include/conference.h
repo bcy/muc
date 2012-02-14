@@ -185,11 +185,14 @@ typedef struct cnr_struct
 
   GHashTable *presence;		/* bcy: storage of generated presence packets */
   GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
+  GQueue *history_message;
   GMutex *table_mutex;
+  GMutex *history_mutex;
 
   /* bcy: ccn closures */
   struct ccn_closure *in_content_presence;
   struct ccn_closure *in_interest_presence;
+  struct ccn_closure *in_content_history;
   GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
   int local_count;		/* bcy: # of local users in the room */
   int zapping;			/* bcy: to flag room is being zapped */
@@ -221,35 +224,36 @@ struct cnu_struct
 
   /* bcy: ccn closure */
   struct ccn_closure *in_content_message;
+  struct ccn_closure *in_interest_history;
 };
 
 /* bcy: element struct in exclusion list */
 struct exclusion_element
 {
-    char *name;		/* exclusion name */
-    GTimer *timer;	/* exclusion timer, remove element when outdated */
+  char *name;		/* exclusion name */
+  GTimer *timer;	/* exclusion timer, remove element when outdated */
 };
 
 /* conference room history */
 struct cnh_struct
 {
-	pool p;
-	int content_length;
-	int timestamp;
-	xmlnode x;
+  pool p;
+  int content_length;
+  int timestamp;
+  xmlnode x;
 };
 
 /* Roles and Associations */
 typedef struct trole_struct
 {
-    int  code;
-    char msg[64];
+  int  code;
+  char msg[64];
 } trole;
 
 typedef struct taffil_struct
 {
-    int  code;
-    char msg[64];
+  int  code;
+  char msg[64];
 } taffil;
 
 #define TAFFIL_OWNER		(taffil){3, "owner"}
@@ -269,7 +273,7 @@ void con_room_log_new(cnr room);			/* New Log */
 void con_room_log_close(cnr room);			/* Close logfile */
 void con_room_send_invite(cnu sender, xmlnode node);	/* Send invites */
 void con_room_forward_decline(cnr room, jpacket jp, xmlnode decline); /* Forward declines */
-cnr con_room_new(cni c, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external, int seq);
+cnr con_room_new(cni c, jid roomid, jid owner, char *name, char *secret, int private, int persist);
 							/* Set up a new room */
 void con_room_sendwalk(gpointer key, gpointer data, gpointer arg);
 							/* Used to send to all members of a room */
@@ -393,10 +397,18 @@ struct presence
   xmlnode x;
 };
 
+struct history
+{
+  char *msg;
+  int seq;
+};
+
 /* bcy: upcall functions for incoming interest/content */
 enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+enum ccn_upcall_res incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
+enum ccn_upcall_res incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
 
 /* bcy: functions related to ccn operation, defined in ndn.c */
 int init_ndn_thread();
@@ -405,5 +417,10 @@ int create_presence_interest(cnr room);
 int create_message_interest(cnu user, unsigned int seq);
 int create_presence_content(cnu user, xmlnode x);
 int create_message_content(cnu user, char *data);
+int create_history_interest(cnu user, unsigned int seq);
+int create_history_content(cnu user, char* data, unsigned int seq);
 void set_interest_filter(cnr room, struct ccn_closure *in_interest);
+void set_history_interest_filter(cnu user, struct ccn_closure *in_interest);
+void deliver_history(cnr room);
 
+#define HISTORY 15

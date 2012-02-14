@@ -632,23 +632,6 @@ char *jid_full(jid id)
     return id->full;
 }
 
-char *jid_ns(jid id)
-{
-    spool s;
-
-    if(id == NULL)
-        return NULL;
-
-    s = spool_new(id->p);
-
-    if(id->user != NULL)
-        spooler(s, id->user,"@",s);
-
-    spool_add(s, id->server);
-
-    return spool_print(s);
-}
-
 /* local utils */
 static int _jid_nullstrcmp(char *a, char *b)
 {

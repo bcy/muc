@@ -50,8 +50,6 @@ char * _con_room_xhtml_strescape(pool p, char * buf) {
   return temp;
 }
 
-
-
 /* Handles logging for each room, simply returning if logfile is not defined */
 void con_room_log(cnr room, char *nick, char *message)
 {
@@ -432,6 +430,9 @@ void con_room_leaveall(gpointer key, gpointer data, gpointer arg)
     log_warn(NAME, "[%s] Aborting - NULL user attribute found", FZONE);
     return;
   }
+  
+  if (user->remote == 1)
+    return;
 
   presence = jutil_presnew(JPACKET__UNAVAILABLE, NULL, NULL);
   tag = xmlnode_insert_tag(presence,"x");
@@ -516,6 +517,9 @@ void con_room_sendwalk(gpointer key, gpointer data, gpointer arg)
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
   }
+  
+  if (to->remote == 1)
+    return;
 
   from = (cnu)xmlnode_get_vattrib(x,"cnu");
 
@@ -1016,7 +1020,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       item = xmlnode_dup(xmlnode_get_tag(jp->x,"x"));
       nick = xmlnode_get_attrib(xmlnode_get_tag(item, "invite"), "to");
 
-      if( nick == NULL)
+      if (nick == NULL)
       {
         log_debug(NAME, "[%s] No receipient, returning error", FZONE);
 
@@ -1027,7 +1031,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
         return;
       }
 
-      if(room->invitation == 1)
+      if (room->invitation == 1)
       {
         id = jid_new(xmlnode_pool(item), nick);
 
@@ -1100,20 +1104,20 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     }
 
     if(jp->subtype != JPACKET__GROUPCHAT)
-    {                                   
-      jutil_error(jp->x, TERROR_BAD);                                    
-      deliver(dpacket_new(jp->x), NULL);                                 
-      return;                            
-    }                                                                     
+    {
+      jutil_error(jp->x, TERROR_BAD);
+      deliver(dpacket_new(jp->x), NULL);
+      return;
+    }
 
     /* ensure type="groupchat" */
     xmlnode_put_attrib(jp->x,"type","groupchat");
 
     /* check if the message is a discussion history */
     cont = 0;
-    for( node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
+    for (node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
       if (xmlnode_get_name(node)==NULL || strcmp("x",xmlnode_get_name(node))!=0) continue; // check if the node is a "x" node
-      if(!NSCHECK(node, NS_DELAY)) continue;
+      if (!NSCHECK(node, NS_DELAY)) continue;
       if ((xmlnode_get_attrib(node, "from")!= NULL) && (xmlnode_get_attrib(node, "stamp")) && (is_owner(room,from->realid))) {
         cont = 1;
         break;
@@ -1144,15 +1148,25 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     /* store in history */
     if (cont == 0)
       jutil_delay(node, jid_full(room->id));
+    
+    g_mutex_lock(room->history_mutex);
+    
+    xmlnode dup = xmlnode_dup(node);
+    if (g_queue_get_length(room->history_message) == MIN(room->master->history, HISTORY))
+    {
+      char *data = g_queue_pop_tail(room->history_message);
+      free(data);
+    }
+    g_queue_push_head(room->history_message, strdup(xmlnode2str(dup)));
+    xmlnode_free(dup);
 
     if(room->master->history > 0)
     {
-
       hist_p = pool_new();
       hist = pmalloco(hist_p, sizeof(_cnh));
       hist->p = hist_p;
       hist->x = node;
-      hist->content_length = j_strlen(xmlnode_get_tag_data(node,"body"));
+      hist->content_length = j_strlen(xmlnode_get_tag_data(node, "body"));
       hist->timestamp = time(NULL);
 
       if(++room->hlast == room->master->history)
@@ -1172,6 +1186,8 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     {
       xmlnode_free(node);
     }
+    
+    g_mutex_unlock(room->history_mutex);
 
     xmlnode_free(jp->x);
     return;
@@ -1416,7 +1432,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   return;
 }
 
-cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist, char *name_prefix, int external, int seq)
+cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist)
 {
   cnr room;
   pool p;
@@ -1441,7 +1457,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
     room->name = j_strdup(room->id->user);
 
   /* room password */
-  room->secret = j_strdup(secret);
+    room->secret = j_strdup(secret);
   room->private = private;
 
   /* lock nicknames - defaults to off (unless overridden by master setting) */
@@ -1497,7 +1513,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   /* Assign owner to room */
   if(owner != NULL)
   {
-    admin = (void*)con_user_new(room, owner, name_prefix, external, seq);
+    admin = (void*)con_user_new(room, owner, NULL, 0, 0);
     add_roster(room, admin->realid);
 
     room->creator = jid_new(room->p, jid_full(jid_user(admin->realid)));
@@ -1525,16 +1541,23 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   
   room->exclusion_list = g_queue_new(); // bcy: create exclusion list
   room->table_mutex = g_mutex_new();
+  room->history_mutex = g_mutex_new();
+  room->history_message = g_queue_new();
   
   /*bcy: ccn_closure initialization*/
+  room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_interest_presence->data = room;
+  room->in_interest_presence->p = &incoming_interest_presence;
+  
   room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
   room->in_content_presence->data = room;
   room->in_content_presence->p = &incoming_content_presence;
 
-  room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_interest_presence->data = room;
-  room->in_interest_presence->p = &incoming_interest_presence;
 
+  room->in_content_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+  room->in_content_history->data = room;
+  room->in_content_history->p = &incoming_content_history;
+  
   room->local_count = 0;
   room->zapping = 0;
   room->startup = 1;
@@ -1542,7 +1565,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   
   // bcy: init tables for storing NDN packets
   room->presence = g_hash_table_new_full(NULL, NULL, NULL, ght_remove_prs);
-    
+  
   return room;
 }
 
@@ -1641,6 +1664,18 @@ static void cleanup_remote_user(gpointer key, gpointer value, gpointer user_data
   con_user_zap(user, node);
 }
 
+static void clear_history_queue(cnr room)
+{
+  GQueue *queue = room->history_message;
+  
+  while (!g_queue_is_empty(queue))
+  {
+    char *element = g_queue_pop_head(queue);
+    if (element != NULL)
+      free(element);
+  }
+}
+
 /* Clear up room hashes */
 void con_room_cleanup(cnr room)
 {
@@ -1715,14 +1750,12 @@ void con_room_cleanup(cnr room)
   g_queue_foreach(room->exclusion_list, &free_list, NULL);
   g_queue_free(room->exclusion_list);
   
+  g_queue_free(room->history_message);
+  
   g_mutex_free(room->table_mutex);
-  
-  // bcy: stop sending interest
-  room->in_content_presence->data = NULL;
-  
+  g_mutex_free(room->history_mutex);
+    
   // bcy: stop handling incoming interest
-  set_interest_filter(room, NULL);
-  room->in_interest_presence->data = NULL;
   free(room->in_interest_presence);
 
   return;
@@ -1756,10 +1789,12 @@ void con_room_zap(cnr room)
 void con_room_history_clear(cnr room)
 {
   int h;
+  
+  g_mutex_lock(room->history_mutex);
 
+  clear_history_queue(room);
   if(room->master->history > 0)
   {
-
     h = room->hlast;
 
     while(1)
@@ -1774,6 +1809,7 @@ void con_room_history_clear(cnr room)
         log_debug(NAME, "[%s] Clearing history entry %d", FZONE, h);
         xmlnode_free(room->history[h]->x);
         pool_free(room->history[h]->p);
+        room->history[h] = NULL;
       }
       else
       {
@@ -1784,4 +1820,6 @@ void con_room_history_clear(cnr room)
         break;
     }
   }
+  
+  g_mutex_unlock(room->history_mutex);
 }

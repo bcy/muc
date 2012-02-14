@@ -18,7 +18,7 @@
         <DESC>This service is for public chatrooms.</DESC>
         <URL>http://foo.bar/</URL>
       </vCard>
-      <history>40</history> <!-- maximum numbers of history lines send when joining a room -->
+      <history>20</history> <!-- maximum numbers of history lines send when joining a room -->
       <!--<logdir>@localstatedir@/log/jabberd</logdir>--> <!-- where to store the room logs, comment to disable logging -->
       <!--logsubdirs/--> <!-- uncomment to stores the room logs in subdirs (for example 2007/08/02) -->
       <stylesheet>@sysconfdir@/style.css</stylesheet> <!--URL of the log stylesheet -->

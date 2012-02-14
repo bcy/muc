@@ -26,13 +26,6 @@ void ght_remove_key(gpointer data)
   free(data);
 }
 
-void ght_remove_pkt(gpointer data)
-{
-  struct ccn_charbuf *node = (struct ccn_charbuf *)data;
-  log_debug(NAME, "[%s] Auto-removing packet", FZONE);
-  ccn_charbuf_destroy(&node);
-}
-
 void ght_remove_prs(gpointer data)
 {
   extern GHashTable *timer_valid;
@@ -63,4 +56,3 @@ void ght_remove_xmlnode(gpointer data)
   log_debug(NAME, "[%s] Auto-removing xmlnode (%s)", FZONE, xmlnode2str(node));
   pool_free(node->p);
 }
-

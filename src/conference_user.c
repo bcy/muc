@@ -39,7 +39,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 
   key = j_strdup(jid_full(user->realid));
   g_hash_table_insert(room->remote, key, (void*)user);
-
+  
   /* Add this user to the room roster */
   add_roster(room, user->realid);
 
@@ -75,28 +75,51 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   log_debug(NAME, "[%s]: User %s with prefix %s ccn_closure initialized", FZONE, jid_full(user->realid), name_prefix);
 
   /* bcy: initialization */
-  user->message_seq = random() % 65536 + 2;
-  user->name_prefix = strdup(name_prefix);
+  if (name_prefix == NULL)
+    user->name_prefix = strdup(xmlnode_get_tag_data(jcr->config, "name_prefix"));
+  else
+    user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
-  user->last_seq = seq - 1;
   
   // bcy: for user coming from outside
   if (external == 1)
   {
+    user->last_seq = seq - 1;
+    user->last_message = time(NULL);
     user->in_content_message = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     user->in_content_message->data = user;
     user->in_content_message->p = &incoming_content_message;
+    user->in_interest_history = NULL;
+    
+    if (room->startup == 1 && g_hash_table_size(room->remote_users) == 0)
+    {
+      int i;
+      
+      room->in_content_history->data = room;
+      for (i = 1; i <= MIN(user->room->master->history, HISTORY); i++)
+	create_history_interest(user, i);
+      sleep(1);
+      room->in_content_history->data = NULL;
+      deliver_history(user->room);
+    }
   }
   else
+  {
+    user->message_seq = random() % 65536 + 2;
     user->in_content_message = NULL;
+    
+    user->in_interest_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
+    user->in_interest_history->data = user;
+    user->in_interest_history->p = &incoming_interest_history;
+  }
   
   return user;
 }
 
 int _con_user_history_send(cnu to, xmlnode node)
 {
-  if(to == NULL || node == NULL || to->remote == 1)
+  if(to == NULL || node == NULL)
   {
     return 0;
   }
@@ -321,7 +344,10 @@ void con_user_enter(cnu user, char *nick, int created)
 
   room->count++;
   if (user->remote == 0) // bcy: count local users
+  {
     room->local_count++;
+    set_history_interest_filter(user, user->in_interest_history);
+  }
 
 #ifdef HAVE_MYSQL
   sql_update_nb_users(room->master->sql, room);
@@ -366,30 +392,30 @@ void con_user_enter(cnu user, char *nick, int created)
   if(room->locked > 0 && user->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room is locked from entry until configuration is confirmed.", user->p));
-    xmlnode_put_attrib(message,"from", jid_full(room->id));
+    xmlnode_put_attrib(message, "from", jid_full(room->id));
     deliver(dpacket_new(message), NULL);
   }
 
   /* Switch to queue mode */
   deliver__flag = 0;
 
-  p_x_history = xmlnode_get_tag(user->presence,"x/history");
-  log_debug(NAME,"x->maxstanzas: %i",j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"),-1));
-  log_debug(NAME,"x->maxchars: %i",j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"),-1));
+  p_x_history = xmlnode_get_tag(user->presence, "x/history");
+  log_debug(NAME, "x->maxstanzas: %i", j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"), -1));
+  log_debug(NAME, "x->maxchars: %i", j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"), -1));
 
   /* loop through history and send back */
-  if(room->master->history > 0)
+  if(room->master->history > 0 && user->remote == 0)
   {
-    max_stanzas = j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"),room->master->history);
-    max_chars = j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"),-1);
-    seconds = j_atoi(xmlnode_get_attrib(p_x_history,"seconds"),-1);
-    since_str = xmlnode_get_attrib(p_x_history,"since");
+    max_stanzas = j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"), room->master->history);
+    max_chars = j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"), -1);
+    seconds = j_atoi(xmlnode_get_attrib(p_x_history,"seconds"), -1);
+    since_str = xmlnode_get_attrib(p_x_history, "since");
     if (since_str != NULL) {
       since_tm = malloc(sizeof(struct tm));
-      bzero(since_tm,sizeof(struct tm));
+      bzero(since_tm, sizeof(struct tm));
 
       /* calc unix time */
-      strptime(since_str,"%Y-%m-%dT%T%z",since_tm);
+      strptime(since_str, "%Y-%m-%dT%T%z", since_tm);
       since = mktime(since_tm);
       free(since_tm);
     }
@@ -398,7 +424,7 @@ void con_user_enter(cnu user, char *nick, int created)
     if (max_stanzas > room->master->history)
       max_stanzas = room->master->history;
 
-    if (max_chars>0) {
+    if (max_chars > 0) {
       /* loop (backwards) through history to get num of stanzas to reach num_chars */
       h = (room->hlast + room->master->history - max_stanzas) % room->master->history;
       while(1) {
@@ -408,7 +434,7 @@ void con_user_enter(cnu user, char *nick, int created)
           max_chars_stanzas++;
         else
           break;
-        if (h==0)
+        if (h == 0)
           h = room->master->history;
         h--;
         if (h == room->hlast)
@@ -425,7 +451,7 @@ void con_user_enter(cnu user, char *nick, int created)
     h = (room->hlast + room->master->history - max_stanzas) % room->master->history;
     while(1)
     {
-      log_debug(NAME, "h: %i",h);
+      log_debug(NAME, "h: %i", h);
       if (num_stanzas >= max_stanzas)
         break;
 
@@ -474,10 +500,10 @@ void con_user_enter(cnu user, char *nick, int created)
   if (user->remote == 1)
   {
     char *name = calloc(1, sizeof(char) * 100);
-    g_hash_table_insert(room->remote_users, j_strdup(jid_ns(user->realid)), (gpointer)user);
+    g_hash_table_insert(room->remote_users, j_strdup(user->realid->user), (gpointer)user);
     
     // bcy: first interest for message has the form of <name_prefix>/<userID>/<roomID>
-    log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, jid_ns(user->realid));
+    log_debug(NAME, "[%s] Creating message interest for user %s", FZONE, user->realid->user);
     create_message_interest(user, user->last_seq + 1);
     free(name);
   }
@@ -592,9 +618,6 @@ void con_user_send(cnu to, cnu from, xmlnode node)
     return;
   }
   
-  if (to->remote == 1) // bcy: only send to local users
-    return;
-
   xmlnode_put_attrib(node, "to", jid_full(to->realid));
 
   if(xmlnode_get_attrib(node, "cnu") != NULL)
@@ -622,6 +645,7 @@ void con_user_zap(cnu user, xmlnode data)
   char *reason;
   char *status;
   char *nick;
+  extern GMutex *user_mutex;
 
   if(user == NULL || data == NULL)
   {
@@ -632,15 +656,30 @@ void con_user_zap(cnu user, xmlnode data)
 
     return;
   }
-
+  
+  g_mutex_lock(user_mutex);
+  
   user->leaving = 1;
+  
+  room = user->room;
+  if (user->remote == 1)
+  {
+    user->in_content_message->data = NULL;
+    log_debug(NAME, "[%s] Removing from remote user list", FZONE);
+    if (room->zapping == 0 && room->cleaning == 0)
+      g_hash_table_remove(room->remote_users, user->realid->user);
+  }
+  else
+  {
+    set_history_interest_filter(user, NULL);
+    user->in_interest_history->data = NULL;
+    free(user->in_interest_history);
+  }
 
   status = xmlnode_get_attrib(data, "status");
   nick = xmlnode_get_attrib(data, "actnick");
 
   reason = xmlnode_get_data(data);
-
-  room = user->room;
 
   if(room == NULL)
   {
@@ -649,8 +688,7 @@ void con_user_zap(cnu user, xmlnode data)
     return;
   }
   
-  while (g_mutex_trylock(room->table_mutex) == FALSE)
-    fprintf(stderr, "[%s] wait for locking\n", FZONE);
+  g_mutex_lock(room->table_mutex);
   
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
@@ -730,27 +768,26 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Un-alloc nick xmlnode", FZONE);
   xmlnode_free(user->nick);
 
-  // bcy: free allocated memory
-  free(user->name_prefix);
-  free(user->status);
-  
+  // bcy: remove stored presences
   log_debug(NAME, "[%s] Removing presence stored in local table", FZONE);
   g_hash_table_remove(room->presence, user);
   
-  if (user->remote == 1)
-  {
-    log_debug(NAME, "[%s] Removing from remote user list", FZONE);
-    if (room->zapping == 0 && room->cleaning == 0)
-      g_hash_table_remove(room->remote_users, jid_ns(user->realid));
-    user->in_content_message->data = NULL;
-  }
+  // bcy: free allocated memory
+  free(user->name_prefix);
+  free(user->status);
   
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
   g_mutex_unlock(room->table_mutex);
   
+  g_mutex_unlock(user_mutex);
+  
   if (room->local_count == 0 && room->zapping == 0)
   {
+    room->in_content_presence->data = NULL;
+    set_interest_filter(room, NULL);
+    room->in_interest_presence->data = NULL;
+    
     if (room->persistent == 0)
     {
       log_debug(NAME, "[%s] No local user in dynamic room: Locking room %s and remove", FZONE, room->id->user);
@@ -760,9 +797,7 @@ void con_user_zap(cnu user, xmlnode data)
     else if (room->cleaning == 0)
     {
       room->cleaning = 1;
-      room->in_content_presence->data = NULL;
-      room->in_interest_presence->data = NULL;
-      set_interest_filter(room, NULL);
+      con_room_history_clear(room);
       log_debug(NAME, "[%s] No local user in persistent room: zapping remote users", FZONE);
       g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);
       room->cleaning = 0;

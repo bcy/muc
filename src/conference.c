@@ -379,7 +379,7 @@ void _con_packets(void *arg)
   int created = 0;
   time_t now = time(NULL);
 
-  if((jid_fix(jp->from) == NULL) || (jid_fix(jp->to) == NULL))
+  if ((jid_fix(jp->from) == NULL) || (jid_fix(jp->to) == NULL))
   {
     log_debug(NAME, "[%s] ignoring packets, invalid to or from", FZONE);
     return;
@@ -416,9 +416,7 @@ void _con_packets(void *arg)
     }
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__GET && NSCHECK(jp->iq, NS_MUC_OWNER))
     {
-      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-			  j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
+      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
 
       xdata_room_config(room,g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from))),1,jp->x);
 
@@ -429,9 +427,7 @@ void _con_packets(void *arg)
     else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__SET && NSCHECK(jp->iq, NS_MUC_OWNER) && xmlnode_get_tag(jp->iq,"x?xmlns=jabber:x:data"))
     {
       //create instant room
-      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			  xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-			  j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
+      room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
       //instant room are always non browsable
       room->public=0;
      
@@ -458,13 +454,9 @@ void _con_packets(void *arg)
     else
     {
       if(master->dynamic == -1)
-        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1, 
-			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-			    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
+        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 1);
       else
-        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0, 
-			    xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-			    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
+        room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
 
       /* fall through, so the presence goes to the room like normal */
       created = 1;
@@ -475,6 +467,7 @@ void _con_packets(void *arg)
     if (room->persistent == 1 && room->local_count == 0)
     {
       room->in_content_presence->data = room;
+      room->in_content_history->data = room;
       room->in_interest_presence->data = room;
       set_interest_filter(room, room->in_interest_presence);
       // bcy: create presence interest for the persistent room
@@ -536,10 +529,9 @@ void _con_packets(void *arg)
   if(jp->type == JPACKET_MESSAGE && u == NULL)
   {
     //check if this is a decline to an invitation
-    if (( node = xmlnode_get_tag(xmlnode_get_tag(jp->x,"x?xmlns=http://jabber.org/protocol/muc#user"),"decline")) != NULL);
-    if (node!=NULL)
+    if ((node = xmlnode_get_tag(xmlnode_get_tag(jp->x, "x?xmlns=http://jabber.org/protocol/muc#user"), "decline")) != NULL)
     {
-      con_room_forward_decline(room,jp,node);
+      con_room_forward_decline(room, jp, node);
       g_mutex_unlock(master->lock);
       return;
     }
@@ -603,12 +595,12 @@ void _con_packets(void *arg)
     u2 = g_hash_table_lookup(room->local, jp->to->resource); /* existing user w/ this nick? */
 
     /* it's just us updating our presence */
-    if(u2 == u)
+    if (u2 == u)
     {
       jp->to = jid_user(jp->to);
       xmlnode_put_attrib(jp->x, "to", jid_full(jp->to));
 
-      if(u)
+      if (u)
       {
         xmlnode_free(u->presence);
         u->presence = xmlnode_dup(jp->x);
@@ -896,15 +888,6 @@ result con_packets(instance i, dpacket dp, void *arg)
     jutil_error(jp->x, TERROR_BAD);
     deliver(dpacket_new(jp->x),NULL);
     return r_DONE;
-  }
-  
-  /* bcy: get name_prefix from config file */
-  if (jp->type == JPACKET_PRESENCE)
-  {
-    if (xmlnode_get_tag_data(jp->x, "name_prefix") == NULL)
-    {
-      xmlnode_insert_cdata(xmlnode_insert_tag(jp->x, "name_prefix"), xmlnode_get_tag_data(jcr->config, "name_prefix"), -1);
-    }
   }
 
   /* we want things processed in order, and don't like re-entrancy! */
