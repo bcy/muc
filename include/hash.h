@@ -19,7 +19,6 @@
  */
 
 void ght_remove_key(gpointer data);                     /* Free key */
-void ght_remove_prs(gpointer data);			/* bcy: Free presence */
 void ght_remove_cnu(gpointer data);                     /* Free cnu */
 void ght_remove_cnr(gpointer data);                     /* Free cnr */
 void ght_remove_xmlnode(gpointer data);                 /* Free xmlnode */

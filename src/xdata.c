@@ -70,21 +70,6 @@ struct room_idx {
   GHashTable *table;
 };
 
-static gboolean send_interest(gpointer data)
-{
-  struct room_idx *idx = (struct room_idx *)data;
-  cnr room = g_hash_table_lookup(idx->table, idx->id);
-  
-  if (room != NULL && room->zapping == 0)
-  {
-    create_presence_interest(room);
-    set_interest_filter(room, room->in_interest_presence);
-  }
-  free(idx->id);
-  free(idx);
-  return FALSE;
-}
-
 //return 1 if configuration may have changed
 int xdata_handler(cnr room, cnu user, jpacket packet)
 {
@@ -165,11 +150,10 @@ int xdata_handler(cnr room, cnu user, jpacket packet)
       deliver(dpacket_new(message), NULL);
 
       room->locked = 0;
-      
+
       struct room_idx *idx = calloc(1, sizeof(struct room_idx));
       idx->id = strdup(jid_full(room->id));
       idx->table = room->master->rooms;
-      g_timeout_add_seconds(2, send_interest, idx);
     }
 
     /* Protect text forms from broken clients */
@@ -228,7 +212,7 @@ int xdata_handler(cnr room, cnu user, jpacket packet)
       snprintf(var, 100, "?var=%s", FIELD_PERSISTENT);
       room->persistent = j_atoi(xmlnode_get_tag_data(xmlnode_get_tag(results,var),"value"),room->persistent);
     }
-    
+
     snprintf(var, 100, "?var=%s", FIELD_MODERATED);
     room->moderated = j_atoi(xmlnode_get_tag_data(xmlnode_get_tag(results,var),"value"),room->moderated);
     snprintf(var, 100, "?var=%s", FIELD_DEFAULT_TYPE);
@@ -237,7 +221,7 @@ int xdata_handler(cnr room, cnu user, jpacket packet)
     room->privmsg = j_atoi(xmlnode_get_tag_data(xmlnode_get_tag(results,var),"value"),room->privmsg);
 
     /* Nicknames locked ? Allow owner to choose if master->locknicks != 0 */
-    if (!room->master->locknicks) 
+    if (!room->master->locknicks)
     {
       snprintf(var, 100, "?var=%s", FIELD_LOCK_NICK);
       room->locknicks = j_atoi(xmlnode_get_tag_data(xmlnode_get_tag(results,var),"value"),room->locknicks);
@@ -261,7 +245,7 @@ int xdata_handler(cnr room, cnu user, jpacket packet)
         room->secret = j_strdup(xmlnode_get_tag_data(xmlnode_get_tag(results,var_secret),"value"));
         log_debug(NAME ,"[%s] Switching on room password: %s", FZONE, room->secret);
       }
-      else 
+      else
       {
         log_debug(NAME, "[%s] Deactivating room password: %s %s", FZONE, xmlnode_get_tag_data(xmlnode_get_tag(results,var_protected),"value"), xmlnode_get_tag_data(xmlnode_get_tag(results,var_secret),"value"));
         free(room->secret);
@@ -385,10 +369,10 @@ void xdata_room_config(cnr room, cnu user, int new, xmlnode query)
     {
       jutil_error(query,TERROR_MUC_CONFIG);
       deliver(dpacket_new(query),NULL);
-    }   
+    }
 
     return;
-  }   
+  }
 
   /* Lock room for IQ Registration method. Will release lock when config received */
   if(new == 1)
@@ -410,11 +394,11 @@ void xdata_room_config(cnr room, cnu user, int new, xmlnode query)
 
     if(new == 1)
       xmlnode_insert_cdata(element," has been created",-1);
-    else    
+    else
       xmlnode_insert_cdata(element," configuration setting",-1);
 
     x = xmlnode_insert_tag(msg,"x");
-  }           
+  }
   else
   {
     msg = xmlnode_dup(query);
@@ -450,7 +434,7 @@ void xdata_room_config(cnr room, cnu user, int new, xmlnode query)
     {
       snprintf(value, 4, "%i", room->maxusers);
       xmlnode_insert_cdata(field,"- Up to ", -1);
-      xmlnode_insert_cdata(field, value, -1); 
+      xmlnode_insert_cdata(field, value, -1);
       xmlnode_insert_cdata(field, " participants\n", -1);
     }
     else
@@ -564,7 +548,7 @@ void xdata_room_config(cnr room, cnu user, int new, xmlnode query)
   element = xmlnode_insert_tag(field, "option");
   xmlnode_put_attrib(element, "label", "Anyone");
   xmlnode_insert_cdata(xmlnode_insert_tag(element, "value"), "anyone", -1);
-  
+
   if (room->master->logsEnabled) {
     if(room->logfile == NULL)
       add_xdata_boolean(x, "Enable Logging of Room Conversations", FIELD_ENABLE_LOGGING, 0);
@@ -595,5 +579,5 @@ void xdata_room_config(cnr room, cnu user, int new, xmlnode query)
   }
 
   deliver(dpacket_new(msg),NULL);
-}   
+}
 

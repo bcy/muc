@@ -62,7 +62,7 @@ void con_room_log(cnr room, char *nick, char *message)
   FILE *logfile;
   pool p;
 
-  if(message == NULL || room == NULL) 
+  if(message == NULL || room == NULL)
   {
     log_warn(NAME, "[%s] ERR: Aborting - NULL reference found - ", FZONE);
     return;
@@ -70,7 +70,7 @@ void con_room_log(cnr room, char *nick, char *message)
 
   logfile = room->logfile;
 
-  if(logfile == NULL) 
+  if(logfile == NULL)
   {
     log_debug(NAME, "[%s] Logging not enabled for this room", FZONE);
     return;
@@ -80,7 +80,7 @@ void con_room_log(cnr room, char *nick, char *message)
 
   /* nicked from mod_time */
   t = time(NULL);
-  
+
   if(room->logformat == LOG_XHTML)
     strftime(timestr, timelen, "<a name=\"t%H:%M:%S\" href=\"#t%H:%M:%S\">[%H:%M:%S]</a>", localtime(&t));
   else
@@ -157,7 +157,7 @@ void con_room_log_new(cnr room)
   pool p;
   spool sp;
 
-  if(room == NULL || !room->master->logsEnabled) 
+  if(room == NULL || !room->master->logsEnabled)
   {
     log_warn(NAME, "[%s] Aborting - NULL room", FZONE);
     return;
@@ -195,7 +195,7 @@ void con_room_log_new(cnr room)
   else {
 
     strftime(datePart, 5, "%Y", localtime(&now));
-    
+
     spooler(sp, "/", datePart, sp);
     filename = spool_print(sp);
     if(stat(filename,&fileinfo) < 0 && mkdir(filename, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) < 0)
@@ -205,7 +205,7 @@ void con_room_log_new(cnr room)
     }
 
     strftime(datePart, 5, "%m", localtime(&now));
-    
+
     spooler(sp, "/", datePart, sp);
     filename = spool_print(sp);
     if(stat(filename,&fileinfo) < 0 && mkdir(filename, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) < 0)
@@ -215,7 +215,7 @@ void con_room_log_new(cnr room)
     }
 
     strftime(datePart, 5, "%d", localtime(&now));
-    
+
     spooler(sp, "/", datePart, sp);
 
 
@@ -268,7 +268,7 @@ void con_room_log_close(cnr room)
   int type;
   FILE *logfile;
 
-  if(room == NULL) 
+  if(room == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL room", FZONE);
     return;
@@ -305,7 +305,7 @@ void con_room_send_invite(cnu sender, xmlnode node)
   cnr room;
   pool p;
 
-  if(sender == NULL || node == NULL) 
+  if(sender == NULL || node == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -425,12 +425,12 @@ void con_room_leaveall(gpointer key, gpointer data, gpointer arg)
   xmlnode destroy;
 
   log_debug(NAME, "[%s] reason :  %s", FZONE, xmlnode2str(info));
-  if(user == NULL) 
+  if(user == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL user attribute found", FZONE);
     return;
   }
-  
+
   if (user->remote == 1)
     return;
 
@@ -471,7 +471,7 @@ char *con_room_nick(cnr room, cnu user, xmlnode x)
   xmlnode cur;
   int count = 1;
 
-  if(room == NULL || user == NULL) 
+  if(room == NULL || user == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return NULL;
@@ -512,12 +512,12 @@ void con_room_sendwalk(gpointer key, gpointer data, gpointer arg)
   cnu from;
   xmlnode output;
 
-  if(x == NULL || to == NULL) 
+  if(x == NULL || to == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
   }
-  
+
   if (to->remote == 1)
     return;
 
@@ -530,7 +530,7 @@ void con_room_sendwalk(gpointer key, gpointer data, gpointer arg)
     {
       add_status_code(output, STATUS_MUC_OWN_PRESENCE);
     }
-    con_user_send(to, from, output); 
+    con_user_send(to, from, output);
   }
   else
   {
@@ -546,7 +546,7 @@ void con_room_browsewalk(gpointer key, gpointer data, gpointer arg)
   xmlnode q = (xmlnode)arg;
   xmlnode xml;
 
-  if(user == NULL || q == NULL) 
+  if(user == NULL || q == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -569,7 +569,7 @@ void _con_room_discoinfo(cnr room, jpacket jp)
   char *topic;
   char buf[32];
 
-  if(room == NULL) 
+  if(room == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL room attribute found", FZONE);
     return;
@@ -676,7 +676,7 @@ void _con_room_discoitem(gpointer key, gpointer data, gpointer arg)
   xmlnode query = (xmlnode)arg;
   xmlnode xml;
 
-  if(user == NULL || query == NULL) 
+  if(user == NULL || query == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -792,7 +792,7 @@ void con_room_outsider(cnr room, cnu from, jpacket jp)
 {
 
 
-  if(room == NULL) 
+  if(room == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -824,13 +824,13 @@ void con_room_outsider(cnr room, cnu from, jpacket jp)
       log_debug(NAME, "[%s] IQ Set for owner function", FZONE);
 
       if(from && is_owner(room, jp->from))
-      {       
+      {
         xdata_room_config(room, from, room->locked, jp->x);
 
         jutil_iqresult(jp->x);
         deliver(dpacket_new(jp->x), NULL);
         return;
-      }   
+      }
       else
       {
         log_debug(NAME, "[%s] IQ Set for owner disallowed", FZONE);
@@ -951,7 +951,7 @@ void con_room_outsider(cnr room, cnu from, jpacket jp)
   if((jpacket_subtype(jp) == JPACKET__SUBSCRIBE) ||
       (jpacket_subtype(jp) == JPACKET__SUBSCRIBED) ||
       (jpacket_subtype(jp) == JPACKET__UNSUBSCRIBE) ||
-      (jpacket_subtype(jp) == JPACKET__UNSUBSCRIBED) 
+      (jpacket_subtype(jp) == JPACKET__UNSUBSCRIBED)
     )
   {
     log_debug(NAME,"[%s] dropping subscription packet", FZONE);
@@ -978,7 +978,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   cnh hist;
 
 
-  if(room == NULL || from == NULL) 
+  if(room == NULL || from == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -1130,8 +1130,10 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     /* broadcast */
     xmlnode_put_vattrib(jp->x,"cnu",(void*)from);
+    /*
     if (j_strcmp(xmlnode_get_attrib(jp->x, "external"), "1") != 0)
-      create_message_content(from, xmlnode2str(jp->x));
+      generate_content(from, jp->x);
+    */
     g_hash_table_foreach(room->local, con_room_sendwalk, (void*)jp->x);
 
     /* log */
@@ -1148,17 +1150,6 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     /* store in history */
     if (cont == 0)
       jutil_delay(node, jid_full(room->id));
-    
-    g_mutex_lock(room->history_mutex);
-    
-    xmlnode dup = xmlnode_dup(node);
-    if (g_queue_get_length(room->history_message) == MIN(room->master->history, HISTORY))
-    {
-      char *data = g_queue_pop_tail(room->history_message);
-      free(data);
-    }
-    g_queue_push_head(room->history_message, strdup(xmlnode2str(dup)));
-    xmlnode_free(dup);
 
     if(room->master->history > 0)
     {
@@ -1186,8 +1177,6 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     {
       xmlnode_free(node);
     }
-    
-    g_mutex_unlock(room->history_mutex);
 
     xmlnode_free(jp->x);
     return;
@@ -1198,7 +1187,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   if(jpacket_subtype(jp) == JPACKET__SET)
   {
     if(NSCHECK(jp->iq, NS_MUC_ADMIN))
-    { 
+    {
       log_debug(NAME, "[%s] IQ Set for admin function: >%s<", FZONE, xmlnode_get_name(jp->iq));
 
       if(!is_moderator(room, from->realid))
@@ -1231,7 +1220,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     else if(NSCHECK(jp->iq, NS_MUC_OWNER))
     {
       if(!is_owner(room, from->realid))
-      {   
+      {
         jutil_error(jp->x, TERROR_NOTALLOWED);
         deliver(dpacket_new(jp->x), NULL);
         return;
@@ -1333,7 +1322,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
         else {
           jutil_error(jp->x, TERROR_UNAVAIL);
           deliver(dpacket_new(jp->x),NULL);
-          return;  
+          return;
         }
       }
     }
@@ -1418,7 +1407,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   if((jpacket_subtype(jp) == JPACKET__SUBSCRIBE) ||
       (jpacket_subtype(jp) == JPACKET__SUBSCRIBED) ||
       (jpacket_subtype(jp) == JPACKET__UNSUBSCRIBE) ||
-      (jpacket_subtype(jp) == JPACKET__UNSUBSCRIBED) 
+      (jpacket_subtype(jp) == JPACKET__UNSUBSCRIBED)
     )
   {
     log_debug(NAME,"[%s] dropping subscription packet", FZONE);
@@ -1441,7 +1430,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   time_t now = time(NULL);
 
   /* Create pool for room struct */
-  p = pool_new(); 
+  p = pool_new();
   room = pmalloco(p, sizeof(_cnr));
   log_debug(NAME, "[%s] Malloc: _cnr = %d", FZONE, sizeof(_cnr));
   room->p = p;
@@ -1509,7 +1498,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
 
   // bcy: init table for storing remote users
   room->remote_users = g_hash_table_new_full(g_str_hash, g_str_equal, ght_remove_key, NULL);
-  
+
   /* Assign owner to room */
   if(owner != NULL)
   {
@@ -1538,34 +1527,12 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   sql_insert_room_config(master->sql, room);
   sql_add_room_lists(master->sql, room);
 #endif
-  
-  room->exclusion_list = g_queue_new(); // bcy: create exclusion list
-  room->table_mutex = g_mutex_new();
-  room->history_mutex = g_mutex_new();
-  room->history_message = g_queue_new();
-  
-  /*bcy: ccn_closure initialization*/
-  room->in_interest_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_interest_presence->data = room;
-  room->in_interest_presence->p = &incoming_interest_presence;
-  
-  room->in_content_presence = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_content_presence->data = room;
-  room->in_content_presence->p = &incoming_content_presence;
 
-
-  room->in_content_history = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
-  room->in_content_history->data = room;
-  room->in_content_history->p = &incoming_content_history;
-  
   room->local_count = 0;
   room->zapping = 0;
   room->startup = 1;
   room->cleaning = 0;
-  
-  // bcy: init tables for storing NDN packets
-  room->presence = g_hash_table_new_full(NULL, NULL, NULL, ght_remove_prs);
-  
+
   return room;
 }
 
@@ -1574,11 +1541,11 @@ void _con_room_send(gpointer key, gpointer data, gpointer arg)
   cnu user = (cnu)data;
   xmlnode x = (xmlnode)arg;
   xmlnode output;
-  
+
   if (user->remote == 1)
     return;
 
-  if(user == NULL || x == NULL) 
+  if(user == NULL || x == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -1596,11 +1563,11 @@ void _con_room_send_legacy(gpointer key, gpointer data, gpointer arg)
   cnu user = (cnu)data;
   xmlnode x = (xmlnode)arg;
   xmlnode output;
-  
+
   if (user->remote == 1)
     return;
 
-  if(user == NULL || x == NULL) 
+  if(user == NULL || x == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -1619,7 +1586,7 @@ void _con_room_send_legacy(gpointer key, gpointer data, gpointer arg)
 
 void con_room_send(cnr room, xmlnode x, int legacy)
 {
-  if(room == NULL || x == NULL) 
+  if(room == NULL || x == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL attribute found", FZONE);
     return;
@@ -1645,35 +1612,14 @@ void con_room_send(cnr room, xmlnode x, int legacy)
   return;
 }
 
-/* bcy: used in free exclusion_list */
-static void free_list(gpointer data, gpointer user_data)
-{
-  struct exclusion_element *element = (struct exclusion_element *) data;
-  g_timer_destroy(element->timer);
-  free(element->name);
-  free(element);
-}
-
 static void cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
 {
   cnu user = (cnu) value;
   xmlnode node;
-  
+
   node = xmlnode_new_tag("reason");
   xmlnode_insert_cdata(node, "Local room zapped, clearing remote users", -1);
   con_user_zap(user, node);
-}
-
-static void clear_history_queue(cnr room)
-{
-  GQueue *queue = room->history_message;
-  
-  while (!g_queue_is_empty(queue))
-  {
-    char *element = g_queue_pop_head(queue);
-    if (element != NULL)
-      free(element);
-  }
 }
 
 /* Clear up room hashes */
@@ -1681,7 +1627,7 @@ void con_room_cleanup(cnr room)
 {
   char *roomid;
 
-  if(room == NULL) 
+  if(room == NULL)
   {
     log_warn(NAME, "[%s] Aborting - NULL room attribute found", FZONE);
     return;
@@ -1690,11 +1636,11 @@ void con_room_cleanup(cnr room)
   roomid = j_strdup(jid_full(room->id));
 
   log_debug(NAME, "[%s] cleaning room %s", FZONE, roomid);
-  
+
   log_debug(NAME, "[%s] zapping remote users", FZONE);
   g_hash_table_foreach(room->remote_users, cleanup_remote_user, NULL);
   g_hash_table_destroy(room->remote_users);
-  
+
   /* Clear old hashes */
   log_debug(NAME, "[%s] zapping list remote in room %s", FZONE, roomid);
   g_hash_table_destroy(room->remote);
@@ -1732,10 +1678,7 @@ void con_room_cleanup(cnr room)
 
   log_debug(NAME, "[%s] Clearing topic in room %s", FZONE, roomid);
   xmlnode_free(room->topic);
-  
-  log_debug(NAME, "[%s] Clearing presence stored in room %s", FZONE, roomid);
-  g_hash_table_destroy(room->presence);
-  
+
   log_debug(NAME, "[%s] Clearing strings and legacy messages in room %s", FZONE, roomid);
   free(room->name);
   free(room->description);
@@ -1745,18 +1688,6 @@ void con_room_cleanup(cnr room)
   free(room->note_leave);
 
   free(roomid);
-  
-  /* bcy: free exclusion_list and destroy hash table */
-  g_queue_foreach(room->exclusion_list, &free_list, NULL);
-  g_queue_free(room->exclusion_list);
-  
-  g_queue_free(room->history_message);
-  
-  g_mutex_free(room->table_mutex);
-  g_mutex_free(room->history_mutex);
-    
-  // bcy: stop handling incoming interest
-  free(room->in_interest_presence);
 
   return;
 }
@@ -1769,13 +1700,13 @@ void con_room_zap(cnr room)
     log_warn(NAME, "[%s] Aborting - NULL room attribute found", FZONE);
     return;
   }
-  
+
   room->zapping = 1;
 
   log_debug(NAME, "[%s] cleaning up room %s", FZONE, jid_full(room->id));
 
   con_room_cleanup(room);
-  
+
 #ifdef HAVE_MYSQL
   sql_destroy_room(room->master->sql, jid_full(room->id));
 #endif
@@ -1789,10 +1720,7 @@ void con_room_zap(cnr room)
 void con_room_history_clear(cnr room)
 {
   int h;
-  
-  g_mutex_lock(room->history_mutex);
 
-  clear_history_queue(room);
   if(room->master->history > 0)
   {
     h = room->hlast;
@@ -1820,6 +1748,4 @@ void con_room_history_clear(cnr room)
         break;
     }
   }
-  
-  g_mutex_unlock(room->history_mutex);
 }

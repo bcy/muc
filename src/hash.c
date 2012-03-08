@@ -26,16 +26,6 @@ void ght_remove_key(gpointer data)
   free(data);
 }
 
-void ght_remove_prs(gpointer data)
-{
-  extern GHashTable *timer_valid;
-  struct presence *node = (struct presence *)data;
-  log_debug(NAME, "[%s] Auto-removing presence", FZONE);
-  g_hash_table_remove(timer_valid, data);
-  xmlnode_free(node->x);
-  free(node);
-}
-
 void ght_remove_cnu(gpointer data)
 {
   cnu node = (cnu)data;

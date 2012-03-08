@@ -183,17 +183,8 @@ typedef struct cnr_struct
   int logformat;		/* For log format */
   GQueue *queue;		/* used to remove zombie users  */
 
-  GHashTable *presence;		/* bcy: storage of generated presence packets */
   GHashTable *remote_users;	/* bcy: storage of remote users, key is user@server string */
-  GQueue *history_message;
-  GMutex *table_mutex;
-  GMutex *history_mutex;
 
-  /* bcy: ccn closures */
-  struct ccn_closure *in_content_presence;
-  struct ccn_closure *in_interest_presence;
-  struct ccn_closure *in_content_history;
-  GQueue *exclusion_list;	/* bcy: exclusion list for presence interest */
   int local_count;		/* bcy: # of local users in the room */
   int zapping;			/* bcy: to flag room is being zapped */
   int startup;			/* bcy: to flag room is just startup */
@@ -213,25 +204,12 @@ struct cnu_struct
   int packets; 			/* number of packets from this user */
   int legacy;			/* To denote gc clients */
   int leaving;			/* To flag user is leaving the room */
-  
-  char *name_prefix;		/* bcy: name prefix */
-  int message_seq;		/* bcy: message sequence number */
+
   int remote;			/* bcy: remote flag */
   char *status;			/* bcy: current status */
+  char *name_prefix;		/* bcy: name prefix */
   int last_presence;		/* bcy: last presence from user */
   int last_message;		/* bcy: last message from user */
-  int last_seq;			/* bcy: last message sequence from user */
-
-  /* bcy: ccn closure */
-  struct ccn_closure *in_content_message;
-  struct ccn_closure *in_interest_history;
-};
-
-/* bcy: element struct in exclusion list */
-struct exclusion_element
-{
-  char *name;		/* exclusion name */
-  GTimer *timer;	/* exclusion timer, remove element when outdated */
 };
 
 /* conference room history */
@@ -299,7 +277,7 @@ void con_user_process(cnu to, cnu from, jpacket jp); 			/* process packets betwe
 xmlnode add_extended_presence(cnu from, cnu to, xmlnode presence, char *status, char *reason, char *actor);
 							/* Adds extended presence info to a presence packet */
 void add_status_code(xmlnode presence, char *status); /* add a muc status code to a presence stanza */
-void add_room_status_codes(xmlnode presence, cnr room); /* add room specific status codes (logging, anonymous, ...) */ 
+void add_room_status_codes(xmlnode presence, cnr room); /* add room specific status codes (logging, anonymous, ...) */
 int is_sadmin(cni master, jid user);			/* Check if user is server admin */
 int is_owner(cnr room, jid user);			/* Check if user is room owner */
 int is_admin(cnr room, jid user);			/* Check if user is room admin */
@@ -331,7 +309,7 @@ jid jid_fix(jid id);					/* Check and fix case of jids */
 
 /* Functions in xdata.c */
 int xdata_handler(cnr room, cnu user, jpacket packet);
-void xdata_room_config(cnr room, cnu user, int new, xmlnode query);	
+void xdata_room_config(cnr room, cnu user, int new, xmlnode query);
 							/* Sends room configuration details */
 
 /* Functions in admin.c */
@@ -375,52 +353,10 @@ void sql_update_nb_users(mysql sql, cnr room);
 void sql_update_field(mysql sql, const char * roomId, const char* field, const char * value);
 void sql_update_room_config(mysql sql, cnr room);
 void sql_insert_all(mysql sql, GHashTable * rooms);
-void sql_insert_room_config(mysql sql, cnr room); 
+void sql_insert_room_config(mysql sql, cnr room);
 void sql_insert_lists(mysql sql, GHashTable * rooms);
 void sql_add_room_lists(mysql sql, cnr room);
 void sql_destroy_room(mysql sql, char * room_jid);
 void sql_add_affiliate(mysql sql, cnr room, char * userid, int affil);
 void sql_remove_affiliate(mysql sql, cnr room, jid userid);
 #endif
-
-/* bcy: ndn_thread struct */
-struct ndn_thread
-{
-  struct ccn *ccn;	// ccn
-  GThread *thread;	// thread for running ccn
-  int bRunning;		// running flag
-};
-
-struct presence
-{
-  cnu user;
-  xmlnode x;
-};
-
-struct history
-{
-  char *msg;
-  int seq;
-};
-
-/* bcy: upcall functions for incoming interest/content */
-enum ccn_upcall_res incoming_content_message(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
-enum ccn_upcall_res incoming_content_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
-enum ccn_upcall_res incoming_interest_presence(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
-enum ccn_upcall_res incoming_interest_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
-enum ccn_upcall_res incoming_content_history(struct ccn_closure *selfp, enum ccn_upcall_kind kind, struct ccn_upcall_info *info);
-
-/* bcy: functions related to ccn operation, defined in ndn.c */
-int init_ndn_thread();
-int stop_ndn_thread();
-int create_presence_interest(cnr room);
-int create_message_interest(cnu user, unsigned int seq);
-int create_presence_content(cnu user, xmlnode x);
-int create_message_content(cnu user, char *data);
-int create_history_interest(cnu user, unsigned int seq);
-int create_history_content(cnu user, char* data, unsigned int seq);
-void set_interest_filter(cnr room, struct ccn_closure *in_interest);
-void set_history_interest_filter(cnu user, struct ccn_closure *in_interest);
-void deliver_history(cnr room);
-
-#define HISTORY 15

@@ -216,10 +216,10 @@ void con_server(cni master, jpacket jp)
     }
     else if(NSCHECK(jp->iq,NS_TIME))
     {
-      /* Compliant with JEP-0090 */ 
+      /* Compliant with JEP-0090 */
 
       log_debug(NAME, "[%s] Server packet - Time Request", FZONE);
-      
+
       iq_get_time(jp);
       return;
     }
@@ -228,7 +228,7 @@ void con_server(cni master, jpacket jp)
       /* Compliant with JEP-0092 */
 
       log_debug(NAME, "[%s] Server packet - Version Request", FZONE);
-      
+
       iq_get_version(jp);
       return;
     }
@@ -289,9 +289,9 @@ void con_server(cni master, jpacket jp)
       return;
     }
     else if(NSCHECK(jp->iq, NS_DISCO_ITEMS))
-    { 
+    {
       log_debug(NAME, "[%s] Server packet - Disco Items Request", FZONE);
-      
+
       if (xmlnode_get_attrib(jp->iq,"node")!= NULL){
         jutil_error(jp->x, TERROR_UNAVAIL);
         deliver(dpacket_new(jp->x),NULL);
@@ -323,7 +323,7 @@ void con_server(cni master, jpacket jp)
       return;
     }
     else if(NSCHECK(jp->iq,NS_VCARD))
-    { 
+    {
       log_debug(NAME, "[%s] Server packet - VCard Request", FZONE);
 
       jutil_iqresult(jp->x);
@@ -335,7 +335,7 @@ void con_server(cni master, jpacket jp)
       deliver(dpacket_new(jp->x),NULL);
       return;
     }
-    else if(NSCHECK(jp->iq,NS_MUC_UNIQUE)) 
+    else if(NSCHECK(jp->iq,NS_MUC_UNIQUE))
     {
       //generate a unique identifier and send it back
       log_debug(NAME, "[%s] Server packet - Unique Request", FZONE);
@@ -349,7 +349,7 @@ void con_server(cni master, jpacket jp)
       deliver(dpacket_new(jp->x),NULL);
       return;
     }
-    else if(NSCHECK(jp->iq,NS_PING)) 
+    else if(NSCHECK(jp->iq,NS_PING))
     {
       log_debug(NAME, "[%s] Server packet - Ping", FZONE);
       jutil_iqresult(jp->x);
@@ -398,7 +398,7 @@ void _con_packets(void *arg)
   log_debug(NAME, "[%s] processing packet %s", FZONE, xmlnode2str(jp->x));
 
   /* any other packets must have an associated room */
-  for(s = jp->to->user; *s != '\0'; s++) 
+  for(s = jp->to->user; *s != '\0'; s++)
     *s = tolower(*s); /* lowercase the group name */
 
   if((room = g_hash_table_lookup(master->rooms, jid_full(jid_user(jid_fix(jp->to))))) == NULL)
@@ -430,7 +430,7 @@ void _con_packets(void *arg)
       room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
       //instant room are always non browsable
       room->public=0;
-     
+
       jutil_iqresult(jp->x);
       deliver(dpacket_new(jp->x),NULL);
       g_mutex_unlock(master->lock);
@@ -466,13 +466,7 @@ void _con_packets(void *arg)
   {
     if (room->persistent == 1 && room->local_count == 0)
     {
-      room->in_content_presence->data = room;
-      room->in_content_history->data = room;
-      room->in_interest_presence->data = room;
-      set_interest_filter(room, room->in_interest_presence);
-      // bcy: create presence interest for the persistent room
       room->startup = 1;
-      create_presence_interest(room);
     }
   }
 
@@ -508,7 +502,7 @@ void _con_packets(void *arg)
             xmlnode_free(jp->x);
             */
             g_mutex_unlock(master->lock);
-            
+
             return;
           }
         }
@@ -574,10 +568,12 @@ void _con_packets(void *arg)
       j_strcat(u->status, "available");
     j_strcat(u->status, xmlnode_get_tag_data(jp->x, "status"));
     u->last_presence = now;
+/*
     if (u->remote == 0)
-      create_presence_content(u, jp->x);
+      generate_content(u, jp->x);
+*/
   }
-  
+
   /* update tracking stuff */
   if (j_strcmp(xmlnode_get_attrib(jp->x, "external"), "1") != 0)
     room->last = now;
@@ -719,7 +715,7 @@ void _con_packets(void *arg)
           u->legacy = 0;
           //	xmlnode_hide(node);
 
-          /* Enable room defaults automatically */ 
+          /* Enable room defaults automatically */
           if(master->roomlock == -1)
           {
             created = 0;
@@ -783,7 +779,7 @@ void _con_packets(void *arg)
   {
     log_debug(NAME, "[%s] Calling user zap", FZONE);
 
-    if(u != NULL) 
+    if(u != NULL)
     {
       reason = xmlnode_get_tag_data(jp->x, "status");
 
@@ -959,8 +955,6 @@ void con_shutdown(void *arg)
   }
 #endif
 
-  stop_ndn_thread();
-
   log_debug(NAME, "[%s] SHUTDOWN: Sequence completed", FZONE);
 }
 
@@ -1004,7 +998,7 @@ void _con_beat_idle(gpointer key, gpointer data, gpointer arg)
   room->queue = g_queue_new();
   g_hash_table_foreach(room->remote, _con_beat_user, &t); /* makes sure nothing stale is in the room */
 
-  while ((user_name = (char *)g_queue_pop_head(room->queue)) != NULL) 
+  while ((user_name = (char *)g_queue_pop_head(room->queue)) != NULL)
   {
     node = xmlnode_new_tag("reason");
     xmlnode_insert_cdata(node, "Clearing zombie", -1);
@@ -1118,7 +1112,7 @@ void conference(instance i, xmlnode x)
   srandom(now);
 
   log_debug(NAME, "[%s] mu-conference loading  - Service ID: %s", FZONE, i->id);
-  
+
   /* Temporary pool for temporary jid creation */
   tp = pool_new();
 
@@ -1217,8 +1211,6 @@ void conference(instance i, xmlnode x)
   }
 #endif
 
-  init_ndn_thread();
-  
   register_phandler(i, o_DELIVER, con_packets, (void*)master);
   register_shutdown(con_shutdown, (void *) master);
   g_timeout_add(60000, (GSourceFunc)con_beat_update, (void *)master);
