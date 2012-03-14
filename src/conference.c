@@ -462,13 +462,6 @@ void _con_packets(void *arg)
       created = 1;
     }
   }
-  else
-  {
-    if (room->persistent == 1 && room->local_count == 0)
-    {
-      //room->socket;
-    }
-  }
 
   /* get the sending user entry, if any */
   log_debug(NAME, "[%s] %s", FZONE, jid_full(jid_fix(jp->from)));
@@ -1228,6 +1221,6 @@ void conference(instance i, xmlnode x)
 void callback(char *name, char *data)
 {
   xmlnode x = xmlnode_str(data, strlen(data));
-  xmlnode_put_attrib(x, "external", 1);
+  xmlnode_put_attrib(x, "external", "1");
   deliver(dpacket_new(x), NULL);
 }

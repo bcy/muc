@@ -1427,6 +1427,22 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   return;
 }
 
+static gboolean create_socket(gpointer user_data)
+{
+  cnr room = (cnr) user_data;
+
+  if (room->locked == 1 || room->local_count == 0)
+    return TRUE;
+
+  char *prefix = calloc(1, sizeof(char) * 100);
+  strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
+  strcat(prefix, room->id->user);
+  //room->socket = create_sync_app_socket(prefix, callback);
+  free(prefix);
+
+  return FALSE;
+}
+
 cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist)
 {
   cnr room;
@@ -1537,6 +1553,9 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->local_count = 0;
   room->zapping = 0;
   room->cleaning = 0;
+
+  room->socket = NULL;
+  g_timeout_add(1000, &create_socket, room);
 
   return room;
 }
