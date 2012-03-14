@@ -187,8 +187,9 @@ typedef struct cnr_struct
 
   int local_count;		/* bcy: # of local users in the room */
   int zapping;			/* bcy: to flag room is being zapped */
-  int startup;			/* bcy: to flag room is just startup */
   int cleaning;			/* bcy: to flag remote users are being cleaned */
+
+  struct SyncAppSocket *socket;	/* bcy: sync socket */
 } *cnr, _cnr;
 
 /* conference user */
@@ -205,6 +206,7 @@ struct cnu_struct
   int legacy;			/* To denote gc clients */
   int leaving;			/* To flag user is leaving the room */
 
+  int session;			/* bcy: session id */
   int remote;			/* bcy: remote flag */
   char *status;			/* bcy: current status */
   char *name_prefix;		/* bcy: name prefix */
@@ -284,7 +286,7 @@ int is_admin(cnr room, jid user);			/* Check if user is room admin */
 int is_member(cnr room, jid user);			/* Check if user is invited to the room */
 int is_outcast(cnr room, jid user);			/* Check if user is banned from the room */
 int is_moderator(cnr room, jid user);			/* Check if user is room admin */
-int is_participant(cnr room, jid user);			/* Check if user has voice  */
+int is_participant(cnr room, jid user);		/* Check if user has voice  */
 int is_visitor(cnr room, jid user);			/* Check if user is a visitor  */
 int in_room(cnr room, jid user);			/* Check if user in the room  */
 int is_legacy(cnu user);				/* Check if user is using a legacy client */
@@ -360,3 +362,5 @@ void sql_destroy_room(mysql sql, char * room_jid);
 void sql_add_affiliate(mysql sql, cnr room, char * userid, int affil);
 void sql_remove_affiliate(mysql sql, cnr room, jid userid);
 #endif
+
+void callback(char *name, char *data);

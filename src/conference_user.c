@@ -84,6 +84,8 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 
   if (external == 1)
     user->last_message = time(NULL);
+  else
+    user->session = time(NULL);
 
   return user;
 }
@@ -522,10 +524,7 @@ void con_user_process(cnu to, cnu from, jpacket jp)
 
       if (from->remote == 0)
 	deliver(dpacket_new(jp->x), NULL);
-/*
-      else
-	generate_content(to, jp->x);
-      */
+
       return;
     }
 
@@ -571,7 +570,14 @@ void con_user_process(cnu to, cnu from, jpacket jp)
     con_user_send(to, from, jp->x);
   /*
   else
-    genearte_content(from, jp->x);
+  {
+    char *prefix = calloc(1, sizeof(char) * 100);
+    strcpy(prefix, from->name_prefix);
+    strcat(prefix, "/");
+    strcat(prefix, room->id->user);
+    sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
+    free(prefix);
+  }
   */
 }
 
@@ -717,6 +723,15 @@ void con_user_zap(cnu user, xmlnode data)
   xmlnode_free(user->presence);
   log_debug(NAME, "[%s] Un-alloc nick xmlnode", FZONE);
   xmlnode_free(user->nick);
+
+  /*
+  char *prefix = calloc(1, sizeof(char) * 100);
+  strcpy(prefix, user->name_prefix);
+  strcat(prefix, "/");
+  strcat(prefix, room->id->user);
+  sync_app_socket_remove(room->socket, prefix);
+  free(prefix);
+  */
 
   // bcy: free allocated memory
   free(user->name_prefix);

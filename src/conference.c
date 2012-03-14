@@ -466,7 +466,7 @@ void _con_packets(void *arg)
   {
     if (room->persistent == 1 && room->local_count == 0)
     {
-      room->startup = 1;
+      //room->socket;
     }
   }
 
@@ -570,7 +570,14 @@ void _con_packets(void *arg)
     u->last_presence = now;
 /*
     if (u->remote == 0)
-      generate_content(u, jp->x);
+    {
+      char *prefix = calloc(1, sizeof(char) * 100);
+      strcpy(prefix, u->name_prefix);
+      strcat(prefix, "/");
+      strcat(prefix, room->id->user);
+      sync_app_socket_publish(room->socket, prefix, u->session, xmlnode2str(jp->x), MESSAGE_FRESHNESE);
+      free(prefix);
+    }
 */
   }
 
@@ -1216,4 +1223,11 @@ void conference(instance i, xmlnode x)
   g_timeout_add(60000, (GSourceFunc)con_beat_update, (void *)master);
 
   pool_free(tp);
+}
+
+void callback(char *name, char *data)
+{
+  xmlnode x = xmlnode_str(data, strlen(data));
+  xmlnode_put_attrib(x, "external", 1);
+  deliver(dpacket_new(x), NULL);
 }

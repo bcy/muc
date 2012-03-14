@@ -1116,23 +1116,29 @@ void con_room_process(cnr room, cnu from, jpacket jp)
     /* check if the message is a discussion history */
     cont = 0;
     for (node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
-      if (xmlnode_get_name(node)==NULL || strcmp("x",xmlnode_get_name(node))!=0) continue; // check if the node is a "x" node
+      if (xmlnode_get_name(node) == NULL || strcmp("x", xmlnode_get_name(node)) != 0) continue; // check if the node is a "x" node
       if (!NSCHECK(node, NS_DELAY)) continue;
-      if ((xmlnode_get_attrib(node, "from")!= NULL) && (xmlnode_get_attrib(node, "stamp")) && (is_owner(room,from->realid))) {
+      if ((xmlnode_get_attrib(node, "from") != NULL) && (xmlnode_get_attrib(node, "stamp")) && (is_owner(room, from->realid))) {
         cont = 1;
         break;
       }
-
     }
 
     /* Save copy of packet for history */
     node = xmlnode_dup(jp->x);
 
     /* broadcast */
-    xmlnode_put_vattrib(jp->x,"cnu",(void*)from);
+    xmlnode_put_vattrib(jp->x, "cnu", (void*)from);
     /*
     if (j_strcmp(xmlnode_get_attrib(jp->x, "external"), "1") != 0)
-      generate_content(from, jp->x);
+    {
+      char *prefix = calloc(1, sizeof(char) * 100);
+      strcpy(prefix, from->name_prefix);
+      strcat(prefix, "/");
+      strcat(prefix, room->id->user);
+      sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
+      free(prefix);
+    }
     */
     g_hash_table_foreach(room->local, con_room_sendwalk, (void*)jp->x);
 
@@ -1530,7 +1536,6 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
 
   room->local_count = 0;
   room->zapping = 0;
-  room->startup = 1;
   room->cleaning = 0;
 
   return room;
@@ -1686,6 +1691,8 @@ void con_room_cleanup(cnr room)
   free(room->note_join);
   free(room->note_rename);
   free(room->note_leave);
+
+  //delete_sync_app_socket(&room->socket);
 
   free(roomid);
 
