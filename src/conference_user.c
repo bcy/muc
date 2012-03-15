@@ -105,7 +105,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   else
   {
     user->session = time(NULL);
-    g_timeout_add(60000, &periodic_presence, user->presence_message);
+    g_timeout_add(60000, &periodic_presence, user);
   }
 
   return user;
