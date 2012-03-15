@@ -191,7 +191,7 @@ typedef struct cnr_struct
   int zapping;			/* bcy: to flag room is being zapped */
   int cleaning;			/* bcy: to flag remote users are being cleaned */
 
-  struct SyncAppSocket *socket;	/* bcy: sync socket */
+  SyncAppSocketStruct *socket;	/* bcy: sync socket */
 } *cnr, _cnr;
 
 /* conference user */
@@ -212,6 +212,7 @@ struct cnu_struct
   int remote;			/* bcy: remote flag */
   char *status;			/* bcy: current status */
   char *name_prefix;		/* bcy: name prefix */
+  char *presence_message;	/* bcy: last presence message */
   int last_presence;		/* bcy: last presence from user */
   int last_message;		/* bcy: last message from user */
 };
