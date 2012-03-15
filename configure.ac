@@ -40,6 +40,23 @@ if test "$ccnx" == "no"; then
 	AC_MSG_ERROR([Could not find required libccn installation])
 fi
 
+AC_ARG_WITH([sync], [AC_HELP_STRING([--with-sync=DIR],
+	    [Where to find sync library, defaults to /usr/local])],
+	    [sync=$withval], [sync=yes])
+if test "$sync" != "no"; then
+	if test "$sync" != "yes"; then
+		LDFLAGS="${LDFLAGS} -L$sync/lib -lsync"
+		CFLAGS="${CFLAGS} -I$sync/include"
+	fi
+	AC_CHECK_HEADER(sync/sync-app-socket-c.h,
+		       AC_CHECK_LIB(sync, create_sync_app_socket,
+			    [sync=yes LIBS="-lsync ${LIBS}"], sync=no),
+			    sync=no)
+fi
+if test "$sync" == "no"; then
+	AC_MSG_ERROR([Could not find required libsync installation])
+fi
+
 AC_CHECK_LIB([expat], [XML_Parse], [], [libexpat=no])
 if test "$libexpat" == "no"; then
 	AC_MSG_ERROR([Could not find required libexpat installation])
