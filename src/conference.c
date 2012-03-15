@@ -769,6 +769,8 @@ void _con_packets(void *arg)
     strcpy(prefix, u->name_prefix);
     strcat(prefix, "/");
     strcat(prefix, room->id->user);
+    if (room->socket == NULL)
+      sleep(1);
     sync_app_socket_publish(room->socket, prefix, u->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
     if (u->presence_message != NULL)
       free(u->presence_message);
