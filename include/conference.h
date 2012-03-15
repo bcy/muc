@@ -35,6 +35,8 @@
 #include <ccn/signing.h>
 #include <ccn/charbuf.h>
 
+#include <sync/sync-app-socket-c.h>
+
 #define NAME			"MU-Conference"
 #undef VERSION
 #define VERSION 		"0.8"
@@ -363,4 +365,6 @@ void sql_add_affiliate(mysql sql, cnr room, char * userid, int affil);
 void sql_remove_affiliate(mysql sql, cnr room, jid userid);
 #endif
 
-void callback(char *name, char *data);
+void callback(const char *name, const char *data);
+
+#define MESSAGE_FRESHNESS 10

@@ -568,7 +568,6 @@ void con_user_process(cnu to, cnu from, jpacket jp)
 
   if (to->remote == 0) // bcy: directly send to local users
     con_user_send(to, from, jp->x);
-  /*
   else
   {
     char *prefix = calloc(1, sizeof(char) * 100);
@@ -578,7 +577,6 @@ void con_user_process(cnu to, cnu from, jpacket jp)
     sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
     free(prefix);
   }
-  */
 }
 
 void con_user_send(cnu to, cnu from, xmlnode node)
@@ -724,14 +722,12 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Un-alloc nick xmlnode", FZONE);
   xmlnode_free(user->nick);
 
-  /*
   char *prefix = calloc(1, sizeof(char) * 100);
   strcpy(prefix, user->name_prefix);
   strcat(prefix, "/");
   strcat(prefix, room->id->user);
   sync_app_socket_remove(room->socket, prefix);
   free(prefix);
-  */
 
   // bcy: free allocated memory
   free(user->name_prefix);

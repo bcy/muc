@@ -561,17 +561,16 @@ void _con_packets(void *arg)
       j_strcat(u->status, "available");
     j_strcat(u->status, xmlnode_get_tag_data(jp->x, "status"));
     u->last_presence = now;
-/*
+
     if (u->remote == 0)
     {
       char *prefix = calloc(1, sizeof(char) * 100);
       strcpy(prefix, u->name_prefix);
       strcat(prefix, "/");
       strcat(prefix, room->id->user);
-      sync_app_socket_publish(room->socket, prefix, u->session, xmlnode2str(jp->x), MESSAGE_FRESHNESE);
+      sync_app_socket_publish(room->socket, prefix, u->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
       free(prefix);
     }
-*/
   }
 
   /* update tracking stuff */
@@ -1218,7 +1217,7 @@ void conference(instance i, xmlnode x)
   pool_free(tp);
 }
 
-void callback(char *name, char *data)
+void callback(const char *name, const char *data)
 {
   xmlnode x = xmlnode_str(data, strlen(data));
   xmlnode_put_attrib(x, "external", "1");

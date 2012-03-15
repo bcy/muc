@@ -1129,7 +1129,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     /* broadcast */
     xmlnode_put_vattrib(jp->x, "cnu", (void*)from);
-    /*
+
     if (j_strcmp(xmlnode_get_attrib(jp->x, "external"), "1") != 0)
     {
       char *prefix = calloc(1, sizeof(char) * 100);
@@ -1139,7 +1139,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
       free(prefix);
     }
-    */
+
     g_hash_table_foreach(room->local, con_room_sendwalk, (void*)jp->x);
 
     /* log */
@@ -1437,7 +1437,7 @@ static gboolean create_socket(gpointer user_data)
   char *prefix = calloc(1, sizeof(char) * 100);
   strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
   strcat(prefix, room->id->user);
-  //room->socket = create_sync_app_socket(prefix, callback);
+  room->socket = create_sync_app_socket(prefix, &callback);
   free(prefix);
 
   return FALSE;
@@ -1711,7 +1711,7 @@ void con_room_cleanup(cnr room)
   free(room->note_rename);
   free(room->note_leave);
 
-  //delete_sync_app_socket(&room->socket);
+  delete_sync_app_socket(&room->socket);
 
   free(roomid);
 
