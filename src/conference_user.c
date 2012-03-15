@@ -21,6 +21,23 @@
 #include "conference.h"
 extern int deliver__flag;
 
+static gboolean periodic_presence(gpointer user_data)
+{
+  cnu user = (cnr) user_data;
+  
+  if (user->presence_message == NULL)
+    return FALSE;
+  else
+  {
+    char *prefix = calloc(1, sizeof(char) * 100);
+    strcpy(prefix, user->name_prefix);
+    strcat(prefix, "/");
+    strcat(prefix, user->room->id->user);
+    sync_app_socket_publish(user->room->socket, prefix, user->session, user->presence_message, MESSAGE_FRESHNESS);
+    return TRUE;
+  }
+}
+
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 {
   pool p;
@@ -81,11 +98,15 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     user->name_prefix = strdup(name_prefix);
   user->remote = external;
   user->status = NULL;
+  user->presence_message = NULL;
 
   if (external == 1)
     user->last_message = time(NULL);
   else
+  {
     user->session = time(NULL);
+    g_timeout_add(60000, &periodic_presence, user->presence_message);
+  }
 
   return user;
 }
@@ -732,6 +753,11 @@ void con_user_zap(cnu user, xmlnode data)
   // bcy: free allocated memory
   free(user->name_prefix);
   free(user->status);
+  if (user->presence_message != NULL)
+  {
+    free(user->presence_message);
+    user->presence_message = NULL;
+  }
 
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));

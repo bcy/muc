@@ -569,6 +569,10 @@ void _con_packets(void *arg)
       strcat(prefix, "/");
       strcat(prefix, room->id->user);
       sync_app_socket_publish(room->socket, prefix, u->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
+      if (u->presence_message != NULL)
+	free(u->presence_message);
+      u->presence_message = calloc(1, sizeof(char) * 1000);
+      strcpy(u->presence_message, xmlnode2str(jp->x));
       free(prefix);
     }
   }
@@ -1219,7 +1223,7 @@ void conference(instance i, xmlnode x)
 
 void callback(const char *name, const char *data)
 {
-  xmlnode x = xmlnode_str(data, strlen(data));
+  xmlnode x = xmlnode_str((char *)data, strlen(data));
   xmlnode_put_attrib(x, "external", "1");
   deliver(dpacket_new(x), NULL);
 }
