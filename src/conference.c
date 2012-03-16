@@ -378,7 +378,10 @@ static gboolean publish_presence(gpointer user_data)
     char *prefix = calloc(1, sizeof(char) * 100);
     strcpy(prefix, user->name_prefix);
     strcat(prefix, "/");
+    strcat(prefix, user->realid->user);
+    strcat(prefix, "/");
     strcat(prefix, user->room->id->user);
+    log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, user->presence_message, prefix, user->session);
     sync_app_socket_publish(user->room->socket, prefix, user->session, user->presence_message, MESSAGE_FRESHNESS);
     free(prefix);
     return FALSE;

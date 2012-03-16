@@ -26,13 +26,16 @@ static gboolean periodic_presence(gpointer user_data)
   cnu user = (cnr) user_data;
   
   if (user->presence_message == NULL)
-    return FALSE;
+    return TRUE;
   else
   {
     char *prefix = calloc(1, sizeof(char) * 100);
     strcpy(prefix, user->name_prefix);
     strcat(prefix, "/");
+    strcat(prefix, user->realid->user);
+    strcat(prefix, "/");
     strcat(prefix, user->room->id->user);
+    log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, user->presence_message, prefix, user->session);
     sync_app_socket_publish(user->room->socket, prefix, user->session, user->presence_message, MESSAGE_FRESHNESS);
     return TRUE;
   }
@@ -594,7 +597,10 @@ void con_user_process(cnu to, cnu from, jpacket jp)
     char *prefix = calloc(1, sizeof(char) * 100);
     strcpy(prefix, from->name_prefix);
     strcat(prefix, "/");
+    strcat(prefix, from->realid->user);
+    strcat(prefix, "/");
     strcat(prefix, room->id->user);
+    log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, xmlnode2str(jp->x), prefix, from->session);
     sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
     free(prefix);
   }
@@ -746,7 +752,10 @@ void con_user_zap(cnu user, xmlnode data)
   char *prefix = calloc(1, sizeof(char) * 100);
   strcpy(prefix, user->name_prefix);
   strcat(prefix, "/");
+  strcat(prefix, user->realid->user);
+  strcat(prefix, "/");
   strcat(prefix, room->id->user);
+  log_debug(NAME, "[%s] remove prefix %s", FZONE, prefix);
   sync_app_socket_remove(room->socket, prefix);
   free(prefix);
 
