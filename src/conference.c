@@ -367,12 +367,12 @@ void con_server(cni master, jpacket jp)
   return;
 }
 
-static gboolean publish_presence(gpointer user_data)
+static void publish_presence(union sigval val)
 {
-  cnu user = (cnu) user_data;
-  
-  if (user->room->socket == NULL)
-    return TRUE;
+  cnu user = (cnu) val.sival_ptr;
+
+  if (user == NULL || user->room->socket == NULL)
+    return;
   else
   {
     char *prefix = calloc(1, sizeof(char) * 100);
@@ -381,10 +381,12 @@ static gboolean publish_presence(gpointer user_data)
     strcat(prefix, user->realid->user);
     strcat(prefix, "/");
     strcat(prefix, user->room->id->user);
-    log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, user->presence_message, prefix, user->session);
-    sync_app_socket_publish(user->room->socket, prefix, user->session, user->presence_message, MESSAGE_FRESHNESS);
+    log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
+	FZONE, user->presence_message, prefix, user->session);
+    sync_app_socket_publish(user->room->socket, prefix, user->session, 
+	user->presence_message, MESSAGE_FRESHNESS);
     free(prefix);
-    return FALSE;
+    timer_delete(user->once);
   }
 }
 
@@ -589,7 +591,20 @@ void _con_packets(void *arg)
 	free(u->presence_message);
       u->presence_message = calloc(1, sizeof(char) * 1000);
       strcpy(u->presence_message, xmlnode2str(jp->x));
-      g_timeout_add(500, &publish_presence, u);
+
+      struct sigevent sig;
+      sig.sigev_notify = SIGEV_THREAD;
+      sig.sigev_notify_function = publish_presence;
+      sig.sigev_value.sival_ptr = u;
+      sig.sigev_notify_attributes = NULL;
+      timer_create(CLOCK_REALTIME, &sig, &u->once);
+
+      struct itimerspec in, out;
+      in.it_value.tv_sec = 0;
+      in.it_value.tv_nsec = 500000000;
+      in.it_interval.tv_sec = 0;
+      in.it_interval.tv_nsec = 100000000;
+      timer_settime(u->once, 0, &in, &out);
     }
   }
 

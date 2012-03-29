@@ -21,12 +21,12 @@
 #include "conference.h"
 extern int deliver__flag;
 
-static gboolean periodic_presence(gpointer user_data)
+static void periodic_presence(union sigval val)
 {
-  cnu user = (cnr) user_data;
+  cnu user = (cnu) val.sival_ptr;
   
-  if (user->presence_message == NULL)
-    return TRUE;
+  if (user == NULL || user->presence_message == NULL)
+    return;
   else
   {
     char *prefix = calloc(1, sizeof(char) * 100);
@@ -37,7 +37,6 @@ static gboolean periodic_presence(gpointer user_data)
     strcat(prefix, user->room->id->user);
     log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, user->presence_message, prefix, user->session);
     sync_app_socket_publish(user->room->socket, prefix, user->session, user->presence_message, MESSAGE_FRESHNESS);
-    return TRUE;
   }
 }
 
@@ -108,7 +107,20 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   else
   {
     user->session = time(NULL);
-    g_timeout_add(60000, &periodic_presence, user);
+
+    struct sigevent sig;
+    sig.sigev_notify = SIGEV_THREAD;
+    sig.sigev_notify_function = periodic_presence;
+    sig.sigev_value.sival_ptr = user;
+    sig.sigev_notify_attributes = NULL;
+    timer_create(CLOCK_REALTIME, &sig, &user->periodic);
+    
+    struct itimerspec in, out;
+    in.it_value.tv_sec = 60;
+    in.it_value.tv_nsec = 0;
+    in.it_interval.tv_sec = 60;
+    in.it_interval.tv_nsec = 0;
+    timer_settime(user->periodic, 0, &in, &out);
   }
 
   return user;
@@ -142,7 +154,6 @@ void _con_user_nick(gpointer key, gpointer data, gpointer arg)
   /* send unavail pres w/ old nick */
   if((old = xmlnode_get_attrib(from->nick,"old")) != NULL)
   {
-
     if((from->localid->resource != NULL) ||
       (j_strcmp(xmlnode_get_attrib(from->presence,"type"),"unavailable") != 0)) //when the last presence received is not of type unavailable, the users didn't ask to leave, so we must create a new presence packet
     {
@@ -671,6 +682,9 @@ void con_user_zap(cnu user, xmlnode data)
     return;
   }
 
+  timer_delete(user->periodic);
+  timer_delete(user->once);
+
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
   if(user->localid != NULL)
@@ -787,4 +801,5 @@ void con_user_zap(cnu user, xmlnode data)
       room->cleaning = 0;
     }
   }
+  user = NULL;
 }

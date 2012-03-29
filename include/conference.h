@@ -215,6 +215,9 @@ struct cnu_struct
   char *presence_message;	/* bcy: last presence message */
   int last_presence;		/* bcy: last presence from user */
   int last_message;		/* bcy: last message from user */
+
+  timer_t once;
+  timer_t periodic;
 };
 
 /* conference room history */
