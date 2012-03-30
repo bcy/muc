@@ -101,9 +101,13 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   user->remote = external;
   user->status = NULL;
   user->presence_message = NULL;
+  user->once = 0;
 
   if (external == 1)
+  {
     user->last_message = time(NULL);
+    user->periodic = 0;
+  }
   else
   {
     user->session = time(NULL);
@@ -682,8 +686,10 @@ void con_user_zap(cnu user, xmlnode data)
     return;
   }
 
-  timer_delete(user->periodic);
-  timer_delete(user->once);
+  if (user->periodic != 0)
+    timer_delete(user->periodic);
+  if (user->once != 0)
+    timer_delete(user->once);
 
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
