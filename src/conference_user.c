@@ -21,22 +21,28 @@
 #include "conference.h"
 extern int deliver__flag;
 
-static void periodic_presence(union sigval val)
+static void *periodic_presence(void *data)
 {
-  cnu user = (cnu) val.sival_ptr;
+  cnu user = (cnu) data;
   
-  if (user == NULL || user->presence_message == NULL)
-    return;
-  else
+  while (1)
   {
-    char *prefix = calloc(1, sizeof(char) * 100);
-    strcpy(prefix, user->name_prefix);
-    strcat(prefix, "/");
-    strcat(prefix, user->realid->user);
-    strcat(prefix, "/");
-    strcat(prefix, user->room->id->user);
-    log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, user->presence_message, prefix, user->session);
-    sync_app_socket_publish(user->room->socket, prefix, user->session, user->presence_message, MESSAGE_FRESHNESS);
+    sleep(60);
+    if (user == NULL || user->presence_message == NULL)
+      continue;
+    else
+    {
+      char *prefix = calloc(1, sizeof(char) * 100);
+      strcpy(prefix, user->name_prefix);
+      strcat(prefix, "/");
+      strcat(prefix, user->realid->user);
+      strcat(prefix, "/");
+      strcat(prefix, user->room->id->user);
+      log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE,
+		user->presence_message, prefix, user->session);
+      sync_app_socket_publish(user->room->socket, prefix, user->session,
+			      user->presence_message, MESSAGE_FRESHNESS);
+    }
   }
 }
 
@@ -111,20 +117,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
   else
   {
     user->session = time(NULL);
-
-    struct sigevent sig;
-    sig.sigev_notify = SIGEV_THREAD;
-    sig.sigev_notify_function = periodic_presence;
-    sig.sigev_value.sival_ptr = user;
-    sig.sigev_notify_attributes = NULL;
-    timer_create(CLOCK_REALTIME, &sig, &user->periodic);
-    
-    struct itimerspec in, out;
-    in.it_value.tv_sec = 60;
-    in.it_value.tv_nsec = 0;
-    in.it_interval.tv_sec = 60;
-    in.it_interval.tv_nsec = 0;
-    timer_settime(user->periodic, 0, &in, &out);
+    pthread_create(&user->periodic, NULL, periodic_presence, user);
   }
 
   return user;
@@ -687,9 +680,9 @@ void con_user_zap(cnu user, xmlnode data)
   }
 
   if (user->periodic != 0)
-    timer_delete(user->periodic);
+    pthread_cancel(user->periodic);
   if (user->once != 0)
-    timer_delete(user->once);
+    pthread_cancel(user->once);
 
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 

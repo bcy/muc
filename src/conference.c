@@ -367,26 +367,29 @@ void con_server(cni master, jpacket jp)
   return;
 }
 
-static void publish_presence(union sigval val)
+static void *publish_presence(void *data)
 {
-  cnu user = (cnu) val.sival_ptr;
+  cnu user = (cnu) data;
 
-  if (user == NULL || user->room->socket == NULL)
-    return;
-  else
+  while (1)
   {
-    char *prefix = calloc(1, sizeof(char) * 100);
-    strcpy(prefix, user->name_prefix);
-    strcat(prefix, "/");
-    strcat(prefix, user->realid->user);
-    strcat(prefix, "/");
-    strcat(prefix, user->room->id->user);
-    log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
-	FZONE, user->presence_message, prefix, user->session);
-    sync_app_socket_publish(user->room->socket, prefix, user->session, 
-	user->presence_message, MESSAGE_FRESHNESS);
-    free(prefix);
-    timer_delete(user->once);
+    if (user == NULL || user->room->socket == NULL)
+      usleep(200000);
+    else
+    {
+      char *prefix = calloc(1, sizeof(char) * 100);
+      strcpy(prefix, user->name_prefix);
+      strcat(prefix, "/");
+      strcat(prefix, user->realid->user);
+      strcat(prefix, "/");
+      strcat(prefix, user->room->id->user);
+      log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
+		FZONE, user->presence_message, prefix, user->session);
+      sync_app_socket_publish(user->room->socket, prefix, user->session, 
+			      user->presence_message, MESSAGE_FRESHNESS);
+      free(prefix);
+      return;
+    }
   }
 }
 
@@ -592,19 +595,7 @@ void _con_packets(void *arg)
       u->presence_message = calloc(1, sizeof(char) * 1000);
       strcpy(u->presence_message, xmlnode2str(jp->x));
 
-      struct sigevent sig;
-      sig.sigev_notify = SIGEV_THREAD;
-      sig.sigev_notify_function = publish_presence;
-      sig.sigev_value.sival_ptr = u;
-      sig.sigev_notify_attributes = NULL;
-      timer_create(CLOCK_REALTIME, &sig, &u->once);
-
-      struct itimerspec in, out;
-      in.it_value.tv_sec = 0;
-      in.it_value.tv_nsec = 500000000;
-      in.it_interval.tv_sec = 0;
-      in.it_interval.tv_nsec = 100000000;
-      timer_settime(u->once, 0, &in, &out);
+      pthread_create(&u->once, NULL, publish_presence, u);
     }
   }
 

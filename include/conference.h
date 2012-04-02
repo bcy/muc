@@ -25,6 +25,7 @@
 #include <glib.h>
 #include <time.h>
 #include <poll.h>
+#include <pthread.h>
 #include "hash.h"
 #include "ns.h"
 
@@ -216,8 +217,8 @@ struct cnu_struct
   int last_presence;		/* bcy: last presence from user */
   int last_message;		/* bcy: last message from user */
 
-  timer_t once;
-  timer_t periodic;
+  pthread_t once;
+  pthread_t periodic;
 };
 
 /* conference room history */
