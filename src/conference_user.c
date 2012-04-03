@@ -44,6 +44,8 @@ static void *periodic_presence(void *data)
 			      user->presence_message, MESSAGE_FRESHNESS);
     }
   }
+  
+  return NULL;
 }
 
 cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
@@ -630,18 +632,6 @@ void con_user_send(cnu to, cnu from, xmlnode node)
   deliver(dpacket_new(node), NULL);
 }
 
-static gboolean cleanup_remote_user(gpointer key, gpointer value, gpointer user_data)
-{
-  cnu user = (cnu) value;
-  xmlnode node;
-
-  node = xmlnode_new_tag("reason");
-  xmlnode_insert_cdata(node, "Local persistent room closed, clearing remote users", -1);
-  con_user_zap(user, node);
-
-  return TRUE;
-}
-
 void con_user_zap(cnu user, xmlnode data)
 {
   cnr room;
@@ -663,7 +653,7 @@ void con_user_zap(cnu user, xmlnode data)
   if (user->remote == 1)
   {
     log_debug(NAME, "[%s] Removing from remote user list", FZONE);
-    if (room->zapping == 0 && room->cleaning == 0)
+    if (room->zapping == 0)
       g_hash_table_remove(room->remote_users, user->realid->user);
   }
 
@@ -784,21 +774,11 @@ void con_user_zap(cnu user, xmlnode data)
   log_debug(NAME, "[%s] Removing from remote list and un-alloc cnu", FZONE);
   g_hash_table_remove(room->remote, jid_full(user->realid));
 
-  if (room->local_count == 0 && room->zapping == 0)
+  if (room->local_count == 0 && room->zapping == 0 && room->persistent == 0)
   {
-    if (room->persistent == 0)
-    {
-      log_debug(NAME, "[%s] No local user in dynamic room: Locking room %s and remove", FZONE, room->id->user);
-      room->locked = 1;
-      con_room_zap(room);
-    }
-    else if (room->cleaning == 0)
-    {
-      room->cleaning = 1;
-      log_debug(NAME, "[%s] No local user in persistent room: zapping remote users", FZONE);
-      g_hash_table_foreach_remove(room->remote_users, cleanup_remote_user, NULL);
-      room->cleaning = 0;
-    }
+    log_debug(NAME, "[%s] No local user in dynamic room: Locking room %s and remove", FZONE, room->id->user);
+    room->locked = 1;
+    con_room_zap(room);
   }
   user = NULL;
 }

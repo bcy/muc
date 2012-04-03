@@ -1555,7 +1555,6 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
 
   room->local_count = 0;
   room->zapping = 0;
-  room->cleaning = 0;
 
   room->socket = NULL;
   g_timeout_add(1000, &create_socket, room);

@@ -388,7 +388,7 @@ static void *publish_presence(void *data)
       sync_app_socket_publish(user->room->socket, prefix, user->session, 
 			      user->presence_message, MESSAGE_FRESHNESS);
       free(prefix);
-      return;
+      return NULL;
     }
   }
 }
@@ -569,8 +569,9 @@ void _con_packets(void *arg)
   /* sending available presence will automatically get you a generic user, if you don't have one */
   if(u == NULL && priority >= 0)
   {
-    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-		    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
+    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"),
+		     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+		     j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
   }
 
   /* bcy: record status and create presence content */
@@ -595,7 +596,22 @@ void _con_packets(void *arg)
       u->presence_message = calloc(1, sizeof(char) * 1000);
       strcpy(u->presence_message, xmlnode2str(jp->x));
 
-      pthread_create(&u->once, NULL, publish_presence, u);
+      if (u->room->socket == NULL)
+	pthread_create(&u->once, NULL, publish_presence, u);
+      else
+      {
+	char *prefix = calloc(1, sizeof(char) * 100);
+	strcpy(prefix, u->name_prefix);
+	strcat(prefix, "/");
+	strcat(prefix, u->realid->user);
+	strcat(prefix, "/");
+	strcat(prefix, u->room->id->user);
+	log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
+		  FZONE, u->presence_message, prefix, u->session);
+	sync_app_socket_publish(u->room->socket, prefix, u->session, 
+				u->presence_message, MESSAGE_FRESHNESS);
+	free(prefix);
+      }
     }
   }
 

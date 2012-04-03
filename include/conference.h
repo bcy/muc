@@ -190,7 +190,6 @@ typedef struct cnr_struct
 
   int local_count;		/* bcy: # of local users in the room */
   int zapping;			/* bcy: to flag room is being zapped */
-  int cleaning;			/* bcy: to flag remote users are being cleaned */
 
   SyncAppSocketStruct *socket;	/* bcy: sync socket */
 } *cnr, _cnr;
