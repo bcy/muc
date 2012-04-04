@@ -373,10 +373,19 @@ static void *publish_presence(void *data)
 
   while (1)
   {
-    if (user == NULL || user->room->socket == NULL)
-      usleep(200000);
+    if (user == NULL || user->room == NULL || user->room->locked == 1)
+      poll(0, 0, 200);
     else
     {
+      if (user->room->socket == NULL)
+      {
+	char *prefix = calloc(1, sizeof(char) * 100);
+	strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
+	strcat(prefix, user->room->id->user);
+	user->room->socket = create_sync_app_socket(prefix, &callback);
+	free(prefix);
+      }
+      
       char *prefix = calloc(1, sizeof(char) * 100);
       strcpy(prefix, user->name_prefix);
       strcat(prefix, "/");

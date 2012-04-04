@@ -27,7 +27,7 @@ static void *periodic_presence(void *data)
   
   while (1)
   {
-    sleep(60);
+    poll(0, 0, 60000);
     if (user == NULL || user->presence_message == NULL)
       continue;
     else

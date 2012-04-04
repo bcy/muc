@@ -1399,7 +1399,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       deliver(dpacket_new(jp->x), NULL);
       return;
     }
-    else if(NSCHECK(jp->iq,NS_VCARD))
+    else if(NSCHECK(jp->iq, NS_VCARD))
     {
       log_debug(NAME, "[%s] room packet - VCard Request", FZONE);
 
@@ -1408,7 +1408,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       jpacket_reset(jp);
 
       xmlnode_insert_cdata(xmlnode_insert_tag(jp->iq, "DESC"), room->description, -1);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       return;
     }
   }
@@ -1428,22 +1428,6 @@ void con_room_process(cnr room, cnu from, jpacket jp)
   jutil_error(jp->x, TERROR_BAD);
   deliver(dpacket_new(jp->x), NULL);
   return;
-}
-
-static gboolean create_socket(gpointer user_data)
-{
-  cnr room = (cnr) user_data;
-
-  if (room->locked == 1 || room->local_count == 0)
-    return TRUE;
-
-  char *prefix = calloc(1, sizeof(char) * 100);
-  strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
-  strcat(prefix, room->id->user);
-  room->socket = create_sync_app_socket(prefix, &callback);
-  free(prefix);
-
-  return FALSE;
 }
 
 cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, int private, int persist)
@@ -1557,7 +1541,6 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->zapping = 0;
 
   room->socket = NULL;
-  g_timeout_add(1000, &create_socket, room);
 
   return room;
 }
