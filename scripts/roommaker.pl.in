@@ -4,7 +4,7 @@
 # Requires: Digest::SHA1, XML::Simple
 #
 use strict;
-use Digest::SHA1 qw(sha1_hex);
+use Digest::SHA qw(sha1_hex);
 use XML::Simple;
 
 # Declare variables
