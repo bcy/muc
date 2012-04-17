@@ -457,6 +457,8 @@ incoming_content_presence(
     }
     deliver(dpacket_new(x), NULL);
   }
+  else
+    xmlnode_free(x);
   g_mutex_unlock(room->table_mutex);
   free(status);
   free(hostname);
