@@ -580,7 +580,7 @@ void _con_packets(void *arg)
   {
     u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"),
 		     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-		     j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
+		     j_atoi(xmlnode_get_attrib(jp->x, "session"), 1));
   }
 
   /* bcy: record status and create presence content */
@@ -600,10 +600,17 @@ void _con_packets(void *arg)
     
     if (jp->type == JPACKET_PRESENCE && u != NULL && u->remote == 0)
     {
+      xmlnode temp = xmlnode_dup(jp->x);
+      char *ss = calloc(1, sizeof(char) * 20);
+      
+      itoa(u->session, ss);
+      xmlnode_put_attrib(temp, "session", ss);
       if (u->presence_message != NULL)
 	free(u->presence_message);
       u->presence_message = calloc(1, sizeof(char) * 1000);
-      strcpy(u->presence_message, xmlnode2str(jp->x));
+      strcpy(u->presence_message, xmlnode2str(temp));
+      free(ss);
+      xmlnode_free(temp);
 
       if (u->room->socket == NULL)
 	pthread_create(&u->once, NULL, publish_presence, u);

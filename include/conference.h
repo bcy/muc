@@ -274,7 +274,7 @@ void con_room_zap(cnr room); 				/* kills a room */
 void con_room_history_clear(cnr room);			/* Wipes a room history */
 
 /* Functions in conference_user.c */
-cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq);	/* new generic user */
+cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int session);	/* new generic user */
 void con_user_nick(cnu user, char *nick, xmlnode data); 		/* broadcast nick change */
 void con_user_enter(cnu user, char *nick, int created); 		/* put user in room and announce */
 void con_user_send(cnu to, cnu from, xmlnode x); 			/* send a packet to a user from other user */

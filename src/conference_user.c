@@ -48,7 +48,7 @@ static void *periodic_presence(void *data)
   return NULL;
 }
 
-cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
+cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int session)
 {
   pool p;
   cnu user;
@@ -113,6 +113,7 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
 
   if (external == 1)
   {
+    user->session = session;
     user->last_message = time(NULL);
     user->periodic = 0;
   }
@@ -758,6 +759,8 @@ void con_user_zap(cnu user, xmlnode data)
   strcat(prefix, user->realid->user);
   strcat(prefix, "/");
   strcat(prefix, room->id->user);
+  strcat(prefix, "/");
+  strcat(prefix, user->session);
   log_debug(NAME, "[%s] remove prefix %s", FZONE, prefix);
   sync_app_socket_remove(room->socket, prefix);
   free(prefix);
