@@ -28,7 +28,7 @@
 #endif
 
 void usage() {
-    printf("Usage: mu-conference [-B] [-s] [-h] [-d LEVEL] -c FILE\n");
+    printf("Usage: muc [-B] [-s] [-h] [-d LEVEL] -c FILE\n");
     printf("          -B         Put the daemon in background\n");
     printf("          -s         Show debug messages on stderr\n");
     printf("          -h         Print this help\n");

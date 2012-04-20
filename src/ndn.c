@@ -11,7 +11,7 @@
 static struct ndn_thread *nthread;		// ndn thread struct
 static struct pollfd pfds[1];
 static struct ccn_keystore *keystore;		// ccn keystore struct
-static GMutex *ccn_mutex;
+static GStaticRecMutex ccn_mutex = G_STATIC_REC_MUTEX_INIT;
 GHashTable *timer_valid;			// flags indicating if a timer is valid
 static GList *hlist;
 static GMutex *hlist_mutex;
@@ -92,6 +92,7 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   char *data;
   xmlnode node;
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   generate_presence_name(content_name, user, startup);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
@@ -115,6 +116,7 @@ generate_presence_content(cnu user, xmlnode x, int startup)
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&pname);
+    g_static_rec_mutex_unlock(&ccn_mutex);
     return 1;
   }
   
@@ -137,6 +139,8 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   ccn_charbuf_destroy(&signed_info);
   ccn_charbuf_destroy(&pname);
   ccn_charbuf_destroy(&content);
+  g_static_rec_mutex_unlock(&ccn_mutex);
+  
   return 0;
 }
 
@@ -659,6 +663,7 @@ set_interest_filter(cnr room, struct ccn_closure *in_interest)
   struct ccn_charbuf *interest;
   char *interest_name = calloc(1, sizeof(char) * 100);
 
+  g_static_rec_mutex_lock(&ccn_mutex);
   interest = ccn_charbuf_create();
   strcpy(interest_name, "/ndn/broadcast/xmpp-muc/\xC1.M.startup/");
   strcat(interest_name, room->id->user);
@@ -668,6 +673,7 @@ set_interest_filter(cnr room, struct ccn_closure *in_interest)
 
   free(interest_name);
   ccn_charbuf_destroy(&interest);
+  g_static_rec_mutex_unlock(&ccn_mutex);
 }
 
 void
@@ -676,6 +682,7 @@ set_history_interest_filter(cnu user, struct ccn_closure *in_interest)
   struct ccn_charbuf *interest;
   char *interest_name = calloc(1, sizeof(char) * 100);
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   interest = ccn_charbuf_create();
   strcpy(interest_name, user->name_prefix);
   strcat(interest_name, "/");
@@ -689,6 +696,7 @@ set_history_interest_filter(cnu user, struct ccn_closure *in_interest)
   
   free(interest_name);
   ccn_charbuf_destroy(&interest);
+  g_static_rec_mutex_unlock(&ccn_mutex);
 }
 
 /* NDN thread function */
@@ -705,9 +713,9 @@ ndn_run(gpointer data)
       int ret = poll(pfds, 1, 100);
       if (ret >= 0)
       {
-	g_mutex_lock(ccn_mutex);
+	g_static_rec_mutex_lock(&ccn_mutex);
 	res = ccn_run(ccn, 0);
-	g_mutex_unlock(ccn_mutex);
+	g_static_rec_mutex_unlock(&ccn_mutex);
       }
     }
   }
@@ -775,6 +783,7 @@ create_presence_interest(cnr room)
   while (room->locked)
     sleep(1);
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   // the interest name has the form of "/ndn/broadcast/xmpp-muc/<roomID>"
   interest = ccn_charbuf_create();
   strcpy(interest_name, "/ndn/broadcast/xmpp-muc/");
@@ -798,11 +807,13 @@ create_presence_interest(cnr room)
       ccn_charbuf_destroy(&interest);
       if (templ != NULL)
 	ccn_charbuf_destroy(&templ);
+      g_static_rec_mutex_unlock(&ccn_mutex);
       return 1;
     }
     ccn_charbuf_destroy(&interest);
     if (templ != NULL)
       ccn_charbuf_destroy(&templ);
+    g_static_rec_mutex_unlock(&ccn_mutex);
     return 0;
   }
 
@@ -857,6 +868,7 @@ create_presence_interest(cnr room)
       for (i = 0; i < length; i++)
 	ccn_charbuf_destroy(&excl[i]);
       free(excl);
+      g_static_rec_mutex_unlock(&ccn_mutex);
       return 1;
     }
     
@@ -867,6 +879,7 @@ create_presence_interest(cnr room)
   for (i = 0; i < length; i++)
     ccn_charbuf_destroy(&excl[i]);
   free(excl);
+  g_static_rec_mutex_unlock(&ccn_mutex);
   return 0;
 }
 
@@ -900,6 +913,7 @@ create_presence_content(cnu user, xmlnode x)
   struct presence *pcontent;
   char *str_seq;
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   generate_presence_name(content_name, user, 0);
   if (j_strcmp(xmlnode_get_attrib(x, "type"), "unavailable") == 0)
     strcat(content_name, "_exit");
@@ -929,6 +943,7 @@ create_presence_content(cnu user, xmlnode x)
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&pname);
+    g_static_rec_mutex_unlock(&ccn_mutex);
     return 1;
   }
 
@@ -975,6 +990,7 @@ create_presence_content(cnu user, xmlnode x)
   ccn_charbuf_destroy(&content);
   free(content_name);
   free(hostname);
+  g_static_rec_mutex_unlock(&ccn_mutex);
   return 0;
 }
 
@@ -987,6 +1003,7 @@ create_message_interest(cnu user, unsigned int seq)
   char *str_seq = calloc(1, sizeof(char) * 20);
   char *name = calloc(1, sizeof(char) * 100);
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   strcpy(name, user->name_prefix);
   strcat(name, "/");
   strcat(name, user->realid->user);
@@ -1010,12 +1027,14 @@ create_message_interest(cnu user, unsigned int seq)
     free(name);
     free(str_seq);
     ccn_charbuf_destroy(&interest);
+    g_static_rec_mutex_unlock(&ccn_mutex);
     return 1;
   }
   
   free(name);
   free(str_seq);
   ccn_charbuf_destroy(&interest);
+  g_static_rec_mutex_unlock(&ccn_mutex);
   return 0;
 }
 
@@ -1031,6 +1050,7 @@ create_message_content(cnu user, char *data)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *seq_char = calloc(1, sizeof(char) * 20);
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
@@ -1062,6 +1082,7 @@ create_message_content(cnu user, char *data)
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&pname);
     free(content_name);
+    g_static_rec_mutex_unlock(&ccn_mutex);
     return 1;
   }
   
@@ -1080,6 +1101,7 @@ create_message_content(cnu user, char *data)
   ccn_charbuf_destroy(&content);
   free(content_name);
   free(seq_char);
+  g_static_rec_mutex_unlock(&ccn_mutex);
   return 0;
 }
 
@@ -1092,6 +1114,7 @@ create_history_interest(cnu user, unsigned int seq)
   char *str_seq = calloc(1, sizeof(char) * 20);
   char *name = calloc(1, sizeof(char) * 100);
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   strcpy(name, user->name_prefix);
   strcat(name, "/");
   strcat(name, user->realid->user);
@@ -1116,12 +1139,14 @@ create_history_interest(cnu user, unsigned int seq)
     free(name);
     free(str_seq);
     ccn_charbuf_destroy(&interest);
+    g_static_rec_mutex_unlock(&ccn_mutex);
     return 1;
   }
   
   free(name);
   free(str_seq);
   ccn_charbuf_destroy(&interest);
+  g_static_rec_mutex_unlock(&ccn_mutex);
   return 0;
 }
 
@@ -1137,6 +1162,7 @@ create_history_content(cnu user, char *data, unsigned int seq)
   char *content_name = calloc(1, sizeof(char) * 100);
   char *seq_char = calloc(1, sizeof(char) * 20);
   
+  g_static_rec_mutex_lock(&ccn_mutex);
   // content name has the form of "<name_prefix>/<userID>/<roomID>/%C1.M.history/<seq>"
   strcpy(content_name, user->name_prefix);
   strcat(content_name, "/");
@@ -1168,6 +1194,7 @@ create_history_content(cnu user, char *data, unsigned int seq)
     ccn_charbuf_destroy(&signed_info);
     ccn_charbuf_destroy(&pname);
     free(content_name);
+    g_static_rec_mutex_unlock(&ccn_mutex);
     return 1;
   }
   
@@ -1185,6 +1212,7 @@ create_history_content(cnu user, char *data, unsigned int seq)
   ccn_charbuf_destroy(&content);
   free(seq_char);
   free(content_name);
+  g_static_rec_mutex_unlock(&ccn_mutex);
   return 0;
 }
 
@@ -1212,7 +1240,6 @@ init_ndn_thread()
     return 1;
   }
   
-  ccn_mutex = g_mutex_new();
   timer_valid = g_hash_table_new(NULL, NULL);
   hlist_mutex = g_mutex_new();
   
@@ -1254,7 +1281,6 @@ stop_ndn_thread()
   ccn_disconnect(nthread->ccn);
   ccn_destroy(&nthread->ccn);
   ccn_keystore_destroy(&keystore);
-  g_mutex_free(ccn_mutex);
   g_mutex_free(hlist_mutex);
   g_hash_table_destroy(timer_valid);
   g_mutex_free(user_mutex);
