@@ -16,6 +16,7 @@ GHashTable *timer_valid;			// flags indicating if a timer is valid
 static GList *hlist;
 static GMutex *hlist_mutex;
 GMutex *user_mutex, *room_mutex;
+GMutex *closure_mutex;
 
 /*
  * This appends a tagged, valid, fully-saturated Bloom filter, useful for
@@ -159,7 +160,7 @@ incoming_interest_presence(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnr room = (cnr) selfp->data;
+  cnr room;
 
   switch (kind)
   {
@@ -172,15 +173,23 @@ incoming_interest_presence(
     default:
       return CCN_UPCALL_RESULT_OK;
   }
+  
+  g_mutex_lock(closure_mutex);
+  
+  room = (cnr) selfp->data;
 
   if (room == NULL)
+  {
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
+  }
 
   if (g_hash_table_size(room->presence) != 0)
   {
     g_hash_table_foreach(room->presence, send_presence, NULL);
   }
 
+  g_mutex_unlock(closure_mutex);
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -189,8 +198,8 @@ incoming_content_message(
   struct ccn_closure *selfp,
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
-{
-  cnu user = (cnu) selfp->data;
+{  
+  cnu user;
   char *comp;
   char *pcontent = NULL;
   unsigned int seq;
@@ -206,6 +215,8 @@ incoming_content_message(
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
+      g_mutex_lock(closure_mutex);
+      user = (cnu) selfp->data;
       if (user != NULL) // interest timed out, re-express it
       {
 	if (now - user->last_message > MESSAGE_FRESHNESS)
@@ -213,6 +224,7 @@ incoming_content_message(
 	else
 	  create_message_interest(user, user->last_seq + 1);
       }
+      g_mutex_unlock(closure_mutex);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
@@ -228,10 +240,18 @@ incoming_content_message(
   
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 3, (const unsigned char **)&comp, &size);
   if (j_strcmp(comp, "\xC1.M.history") == 0)
+  {
     return CCN_UPCALL_RESULT_REEXPRESS;
+  }
+  
+  g_mutex_lock(closure_mutex);
+  user = (cnu) selfp->data;
   
   if (user == NULL || user->leaving == 1) // user has been zapped
+  {
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
+  }
   
   /* Timestamp checking */ 
   l = info->pco->offset[CCN_PCO_E_Timestamp] - info->pco->offset[CCN_PCO_B_Timestamp];
@@ -256,6 +276,7 @@ incoming_content_message(
     {
       log_debug(NAME, "[%s] Too old message, ignore", FZONE);
       create_message_interest(user, 0);
+      g_mutex_unlock(closure_mutex);
       return CCN_UPCALL_RESULT_OK;
     }
   }
@@ -265,6 +286,7 @@ incoming_content_message(
   seq = atoi(comp);
   if (seq == user->last_seq)
   {
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
   user->last_seq = seq;
@@ -285,6 +307,7 @@ incoming_content_message(
     if (strstr(to, jid_full(user->room->id)) == NULL) // "to" field should be in the form of <roomID>/<nick>
     {
       xmlnode_free(x);
+      g_mutex_unlock(closure_mutex);
       return CCN_UPCALL_RESULT_OK;
     }
     else
@@ -297,6 +320,7 @@ incoming_content_message(
       {
 	g_mutex_unlock(user->room->table_mutex);
 	xmlnode_free(x);
+	g_mutex_unlock(closure_mutex);
 	return CCN_UPCALL_RESULT_OK;
       }
       else
@@ -307,6 +331,7 @@ incoming_content_message(
   // add external field to indicate the message comes from outside
   xmlnode_put_attrib(x, "external", "1");
   deliver(dpacket_new(x), NULL);
+  g_mutex_unlock(closure_mutex);
   return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
 }
 
@@ -315,8 +340,8 @@ incoming_content_presence(
   struct ccn_closure *selfp,
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
-{
-  cnr room = (cnr) selfp->data;
+{  
+  cnr room;
   size_t len, size;
   char *pcontent = NULL;
   struct exclusion_element *element;
@@ -337,11 +362,14 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_INTEREST_TIMED_OUT:
+      g_mutex_lock(closure_mutex);
+      room = (cnr) selfp->data;
       if (room != NULL)
       {
 	room->startup = 0;
 	create_presence_interest(room); // interest timed out, re-express using new exclusion_list
       }
+      g_mutex_unlock(closure_mutex);
       return CCN_UPCALL_RESULT_OK;
     
     case CCN_UPCALL_CONTENT_UNVERIFIED:
@@ -355,8 +383,14 @@ incoming_content_presence(
       return CCN_UPCALL_RESULT_OK;
   }
   
+  g_mutex_lock(closure_mutex);
+  room = (cnr) selfp->data;
+  
   if (room == NULL) // room has been zapped
+  {
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
+  }
   
   now = time(NULL);
   
@@ -399,6 +433,7 @@ incoming_content_presence(
     if (now - secs > 120)
     {
       log_debug(NAME, "[%s] Too old presence, ignore", FZONE);
+      g_mutex_unlock(closure_mutex);
       return CCN_UPCALL_RESULT_OK;
     }
   }
@@ -416,6 +451,7 @@ incoming_content_presence(
   {
     xmlnode_free(x);
     g_mutex_unlock(room->table_mutex);
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
   
@@ -439,6 +475,7 @@ incoming_content_presence(
     free(status);
     xmlnode_free(x);
     g_mutex_unlock(room->table_mutex);
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
 
@@ -466,6 +503,7 @@ incoming_content_presence(
   g_mutex_unlock(room->table_mutex);
   free(status);
   free(hostname);
+  g_mutex_unlock(closure_mutex);
   return CCN_UPCALL_RESULT_OK;
 }
 
@@ -475,7 +513,7 @@ incoming_interest_history(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnu user = (cnu) selfp->data;
+  cnu user;
   cnr room;
   int seq;
   char *temp;
@@ -496,13 +534,19 @@ incoming_interest_history(
   
   ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
   if (j_strncmp(temp, "\xC1.M.history", size) != 0)
+  {
     return CCN_UPCALL_RESULT_OK;
+  }
+
+  g_mutex_lock(closure_mutex);
+  user = (cnu) selfp->data;
   
   g_mutex_lock(user_mutex);
   
   if (user == NULL || user->leaving == 1)
   {
     g_mutex_unlock(user_mutex);
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
   
@@ -520,6 +564,7 @@ incoming_interest_history(
   }
   g_mutex_unlock(room->history_mutex);
   g_mutex_unlock(user_mutex);
+  g_mutex_unlock(closure_mutex);
   
   return CCN_UPCALL_RESULT_OK;
 }
@@ -530,7 +575,7 @@ incoming_content_history(
   enum ccn_upcall_kind kind,
   struct ccn_upcall_info *info)
 {
-  cnr room = (cnr) selfp->data;
+  cnr room;
   char *pcontent, *seq_str;
   size_t len;
   struct history *h;
@@ -551,8 +596,14 @@ incoming_content_history(
       return CCN_UPCALL_RESULT_OK;
   }
   
+  g_mutex_lock(closure_mutex);
+  room = (cnr) selfp->data;
+  
   if (room == NULL)
+  {
+    g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
+  }
 
   h = calloc(1, sizeof(struct history));
   ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
@@ -566,6 +617,7 @@ incoming_content_history(
     g_mutex_unlock(hlist_mutex);
   }
   
+  g_mutex_unlock(closure_mutex);
   return CCN_UPCALL_RESULT_INTEREST_CONSUMED;
 }
 
@@ -1245,6 +1297,8 @@ init_ndn_thread()
   
   user_mutex = g_mutex_new();
   room_mutex = g_mutex_new();
+  
+  closure_mutex = g_mutex_new();
 
   // initialize ccn_keystore
   temp = ccn_charbuf_create();
@@ -1285,6 +1339,7 @@ stop_ndn_thread()
   g_hash_table_destroy(timer_valid);
   g_mutex_free(user_mutex);
   g_mutex_free(room_mutex);
+  g_mutex_free(closure_mutex);
   free(nthread);
   return 0;
 }
