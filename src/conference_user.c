@@ -39,9 +39,9 @@ static void *periodic_presence(void *data)
       strcat(prefix, "/");
       strcat(prefix, user->room->id->user);
       log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE,
-		user->presence_message, prefix, user->session);
+          user->presence_message, prefix, user->session);
       sync_app_socket_publish(user->room->socket, prefix, user->session,
-			      user->presence_message, MESSAGE_FRESHNESS);
+          user->presence_message, MESSAGE_FRESHNESS);
     }
   }
   
@@ -754,13 +754,8 @@ void con_user_zap(cnu user, xmlnode data)
   xmlnode_free(user->nick);
 
   char *prefix = calloc(1, sizeof(char) * 100);
-  strcpy(prefix, user->name_prefix);
-  strcat(prefix, "/");
-  strcat(prefix, user->realid->user);
-  strcat(prefix, "/");
-  strcat(prefix, room->id->user);
-  strcat(prefix, "/");
-  strcat(prefix, user->session);
+  sprintf(prefix, "%s/%s/%s/%d", user->name_prefix, user->realid->user,
+      room->id->user, user->session);
   log_debug(NAME, "[%s] remove prefix %s", FZONE, prefix);
   sync_app_socket_remove(room->socket, prefix);
   free(prefix);
