@@ -471,6 +471,7 @@ void _con_packets(void *arg)
       room->in_interest_presence->data = room;
       set_interest_filter(room, room->in_interest_presence);
       // bcy: create presence interest for the persistent room
+      room->first = 0;
       room->startup = 1;
       create_presence_interest(room);
     }

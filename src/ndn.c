@@ -1,6 +1,7 @@
 /* bcy: NDN related operations */
 #include "conference.h"
 
+#define STARTUP_PRESENCE_FRESHNESS 30
 #define PRESENCE_FRESHNESS 2
 #define MESSAGE_FRESHNESS 10
 #define HISTORY_FRESHNESS 3
@@ -92,6 +93,7 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   char *str_seq = calloc(1, sizeof(char) * 20);
   char *data;
   xmlnode node;
+  int freshness;
   
   g_static_rec_mutex_lock(&ccn_mutex);
   generate_presence_name(content_name, user, startup);
@@ -102,12 +104,16 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   signed_info = ccn_charbuf_create();
   keylocator = ccn_charbuf_create();
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
+  if (startup)
+    freshness = STARTUP_PRESENCE_FRESHNESS;
+  else
+    freshness = PRESENCE_FRESHNESS;
   res = ccn_signed_info_create(signed_info,
 		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
 		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
 		/*datetime*/ NULL,
 		/*type*/ CCN_CONTENT_DATA,
-		/*freshness*/ PRESENCE_FRESHNESS,
+		/*freshness*/ freshness,
 		/*finalblockid*/ NULL,
 		/*keylocator*/ keylocator);
   if (res < 0)
@@ -366,7 +372,8 @@ incoming_content_presence(
       room = (cnr) selfp->data;
       if (room != NULL)
       {
-	room->startup = 0;
+	if (room->first)
+	  room->startup = 0;
 	create_presence_interest(room); // interest timed out, re-express using new exclusion_list
       }
       g_mutex_unlock(closure_mutex);
@@ -391,6 +398,10 @@ incoming_content_presence(
     g_mutex_unlock(closure_mutex);
     return CCN_UPCALL_RESULT_OK;
   }
+  
+  ccn_name_comp_get(info->content_ccnb, info->content_comps, info->content_comps->n - 4, (const unsigned char **)&tmp, &size);
+  if (j_strcmp(tmp, "\xC1.M.startup") == 0)
+    room->first = 1;
   
   now = time(NULL);
   

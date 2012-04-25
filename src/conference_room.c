@@ -1561,6 +1561,7 @@ cnr con_room_new(cni master, jid roomid, jid owner, char *name, char *secret, in
   room->local_count = 0;
   room->zapping = 0;
   room->startup = 1;
+  room->first = 0;
   room->cleaning = 0;
   
   // bcy: init tables for storing NDN packets
