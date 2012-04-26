@@ -596,17 +596,15 @@ void _con_packets(void *arg)
     
     if (jp->type == JPACKET_PRESENCE && u != NULL && u->remote == 0)
     {
-      xmlnode temp = xmlnode_dup(jp->x);
       char *ss = calloc(1, sizeof(char) * 20);
       
       itoa(u->session, ss);
-      xmlnode_put_attrib(temp, "session", ss);
+      xmlnode_put_attrib(jp->x, "session", ss);
       if (u->presence_message != NULL)
 	free(u->presence_message);
       u->presence_message = calloc(1, sizeof(char) * 1000);
-      strcpy(u->presence_message, xmlnode2str(temp));
+      strcpy(u->presence_message, strdup(xmlnode2str(jp->x)));
       free(ss);
-      xmlnode_free(temp);
 
       if (u->room->socket == NULL)
 	pthread_create(&u->once, NULL, publish_presence, u);
