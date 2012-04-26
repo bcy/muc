@@ -830,10 +830,12 @@ void _con_packets(void *arg)
   /* kill any user sending unavailable presence */
   if(jpacket_subtype(jp) == JPACKET__UNAVAILABLE)
   {
-    log_debug(NAME, "[%s] Calling user zap", FZONE);
-
-    if(u != NULL)
+    int session = j_atoi(xmlnode_get_attrib(jp->x, "session"), 0);
+    
+    if(u != NULL && u->session == session)
     {
+      log_debug(NAME, "[%s] Calling user zap", FZONE);
+      
       reason = xmlnode_get_tag_data(jp->x, "status");
 
       xmlnode_free(u->presence);
