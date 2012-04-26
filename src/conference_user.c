@@ -746,8 +746,7 @@ void con_user_zap(cnu user, xmlnode data)
   xmlnode_free(user->nick);
 
   char *prefix = calloc(1, sizeof(char) * 100);
-  sprintf(prefix, "%s/%s/%s/%d", user->name_prefix, user->realid->user,
-      room->id->user, user->session);
+  sprintf(prefix, "%s/%s/%s", user->name_prefix, user->realid->user, room->id->user);
   log_debug(NAME, "[%s] remove prefix %s", FZONE, prefix);
   sync_app_socket_remove(room->socket, prefix);
   free(prefix);
