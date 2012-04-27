@@ -561,6 +561,16 @@ void _con_packets(void *arg)
     deliver(dpacket_new(jp->x),NULL);
     return;
   }
+  
+  if (jp->type == JPACKET_PRESENCE && u != NULL && u->remote == 0)
+  {
+    if (j_strcmp(xmlnode_get_attrib(jp->x, "external"), "1") == 0)
+    {
+      xmlnode_free(jp->x);
+      g_mutex_unlock(master->lock);
+      return;
+    }
+  }
 
   /* several things use this field below as a flag */
   if(jp->type == JPACKET_PRESENCE) {
@@ -601,7 +611,7 @@ void _con_packets(void *arg)
       itoa(u->session, ss);
       xmlnode_put_attrib(jp->x, "session", ss);
       if (u->presence_message != NULL)
-	free(u->presence_message);
+        free(u->presence_message);
       u->presence_message = calloc(1, sizeof(char) * 1000);
       strcpy(u->presence_message, strdup(xmlnode2str(jp->x)));
       free(ss);
