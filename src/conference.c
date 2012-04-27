@@ -374,7 +374,7 @@ static void *publish_presence(void *data)
   while (1)
   {
     if (user == NULL || user->room == NULL || user->room->locked == 1)
-      poll(0, 0, 200);
+      usleep(200000);
     else
     {
       if (user->room->socket == NULL)
