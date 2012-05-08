@@ -360,7 +360,7 @@ void con_user_enter(cnu user, char *nick, int created)
   g_hash_table_foreach(room->local, _con_user_enter, (void*)user);
 
   /* Send presence back to user to confirm presence received */
-  if(created == 1)
+  if (created == 1)
   {
     /* Inform if room just created */
     node = xmlnode_new_tag("reason");
@@ -374,7 +374,7 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room MOTD */
-  if(room->description != NULL && *room->description != '\0' && user->remote == 0)
+  if (room->description != NULL && *room->description != '\0' && user->remote == 0)
   {
     message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, room->description);
     xmlnode_put_attrib(message,"from", jid_full(room->id));
@@ -382,17 +382,19 @@ void con_user_enter(cnu user, char *nick, int created)
   }
 
   /* Send Room protocol message to legacy clients */
-  if(is_legacy(user) && user->remote == 0)
+  if (is_legacy(user) && user->remote == 0)
   {
-    message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room supports the MUC protocol.", user->p));
+    message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, 
+                           spools(user->p, "This room supports the MUC protocol.", user->p));
     xmlnode_put_attrib(message,"from", jid_full(room->id));
     deliver(dpacket_new(message), NULL);
   }
 
   /* Send Room Lock warning if necessary */
-  if(room->locked > 0 && user->remote == 0)
+  if (room->locked > 0 && user->remote == 0)
   {
-    message = jutil_msgnew("groupchat", jid_full(user->realid), NULL, spools(user->p, "This room is locked from entry until configuration is confirmed.", user->p));
+    message = jutil_msgnew("groupchat", jid_full(user->realid), NULL,
+                           spools(user->p, "This room is locked from entry until configuration is confirmed.", user->p));
     xmlnode_put_attrib(message, "from", jid_full(room->id));
     deliver(dpacket_new(message), NULL);
   }
@@ -401,15 +403,15 @@ void con_user_enter(cnu user, char *nick, int created)
   deliver__flag = 0;
 
   p_x_history = xmlnode_get_tag(user->presence, "x/history");
-  log_debug(NAME, "x->maxstanzas: %i", j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"), -1));
-  log_debug(NAME, "x->maxchars: %i", j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"), -1));
+  log_debug(NAME, "x->maxstanzas: %i", j_atoi(xmlnode_get_attrib(p_x_history, "maxstanzas"), -1));
+  log_debug(NAME, "x->maxchars: %i", j_atoi(xmlnode_get_attrib(p_x_history, "maxchars"), -1));
 
   /* loop through history and send back */
-  if(room->master->history > 0 && user->remote == 0)
+  if (room->master->history > 0 && user->remote == 0)
   {
-    max_stanzas = j_atoi(xmlnode_get_attrib(p_x_history,"maxstanzas"), room->master->history);
-    max_chars = j_atoi(xmlnode_get_attrib(p_x_history,"maxchars"), -1);
-    seconds = j_atoi(xmlnode_get_attrib(p_x_history,"seconds"), -1);
+    max_stanzas = j_atoi(xmlnode_get_attrib(p_x_history, "maxstanzas"), room->master->history);
+    max_chars = j_atoi(xmlnode_get_attrib(p_x_history, "maxchars"), -1);
+    seconds = j_atoi(xmlnode_get_attrib(p_x_history, "seconds"), -1);
     since_str = xmlnode_get_attrib(p_x_history, "since");
     if (since_str != NULL) {
       since_tm = malloc(sizeof(struct tm));
@@ -421,14 +423,15 @@ void con_user_enter(cnu user, char *nick, int created)
       free(since_tm);
     }
 
-
     if (max_stanzas > room->master->history)
       max_stanzas = room->master->history;
 
-    if (max_chars > 0) {
+    if (max_chars > 0)
+    {
       /* loop (backwards) through history to get num of stanzas to reach num_chars */
       h = (room->hlast + room->master->history - max_stanzas) % room->master->history;
-      while(1) {
+      while(1)
+      {
         if (room->history[h] != NULL)
           num_chars += room->history[h]->content_length;
         if (num_chars <= max_chars)
@@ -458,13 +461,14 @@ void con_user_enter(cnu user, char *nick, int created)
 
       h++;
 
-      if(h == room->master->history)
+      if (h == room->master->history)
         h = 0;
-      if (room->history[h] != NULL) {
+      if (room->history[h] != NULL)
+      {
         /* skip messages that older than requested */
         if (!(seconds >= 0 && (time(NULL) - room->history[h]->timestamp) > seconds) &&
-            !(since >= 0 && room->history[h]->timestamp < since)) {
-
+            !(since >= 0 && room->history[h]->timestamp < since))
+        {
           num_stanzas +=_con_user_history_send(user, xmlnode_dup(room->history[h]->x));
 
           if(xmlnode_get_tag(room->history[h]->x,"subject") != NULL)
@@ -483,19 +487,20 @@ void con_user_enter(cnu user, char *nick, int created)
   deliver(NULL, NULL);
 
   /* send last know topic */
-  if(tflag == 0 && room->topic != NULL)
+  if (tflag == 0 && room->topic != NULL)
   {
-    node = jutil_msgnew("groupchat", jid_full(user->realid), xmlnode_get_attrib(room->topic,"subject"), xmlnode_get_data(room->topic));
+    node = jutil_msgnew("groupchat", jid_full(user->realid),
+                        xmlnode_get_attrib(room->topic,"subject"), xmlnode_get_data(room->topic));
     xmlnode_put_attrib(node, "from", jid_full(room->id));
     deliver(dpacket_new(node), NULL);
   }
 
   /* send entrance notice if available */
-  if(room->note_join != NULL && *room->note_join != '\0')
+  if (room->note_join != NULL && *room->note_join != '\0')
     con_room_send(room, jutil_msgnew("groupchat", NULL, NULL, spools(user->p, nick, " ", room->note_join, user->p)), SEND_LEGACY);
 
   /* Send 'non-anonymous' message if necessary */
-  if(room->visible == 1)
+  if (room->visible == 1)
     con_send_alert(user, NULL, NULL, STATUS_MUC_SHOWN_JID);
 
   if (user->remote == 1)
@@ -571,7 +576,7 @@ void con_user_process(cnu to, cnu from, jpacket jp)
   }
 
   /* Block possibly faked groupchat messages - groupchat is not meant for p2p chats */
-  if(jp->type == JPACKET_MESSAGE)
+  if (jp->type == JPACKET_MESSAGE)
   {
     if(jp->subtype == JPACKET__GROUPCHAT)
     {
@@ -580,10 +585,10 @@ void con_user_process(cnu to, cnu from, jpacket jp)
       return;
     }
 
-    if(room->privmsg == 1 && !is_admin(room, from->realid))
+    if (room->privmsg == 1 && !is_admin(room, from->realid))
     {
       /* Only error on messages with body, otherwise just drop */
-      if(xmlnode_get_tag(jp->x, "body") != NULL)
+      if (xmlnode_get_tag(jp->x, "body") != NULL)
       {
         jutil_error(jp->x, TERROR_MUC_PRIVMSG);
         deliver(dpacket_new(jp->x), NULL);
@@ -611,7 +616,7 @@ void con_user_process(cnu to, cnu from, jpacket jp)
 
 void con_user_send(cnu to, cnu from, xmlnode node)
 {
-  if(to == NULL || from == NULL || node == NULL)
+  if (to == NULL || from == NULL || node == NULL)
   {
     return;
   }
@@ -632,7 +637,7 @@ void con_user_zap(cnu user, xmlnode data)
   char *status;
   char *nick;
 
-  if(user == NULL || data == NULL)
+  if (user == NULL || data == NULL)
   {
     log_warn(NAME, "[%s]: Aborting: NULL attribute found", FZONE);
 
@@ -655,9 +660,10 @@ void con_user_zap(cnu user, xmlnode data)
 
   reason = xmlnode_get_data(data);
 
-  if(room == NULL)
+  if (room == NULL)
   {
-    log_warn(NAME, "[%s] Unable to zap user %s <%s-%s> : Room does not exist", FZONE, jid_full(user->realid), status, reason);
+    log_warn(NAME, "[%s] Unable to zap user %s <%s-%s> : Room does not exist",
+             FZONE, jid_full(user->realid), status, reason);
     xmlnode_free(data);
     return;
   }
@@ -669,7 +675,7 @@ void con_user_zap(cnu user, xmlnode data)
 
   log_debug(NAME, "[%s] zapping user %s <%s-%s>", FZONE, jid_full(user->realid), status, reason);
 
-  if(user->localid != NULL)
+  if (user->localid != NULL)
   {
     log_debug(NAME, "[%s] Removing entry from local list, and sending unavailable presence", FZONE);
     con_user_nick(user, NULL, data); /* sends unavailable */
@@ -682,24 +688,24 @@ void con_user_zap(cnu user, xmlnode data)
 #endif
 
     /* send departure notice if available*/
-    if(room->note_leave != NULL && *room->note_leave != '\0')
+    if (room->note_leave != NULL && *room->note_leave != '\0')
     {
-      if(reason != NULL)
+      if (reason != NULL)
       {
-        if(j_strcmp(status, STATUS_MUC_KICKED) == 0)
+        if (j_strcmp(status, STATUS_MUC_KICKED) == 0)
         {
-          if(nick != NULL)
+          if (nick != NULL)
           {
-            con_room_send(room,jutil_msgnew("groupchat",NULL,NULL,spools(user->p, xmlnode_get_attrib(user->nick,"old")," ",room->note_leave,": [Kicked by ", nick, "] ", reason, user->p)), SEND_LEGACY);
+            con_room_send(room, jutil_msgnew("groupchat",NULL,NULL,spools(user->p, xmlnode_get_attrib(user->nick,"old")," ",room->note_leave,": [Kicked by ", nick, "] ", reason, user->p)), SEND_LEGACY);
           }
           else
           {
             con_room_send(room,jutil_msgnew("groupchat",NULL,NULL,spools(user->p, xmlnode_get_attrib(user->nick,"old")," ",room->note_leave,": [Kicked by a user] ", reason, user->p)), SEND_LEGACY);
           }
         }
-        else if(j_strcmp(status, STATUS_MUC_BANNED) == 0)
+        else if (j_strcmp(status, STATUS_MUC_BANNED) == 0)
         {
-          if(nick != NULL)
+          if (nick != NULL)
           {
             con_room_send(room,jutil_msgnew("groupchat",NULL,NULL,spools(user->p,xmlnode_get_attrib(user->nick,"old")," ",room->note_leave,": [Banned by ", nick ,"] ", reason, user->p)), SEND_LEGACY);
           }

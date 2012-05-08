@@ -379,19 +379,19 @@ static void *publish_presence(void *data)
     {
       if (user->room->socket == NULL)
       {
-	char *prefix = calloc(1, sizeof(char) * 100);
-	strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
-	strcat(prefix, user->room->id->user);
-	user->room->socket = create_sync_app_socket(prefix, &callback);
-	free(prefix);
+        char *prefix = calloc(1, sizeof(char) * 100);
+        strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
+        strcat(prefix, user->room->id->user);
+        user->room->socket = create_sync_app_socket(prefix, &callback);
+        free(prefix);
       }
       
       char *prefix = calloc(1, sizeof(char) * 100);
       sprintf(prefix, "%s/%s/%s", user->name_prefix, user->realid->user, user->room->id->user);
       log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
-		FZONE, user->presence_message, prefix, user->session);
+                FZONE, user->presence_message, prefix, user->session);
       sync_app_socket_publish(user->room->socket, prefix, user->session, 
-			      user->presence_message, MESSAGE_FRESHNESS);
+                              user->presence_message, MESSAGE_FRESHNESS);
       free(prefix);
       return NULL;
     }
@@ -419,7 +419,7 @@ void _con_packets(void *arg)
   g_mutex_lock(master->lock);
 
   /* first, handle all packets just to the server (browse, vcard, ping, etc) */
-  if(jp->to->user == NULL)
+  if (jp->to->user == NULL)
   {
     con_server(master, jp);
     g_mutex_unlock(master->lock);
@@ -429,14 +429,14 @@ void _con_packets(void *arg)
   log_debug(NAME, "[%s] processing packet %s", FZONE, xmlnode2str(jp->x));
 
   /* any other packets must have an associated room */
-  for(s = jp->to->user; *s != '\0'; s++)
+  for (s = jp->to->user; *s != '\0'; s++)
     *s = tolower(*s); /* lowercase the group name */
 
-  if((room = g_hash_table_lookup(master->rooms, jid_full(jid_user(jid_fix(jp->to))))) == NULL)
+  if ((room = g_hash_table_lookup(master->rooms, jid_full(jid_user(jid_fix(jp->to))))) == NULL)
   {
     log_debug(NAME, "[%s] Room not found (%s)", FZONE, jid_full(jid_user(jp->to)));
 
-    if((master->roomlock == 1 && !is_sadmin(master, jp->from)) || master->loader == 0)
+    if ((master->roomlock == 1 && !is_sadmin(master, jp->from)) || master->loader == 0)
     {
       log_debug(NAME, "[%s] Room building request denied", FZONE);
       jutil_error(jp->x, TERROR_MUC_ROOM);
@@ -445,17 +445,18 @@ void _con_packets(void *arg)
       deliver(dpacket_new(jp->x),NULL);
       return;
     }
-    else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__GET && NSCHECK(jp->iq, NS_MUC_OWNER))
+    else if (jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__GET && NSCHECK(jp->iq, NS_MUC_OWNER))
     {
       room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
 
-      xdata_room_config(room,g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from))),1,jp->x);
+      xdata_room_config(room, g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from))),1,jp->x);
 
       g_mutex_unlock(master->lock);
       xmlnode_free(jp->x);
       return;
     }
-    else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__SET && NSCHECK(jp->iq, NS_MUC_OWNER) && xmlnode_get_tag(jp->iq,"x?xmlns=jabber:x:data"))
+    else if(jp->type == JPACKET_IQ && jpacket_subtype(jp) == JPACKET__SET &&
+      NSCHECK(jp->iq, NS_MUC_OWNER) && xmlnode_get_tag(jp->iq,"x?xmlns=jabber:x:data"))
     {
       //create instant room
       room = con_room_new(master, jid_user(jp->to), jp->from, NULL, NULL, 1, 0);
@@ -463,19 +464,19 @@ void _con_packets(void *arg)
       room->public=0;
 
       jutil_iqresult(jp->x);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       g_mutex_unlock(master->lock);
       return;
     }
-    else if(jp->to->resource == NULL)
+    else if (jp->to->resource == NULL)
     {
       log_debug(NAME, "[%s] Room %s doesn't exist: Returning Bad Request", FZONE, jp->to->user);
       jutil_error(jp->x, TERROR_BAD);
       g_mutex_unlock(master->lock);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       return;
     }
-    else if(jpacket_subtype(jp) == JPACKET__UNAVAILABLE)
+    else if (jpacket_subtype(jp) == JPACKET__UNAVAILABLE)
     {
       log_debug(NAME, "[%s] Room %s doesn't exist: dropping unavailable presence", FZONE, jp->to->user);
       g_mutex_unlock(master->lock);
@@ -498,41 +499,35 @@ void _con_packets(void *arg)
   log_debug(NAME, "[%s] %s", FZONE, jid_full(jid_fix(jp->from)));
   u = g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from)));
   
-  if (jp->type == JPACKET_MESSAGE && u == NULL)
-  {
-    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"),
-		     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-		     j_atoi(xmlnode_get_attrib(jp->x, "session"), 1));
-    con_user_enter(u, xmlnode_get_attrib(jp->x, "nick"), 0);
-  }
-
   /* handle errors */
-  if(jpacket_subtype(jp) == JPACKET__ERROR)
+  if (jpacket_subtype(jp) == JPACKET__ERROR)
   {
     log_debug(NAME, "[%s] Error Handler: init", FZONE);
 
     /* only allow iq errors that are to a resource (direct-chat) */
-    if(jp->to->resource == NULL || jp->type != JPACKET_IQ)
+    if (jp->to->resource == NULL || jp->type != JPACKET_IQ)
     {
-      if(u != NULL && u->localid != NULL)
+      if (u != NULL && u->localid != NULL)
       {
         /* allow errors if they aren't delivery related errors */
         node = xmlnode_get_tag(jp->x, "error");
-        for((node != NULL) && (node = xmlnode_get_firstchild(node)); node != NULL; node = xmlnode_get_nextsibling(node)) {
-          if(!NSCHECK(node, NS_STANZA))
+        for ((node != NULL) && (node = xmlnode_get_firstchild(node)); node != NULL; node = xmlnode_get_nextsibling(node))
+        {
+          if (!NSCHECK(node, NS_STANZA))
             continue;
           s = xmlnode_get_name(node);
-          if ((j_strcmp(s, "gone") == 0) || (j_strcmp(s, "item-not-found") == 0) || (j_strcmp(s, "recipient-unavailable") == 0) || (j_strcmp(s, "redirect") == 0) || (j_strcmp(s, "remote-server-not-found") == 0) || (j_strcmp(s, "remote-server-timeout") == 0) || (j_strcmp(s, "service-unavailable")) || (j_strcmp(s, "jid-malformed")))
+          if ((j_strcmp(s, "gone") == 0) || (j_strcmp(s, "item-not-found") == 0)
+            || (j_strcmp(s, "recipient-unavailable") == 0) || (j_strcmp(s, "redirect") == 0)
+            || (j_strcmp(s, "remote-server-not-found") == 0) || (j_strcmp(s, "remote-server-timeout") == 0)
+            || (j_strcmp(s, "service-unavailable")) || (j_strcmp(s, "jid-malformed")))
           {
-	    /*
+            /*
             log_debug(NAME, "[%s] Error Handler: Zapping user", FZONE);
             node = xmlnode_new_tag("reason");
             xmlnode_insert_cdata(node, "Lost connection", -1);
-
             con_user_zap(u, node);
-
-            xmlnode_free(jp->x);
             */
+            xmlnode_free(jp->x);
             g_mutex_unlock(master->lock);
 
             return;
@@ -548,11 +543,18 @@ void _con_packets(void *arg)
         return;
       }
     }
-
+  }
+  
+  if (jp->type == JPACKET_MESSAGE && u == NULL)
+  {
+    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"),
+                     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+                     j_atoi(xmlnode_get_attrib(jp->x, "session"), 1));
+    con_user_enter(u, xmlnode_get_attrib(jp->x, "nick"), 0);
   }
 
   /* Block message from users not already in the room */
-  if(jp->type == JPACKET_MESSAGE && u == NULL)
+  if (jp->type == JPACKET_MESSAGE && u == NULL)
   {
     //check if this is a decline to an invitation
     if ((node = xmlnode_get_tag(xmlnode_get_tag(jp->x, "x?xmlns=http://jabber.org/protocol/muc#user"), "decline")) != NULL)
@@ -566,7 +568,7 @@ void _con_packets(void *arg)
 
     jutil_error(jp->x, TERROR_MUC_OUTSIDE);
     g_mutex_unlock(master->lock);
-    deliver(dpacket_new(jp->x),NULL);
+    deliver(dpacket_new(jp->x), NULL);
     return;
   }
   
@@ -581,9 +583,10 @@ void _con_packets(void *arg)
   }
 
   /* several things use this field below as a flag */
-  if(jp->type == JPACKET_PRESENCE)
+  if (jp->type == JPACKET_PRESENCE)
   {
-    if(jpacket_subtype(jp) == JPACKET__INVISIBLE) {
+    if (jpacket_subtype(jp) == JPACKET__INVISIBLE)
+    {
       xmlnode_hide_attrib(jp->x, "type");
     }
 
@@ -591,11 +594,11 @@ void _con_packets(void *arg)
   }
 
   /* sending available presence will automatically get you a generic user, if you don't have one */
-  if(u == NULL && priority >= 0)
+  if (u == NULL && priority >= 0)
   {
     u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"),
-		     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-		     j_atoi(xmlnode_get_attrib(jp->x, "session"), 1));
+                     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+                     j_atoi(xmlnode_get_attrib(jp->x, "session"), 1));
   }
 
   /* bcy: record status and create presence content */
@@ -613,7 +616,7 @@ void _con_packets(void *arg)
     j_strcat(u->status, xmlnode_get_tag_data(jp->x, "status"));
     u->last_presence = now;
     
-    if (jp->type == JPACKET_PRESENCE && u != NULL && u->remote == 0)
+    if (u->remote == 0)
     {
       char *ss = calloc(1, sizeof(char) * 20);
       
@@ -626,20 +629,16 @@ void _con_packets(void *arg)
       free(ss);
 
       if (u->room->socket == NULL)
-	pthread_create(&u->once, NULL, publish_presence, u);
+        pthread_create(&u->once, NULL, publish_presence, u);
       else
       {
-	char *prefix = calloc(1, sizeof(char) * 100);
-	strcpy(prefix, u->name_prefix);
-	strcat(prefix, "/");
-	strcat(prefix, u->realid->user);
-	strcat(prefix, "/");
-	strcat(prefix, u->room->id->user);
-	log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
-		  FZONE, u->presence_message, prefix, u->session);
-	sync_app_socket_publish(u->room->socket, prefix, u->session, 
-				u->presence_message, MESSAGE_FRESHNESS);
-	free(prefix);
+        char *prefix = calloc(1, sizeof(char) * 100);
+        sprintf(prefix, "%s/%s/%s", u->name_prefix, u->realid->user, u->room->id->user);
+        log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
+                  FZONE, u->presence_message, prefix, u->session);
+        sync_app_socket_publish(u->room->socket, prefix, u->session, 
+                                u->presence_message, MESSAGE_FRESHNESS);
+        free(prefix);
       }
     }
   }
@@ -656,7 +655,7 @@ void _con_packets(void *arg)
   }
 
   /* handle join/rename */
-  if(priority >= 0 && jp->to->resource != NULL)
+  if (priority >= 0 && jp->to->resource != NULL)
   {
     u2 = g_hash_table_lookup(room->local, jp->to->resource); /* existing user w/ this nick? */
 
@@ -678,7 +677,10 @@ void _con_packets(void *arg)
     }
 
     /* Don't allow user if locknicks is set and resource != JID user */
-    if ( ((master->locknicks || room->locknicks) && (j_strcmp(jp->to->resource, jp->from->user) != 0)) && !is_sadmin(master, jp->from) ) {
+    if (((master->locknicks || room->locknicks) &&
+      (j_strcmp(jp->to->resource, jp->from->user) != 0)) &&
+      !is_sadmin(master, jp->from) )
+    {
       log_debug(NAME, "[%s] Nicknames locked - Requested nick %s doesn't match required username %s",
           FZONE, jp->to->resource, jp->from->user);
 
@@ -690,7 +692,7 @@ void _con_packets(void *arg)
     }
 
     /* User already exists, return conflict Error */
-    if(u2 != NULL)
+    if (u2 != NULL)
     {
       log_debug(NAME, "[%s] Nick Conflict (%s)", FZONE, jid_full(jid_user(jp->to)));
 
@@ -701,43 +703,43 @@ void _con_packets(void *arg)
     }
 
     /* Nick already registered, return conflict Error */
-    if(is_registered(master, jid_full(jid_user(u->realid)), jp->to->resource) == -1)
+    if (is_registered(master, jid_full(jid_user(u->realid)), jp->to->resource) == -1)
     {
       log_debug(NAME, "[%s] Nick Conflict with registered nick (%s)", FZONE, jid_full(jid_fix(jp->to)));
 
       jutil_error(jp->x, TERROR_MUC_NICKREG);
       g_mutex_unlock(master->lock);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       return;
     }
 
-    if(is_outcast(room, u->realid) && !is_admin(room, u->realid))
+    if (is_outcast(room, u->realid) && !is_admin(room, u->realid))
     {
       log_debug(NAME, "[%s] Blocking Banned user (%s)", FZONE, jid_full(jid_user(jid_fix(jp->to))));
 
       jutil_error(jp->x, TERROR_MUC_BANNED);
       g_mutex_unlock(master->lock);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       return;
     }
 
     /* User is not invited, return invitation error */
-    if(room->invitation == 1 && !is_member(room, u->realid) && !is_owner(room, u->realid))
+    if (room->invitation == 1 && !is_member(room, u->realid) && !is_owner(room, u->realid))
     {
       jutil_error(jp->x, TERROR_MUC_INVITED);
       g_mutex_unlock(master->lock);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       return;
     }
 
     /* Room is full, return full room error */
-    if(room->count >= room->maxusers && room->maxusers != 0 && !is_admin(room, u->realid))
+    if (room->count >= room->maxusers && room->maxusers != 0 && !is_admin(room, u->realid))
     {
       log_debug(NAME, "[%s] Room over quota - disallowing entry", FZONE);
 
       jutil_error(jp->x, TERROR_MUC_FULL);
       g_mutex_unlock(master->lock);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       return;
     }
 
@@ -746,15 +748,15 @@ void _con_packets(void *arg)
     {
       if (u->remote == 1)
       {
-	free(u->status);
-	u->status = NULL;
-	g_mutex_unlock(master->lock);
-	return;
+        free(u->status);
+        u->status = NULL;
+        g_mutex_unlock(master->lock);
+        return;
       }
       log_debug(NAME, "[%s] Room has been locked", FZONE);
       jutil_error(jp->x, TERROR_NOTFOUND);
       g_mutex_unlock(master->lock);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
       return;
     }
 
@@ -778,7 +780,7 @@ void _con_packets(void *arg)
       for (node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node))
       {
         if (xmlnode_get_name(node) == NULL || strcmp("x", xmlnode_get_name(node)) != 0)
-	  continue; // check if the node is a "x" node
+          continue; // check if the node is a "x" node
 
         if (NSCHECK(node, NS_MUC))
         {
@@ -809,15 +811,17 @@ void _con_packets(void *arg)
       return;
 
     }
-    else if(jp->type == JPACKET_PRESENCE) /* Hopefully you are including a password, this room is locked */
+    else if (jp->type == JPACKET_PRESENCE) /* Hopefully you are including a password, this room is locked */
     {
-      for( node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
-        if (xmlnode_get_name(node)==NULL || strcmp("x",xmlnode_get_name(node))!=0) continue; // check if the node is a "x" node
+      for (node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node))
+      {
+        if (xmlnode_get_name(node) == NULL || strcmp("x", xmlnode_get_name(node)) != 0)
+          continue; // check if the node is a "x" node
 
-        if(NSCHECK(node, NS_MUC))
+        if (NSCHECK(node, NS_MUC))
         {
           log_debug(NAME, "[%s] Password?", FZONE);
-          if(j_strcmp(room->secret, xmlnode_get_tag_data(node, "password")) == 0)
+          if (j_strcmp(room->secret, xmlnode_get_tag_data(node, "password")) == 0)
           {
             /* Set legacy value to room value */
             u->legacy = 0;
@@ -846,11 +850,11 @@ void _con_packets(void *arg)
   }
 
   /* kill any user sending unavailable presence */
-  if(jpacket_subtype(jp) == JPACKET__UNAVAILABLE)
+  if (jpacket_subtype(jp) == JPACKET__UNAVAILABLE)
   {
     int session = j_atoi(xmlnode_get_attrib(jp->x, "session"), 0);
     
-    if(u != NULL && u->session == session)
+    if (u != NULL && u->session == session)
     {
       log_debug(NAME, "[%s] Calling user zap", FZONE);
       
@@ -872,9 +876,9 @@ void _con_packets(void *arg)
   }
 
   /* not in the room yet? foo */
-  if(u == NULL || u->localid == NULL)
+  if (u == NULL || u->localid == NULL)
   {
-    if(u == NULL)
+    if (u == NULL)
     {
       log_debug(NAME, "[%s] No cnu found for user", FZONE);
     }
@@ -883,7 +887,7 @@ void _con_packets(void *arg)
       log_debug(NAME, "[%s] No lid found for %s", FZONE, jid_full(u->realid));
     }
 
-    if(jp->to->resource != NULL)
+    if (jp->to->resource != NULL)
     {
       jutil_error(jp->x, TERROR_NOTFOUND);
       deliver(dpacket_new(jp->x),NULL);
@@ -898,12 +902,12 @@ void _con_packets(void *arg)
   }
 
   /* packets to a specific resource?  one on one chats, browse lookups, etc */
-  if(jp->to->resource != NULL)
+  if (jp->to->resource != NULL)
   {
-    if((u2 = g_hash_table_lookup(room->local, jp->to->resource)) == NULL) /* gotta have a recipient */
+    if ((u2 = g_hash_table_lookup(room->local, jp->to->resource)) == NULL) /* gotta have a recipient */
     {
       jutil_error(jp->x, TERROR_NOTFOUND);
-      deliver(dpacket_new(jp->x),NULL);
+      deliver(dpacket_new(jp->x), NULL);
     }
     else
     {
