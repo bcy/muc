@@ -1132,14 +1132,14 @@ void con_room_process(cnr room, cnu from, jpacket jp)
 
     if (j_strcmp(xmlnode_get_attrib(jp->x, "external"), "1") != 0)
     {
+      xmlnode msg = xmlnode_dup(jp->x);
       char *prefix = calloc(1, sizeof(char) * 100);
-      strcpy(prefix, from->name_prefix);
-      strcat(prefix, "/");
-      strcat(prefix, from->realid->user);
-      strcat(prefix, "/");
-      strcat(prefix, room->id->user);
-      log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, xmlnode2str(jp->x), prefix, from->session);
-      sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
+      
+      xmlnode_put_attrib(msg, "nick", from->localid->user);
+      sprintf(prefix, "%s/%s/%s", from->name_prefix, from->realid->user, room->id->user);
+      log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, xmlnode2str(msg), prefix, from->session);
+      sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(msg), MESSAGE_FRESHNESS);
+      xmlnode_free(msg);
       free(prefix);
     }
 

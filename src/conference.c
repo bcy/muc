@@ -497,6 +497,14 @@ void _con_packets(void *arg)
   /* get the sending user entry, if any */
   log_debug(NAME, "[%s] %s", FZONE, jid_full(jid_fix(jp->from)));
   u = g_hash_table_lookup(room->remote, jid_full(jid_fix(jp->from)));
+  
+  if (jp->type == JPACKET_MESSAGE && u == NULL)
+  {
+    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"),
+		     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+		     j_atoi(xmlnode_get_attrib(jp->x, "session"), 1));
+    con_user_enter(u, xmlnode_get_attrib(jp->x, "nick"), 0);
+  }
 
   /* handle errors */
   if(jpacket_subtype(jp) == JPACKET__ERROR)
@@ -573,7 +581,8 @@ void _con_packets(void *arg)
   }
 
   /* several things use this field below as a flag */
-  if(jp->type == JPACKET_PRESENCE) {
+  if(jp->type == JPACKET_PRESENCE)
+  {
     if(jpacket_subtype(jp) == JPACKET__INVISIBLE) {
       xmlnode_hide_attrib(jp->x, "type");
     }
@@ -733,7 +742,7 @@ void _con_packets(void *arg)
     }
 
     /* Room has been locked against entry */
-    if(room->locked && !is_owner(room, u->realid))
+    if (room->locked && !is_owner(room, u->realid))
     {
       if (u->remote == 1)
       {
@@ -750,7 +759,7 @@ void _con_packets(void *arg)
     }
 
     /* User already in room, simply a nick change */
-    if(u->localid != NULL)
+    if (u->localid != NULL)
     {
       g_hash_table_remove(u->room->local, u->localid->resource);
       jid_set(u->localid, jp->to->resource, JID_RESOURCE);
@@ -762,29 +771,30 @@ void _con_packets(void *arg)
       g_mutex_unlock(master->lock);
       return;
     }
-    else if(room->secret == NULL || is_sadmin(master, jp->from)) /* No password required, just go right in, or you're an sadmin */
+    else if (room->secret == NULL || is_sadmin(master, jp->from)) /* No password required, just go right in, or you're an sadmin */
     {
-
       //the client is legacy unless we're told otherwise
       u->legacy = 1;
-      for( node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node)) {
-        if (xmlnode_get_name(node)==NULL || strcmp("x",xmlnode_get_name(node))!=0) continue; // check if the node is a "x" node
+      for (node = xmlnode_get_firstchild(jp->x); node != NULL; node = xmlnode_get_nextsibling(node))
+      {
+        if (xmlnode_get_name(node) == NULL || strcmp("x", xmlnode_get_name(node)) != 0)
+	  continue; // check if the node is a "x" node
 
-        if(NSCHECK(node, NS_MUC))
+        if (NSCHECK(node, NS_MUC))
         {
           /* Set legacy value to room value */
           u->legacy = 0;
-          //	xmlnode_hide(node);
+          //xmlnode_hide(node);
 
           /* Enable room defaults automatically */
           if(master->roomlock == -1)
           {
             created = 0;
           }
-
         }
       }
-      if (u->legacy == 1) {
+      if (u->legacy == 1)
+      {
         created = 0; //override created flag for non MUC compliant clients
       }
       xmlnode_free(u->presence);
@@ -1284,6 +1294,28 @@ void conference(instance i, xmlnode x)
 void callback(const char *name, const char *data)
 {
   xmlnode x = xmlnode_str((char *)data, strlen(data));
+  
+  if (j_strcmp(xmlnode_get_name(x), "message") == 0)
+  {
+    char *comps[20];
+    char *prefix = calloc(1, sizeof(char) * 100);
+    int i = 0, j = 0;
+    
+    comps[i] = strtok((char *)name, "/");
+    while (comps[i] != NULL)
+    {
+      i++;
+      comps[i] = strtok(NULL, "/");
+    }    
+    xmlnode_put_attrib(x, "session", comps[i - 2]);
+    for (j = 0; j < i - 4; j++)
+    {
+      strcat(prefix, comps[j]);
+      strcat(prefix, "/");
+    }    
+    xmlnode_put_attrib(x, "name_prefix", prefix);
+  }
+  
   xmlnode_put_attrib(x, "external", "1");
   deliver(dpacket_new(x), NULL);
 }
