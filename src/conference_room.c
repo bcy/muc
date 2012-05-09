@@ -1135,7 +1135,7 @@ void con_room_process(cnr room, cnu from, jpacket jp)
       xmlnode msg = xmlnode_dup(jp->x);
       char *prefix = calloc(1, sizeof(char) * 100);
       
-      xmlnode_put_attrib(msg, "nick", from->localid->user);
+      xmlnode_put_attrib(msg, "nick", from->localid->resource);
       sprintf(prefix, "%s/%s/%s", from->name_prefix, from->realid->user, room->id->user);
       log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, xmlnode2str(msg), prefix, from->session);
       sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(msg), MESSAGE_FRESHNESS);

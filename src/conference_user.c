@@ -269,8 +269,8 @@ void con_user_nick(cnu user, char *nick, xmlnode data)
 
   if (nick != NULL) // if this is not a leave, we update the hash_table with the new nick as the key before sending the presence to everyone
   {
-      g_hash_table_remove(user->room->local, resource);
-      g_hash_table_insert(user->room->local, user->localid->resource, (void*)user);
+    g_hash_table_remove(user->room->local, resource);
+    g_hash_table_insert(user->room->local, user->localid->resource, (void*)user);
   }
 
   deliver__flag = 0;
@@ -279,7 +279,7 @@ void con_user_nick(cnu user, char *nick, xmlnode data)
 
   if (nick == NULL) //if this is a leave, we just remove the nick from the hashtable, we must do this after sending the presence to everyone (otherwise this user won't be notified that he has left the room)
   {
-      g_hash_table_remove(user->room->local, resource);
+    g_hash_table_remove(user->room->local, resource);
   }
 
   deliver(NULL, NULL);
@@ -608,6 +608,7 @@ void con_user_process(cnu to, cnu from, jpacket jp)
   {
     char *prefix = calloc(1, sizeof(char) * 100);
     sprintf(prefix, "%s/%s/%s", from->name_prefix, from->realid->user, room->id->user);
+    xmlnode_put_attrib(jp->x, "nick", from->localid->resource);
     log_debug(NAME, "[%s] publish %s with prefix %s and session %d", FZONE, xmlnode2str(jp->x), prefix, from->session);
     sync_app_socket_publish(room->socket, prefix, from->session, xmlnode2str(jp->x), MESSAGE_FRESHNESS);
     free(prefix);
