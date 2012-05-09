@@ -499,15 +499,14 @@ void _con_packets(void *arg)
           s = xmlnode_get_name(node);
           if ((j_strcmp(s, "gone") == 0) || (j_strcmp(s, "item-not-found") == 0) || (j_strcmp(s, "recipient-unavailable") == 0) || (j_strcmp(s, "redirect") == 0) || (j_strcmp(s, "remote-server-not-found") == 0) || (j_strcmp(s, "remote-server-timeout") == 0) || (j_strcmp(s, "service-unavailable")) || (j_strcmp(s, "jid-malformed")))
           {
-	    /*
+            /*
             log_debug(NAME, "[%s] Error Handler: Zapping user", FZONE);
             node = xmlnode_new_tag("reason");
             xmlnode_insert_cdata(node, "Lost connection", -1);
-
             con_user_zap(u, node);
-
-            xmlnode_free(jp->x);
             */
+            
+            xmlnode_free(jp->x);
             g_mutex_unlock(master->lock);
             
             return;
@@ -555,10 +554,11 @@ void _con_packets(void *arg)
   }
 
   /* sending available presence will automatically get you a generic user, if you don't have one */
-  if(u == NULL && priority >= 0)
+  if (u == NULL && priority >= 0)
   {
-    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"), j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
-		    j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
+    u = con_user_new(room, jp->from, xmlnode_get_tag_data(jp->x, "name_prefix"),
+                     j_atoi(xmlnode_get_attrib(jp->x, "external"), 0),
+                     j_atoi(xmlnode_get_attrib(jp->x, "seq_reset"), 1));
   }
 
   /* bcy: record status and create presence content */
