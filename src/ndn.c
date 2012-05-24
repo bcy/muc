@@ -204,10 +204,10 @@ incoming_content_message(
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (user != NULL) // interest timed out, re-express it
       {
-	if (now - user->last_message > MESSAGE_FRESHNESS)
-	  create_message_interest(user, 0);
-	else
-	  create_message_interest(user, user->last_seq + 1);
+        if (now - user->last_message > MESSAGE_FRESHNESS)
+          create_message_interest(user, 0);
+        else
+          create_message_interest(user, user->last_seq + 1);
       }
       return CCN_UPCALL_RESULT_OK;
 
@@ -291,12 +291,12 @@ incoming_content_message(
       u = g_hash_table_lookup(user->room->local, nick);
       if (u == NULL || u->remote == 1) // the destination user should be local
       {
-	g_mutex_unlock(user->room->table_mutex);
-	xmlnode_free(x);
-	return CCN_UPCALL_RESULT_OK;
+        g_mutex_unlock(user->room->table_mutex);
+        xmlnode_free(x);
+        return CCN_UPCALL_RESULT_OK;
       }
       else
-	g_mutex_unlock(user->room->table_mutex);
+        g_mutex_unlock(user->room->table_mutex);
     }
   }
 
@@ -335,8 +335,8 @@ incoming_content_presence(
     case CCN_UPCALL_INTEREST_TIMED_OUT:
       if (room != NULL)
       {
-	room->startup = 0;
-	create_presence_interest(room); // interest timed out, re-express using new exclusion_list
+        room->startup = 0;
+        create_presence_interest(room); // interest timed out, re-express using new exclusion_list
       }
       return CCN_UPCALL_RESULT_OK;
 
@@ -490,7 +490,8 @@ incoming_interest_history(
       return CCN_UPCALL_RESULT_OK;
   }
 
-  ccn_name_comp_get(info->interest_ccnb, info->interest_comps, info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
+  ccn_name_comp_get(info->interest_ccnb, info->interest_comps, 
+      info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
   if (j_strncmp(temp, "\xC1.M.history", size) != 0)
     return CCN_UPCALL_RESULT_OK;
 
@@ -628,7 +629,7 @@ deliver_history(cnr room)
       hist->content_length = j_strlen(xmlnode_get_tag_data(node, "body"));
       hist->timestamp = time(NULL);
 
-      if(++room->hlast == room->master->history)
+      if (++room->hlast == room->master->history)
         room->hlast = 0;
 
       if (room->history[room->hlast] != NULL)
@@ -705,9 +706,9 @@ ndn_run(gpointer data)
       int ret = poll(pfds, 1, 100);
       if (ret >= 0)
       {
-	g_mutex_lock(ccn_mutex);
-	res = ccn_run(ccn, 0);
-	g_mutex_unlock(ccn_mutex);
+        g_mutex_lock(ccn_mutex);
+        res = ccn_run(ccn, 0);
+        g_mutex_unlock(ccn_mutex);
       }
     }
   }
@@ -797,7 +798,7 @@ create_presence_interest(cnr room)
       log_warn(NAME, "[%s] ccn_express_interest failed", FZONE);
       ccn_charbuf_destroy(&interest);
       if (templ != NULL)
-	ccn_charbuf_destroy(&templ);
+        ccn_charbuf_destroy(&templ);
       return 1;
     }
     ccn_charbuf_destroy(&interest);
@@ -831,11 +832,11 @@ create_presence_interest(cnr room)
     {
       struct ccn_charbuf *comp = excl[begin];
       if (comp->length < 4)
-	abort();
+        abort();
 
       // we are being conservative here
       if (interest->length + templ->length + comp->length > 1350)
-	break;
+        break;
 
       ccn_charbuf_append(templ, comp->buf + 1, comp->length - 2);
     }
@@ -855,7 +856,7 @@ create_presence_interest(cnr room)
       ccn_charbuf_destroy(&interest);
       ccn_charbuf_destroy(&templ);
       for (i = 0; i < length; i++)
-	ccn_charbuf_destroy(&excl[i]);
+        ccn_charbuf_destroy(&excl[i]);
       free(excl);
       return 1;
     }
