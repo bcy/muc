@@ -790,8 +790,18 @@ create_presence_interest(cnr room)
   if (g_queue_is_empty(exclusion_list)) // empty exclusion list, directly express interest
   {
     int res;
-    struct ccn_charbuf *templ = NULL;
+    struct ccn_charbuf *templ = ccn_charbuf_create();
 
+    ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
+    ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);     // <Name>
+    ccn_charbuf_append_closer(templ);
+    ccn_charbuf_append_tt(templ, CCN_DTAG_MinSuffixComponents, CCN_DTAG); // <MinSuffixComponents)
+    ccnb_append_number(templ, 1);
+    ccn_charbuf_append_closer(templ);
+    ccn_charbuf_append_tt(templ, CCN_DTAG_MaxSuffixComponents, CCN_DTAG); // <MaxSuffixComponents)
+    ccnb_append_number(templ, 1);
+    ccn_charbuf_append_closer(templ);
+    ccn_charbuf_append_closer(templ);
     res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     if (res < 0)
     {
@@ -823,6 +833,12 @@ create_presence_interest(cnr room)
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG); // <Name>
     ccn_charbuf_append_closer(templ); // </Name>
+    ccn_charbuf_append_tt(templ, CCN_DTAG_MinSuffixComponents, CCN_DTAG); // <MinSuffixComponents)
+    ccnb_append_number(templ, 1);
+    ccn_charbuf_append_closer(templ);
+    ccn_charbuf_append_tt(templ, CCN_DTAG_MaxSuffixComponents, CCN_DTAG); // <MaxSuffixComponents)
+    ccnb_append_number(templ, 1);
+    ccn_charbuf_append_closer(templ);
     ccn_charbuf_append_tt(templ, CCN_DTAG_Exclude, CCN_DTAG); // <Exclude>
 
     if (excludeLow)
