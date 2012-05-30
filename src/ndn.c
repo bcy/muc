@@ -664,7 +664,7 @@ do_delivery(gpointer key, gpointer value, gpointer user_data)
 }
 
 static void
-free_history(gpointer data)
+free_history(gpointer data, gpointer user_data)
 {
   struct history *h = (struct history*) data;
   
@@ -870,12 +870,8 @@ create_presence_interest(cnr room)
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);     // <Name>
     ccn_charbuf_append_closer(templ);
-    ccnb_tagged_putf(templ, CCN_DTAG_MinSuffixComponents, "%d", 1); // <MinSuffixComponents>
-/*
-    ccn_charbuf_append_tt(templ, CCN_DTAG_MaxSuffixComponents, CCN_DTAG); // <MaxSuffixComponents)
-    ccnb_append_number(templ, 1);
-    ccn_charbuf_append_closer(templ);
-*/
+    ccnb_tagged_putf(templ, CCN_DTAG_MinSuffixComponents, "%d", 2); // <MinSuffixComponents>
+    ccnb_tagged_putf(templ, CCN_DTAG_MaxSuffixComponents, "%d", 2); // <MaxSuffixComponents>
     ccn_charbuf_append_closer(templ);
     res = ccn_express_interest(nthread->ccn, interest, room->in_content_presence, templ);
     if (res < 0)
@@ -910,12 +906,8 @@ create_presence_interest(cnr room)
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG); // <Name>
     ccn_charbuf_append_closer(templ); // </Name>
-    ccnb_tagged_putf(templ, CCN_DTAG_MinSuffixComponents, "%d", 1); // <MinSuffixComponents>
-    /*
-    ccn_charbuf_append_tt(templ, CCN_DTAG_MaxSuffixComponents, CCN_DTAG); // <MaxSuffixComponents)
-    ccnb_append_number(templ, 1);
-    ccn_charbuf_append_closer(templ);
-    */
+    ccnb_tagged_putf(templ, CCN_DTAG_MinSuffixComponents, "%d", 2); // <MinSuffixComponents>
+    ccnb_tagged_putf(templ, CCN_DTAG_MaxSuffixComponents, "%d", 2); // <MaxSuffixComponents>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Exclude, CCN_DTAG); // <Exclude>
     
     if (excludeLow)
