@@ -74,10 +74,10 @@ generate_presence_name(char *name, cnu user, int startup)
   // the presence content name is in the form of "/ndn/broadcast/xmpp-muc/<roomID>/<userID>"
   if (startup)
     sprintf(name, "/ndn/broadcast/xmpp-muc/\xC1.M.startup/%s/%s",
-            user->room->id->user, user->realid->user);
+        user->room->id->user, user->realid->user);
   else
     sprintf(name, "/ndn/broadcast/xmpp-muc/%s/%s",
-            user->room->id->user, user->realid->user);
+        user->room->id->user, user->realid->user);
 }
 
 /* create content packet for presence */
@@ -109,13 +109,13 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   else
     freshness = PRESENCE_FRESHNESS;
   res = ccn_signed_info_create(signed_info,
-		/*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
-		/*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
-		/*datetime*/ NULL,
-		/*type*/ CCN_CONTENT_DATA,
-		/*freshness*/ freshness,
-		/*finalblockid*/ NULL,
-		/*keylocator*/ keylocator);
+      /*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+      /*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+      /*datetime*/ NULL,
+      /*type*/ CCN_CONTENT_DATA,
+      /*freshness*/ freshness,
+      /*finalblockid*/ NULL,
+      /*keylocator*/ keylocator);
   if (res < 0)
   {
     log_warn(NAME, "[%s]: Failed to create signed_info (res == %d)", FZONE, res);
@@ -136,8 +136,8 @@ generate_presence_content(cnu user, xmlnode x, int startup)
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
-                           data, strlen(data), 
-                           NULL, ccn_keystore_private_key(keystore));
+      data, strlen(data), 
+      NULL, ccn_keystore_private_key(keystore));
   ccn_put(nthread->ccn, content->buf, content->length);
   
   free(content_name);
@@ -305,7 +305,7 @@ incoming_content_message(
   create_message_interest(user, seq);
 
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E],
-                        info->pco, (const unsigned char **)&pcontent, &len);
+      info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate a XML string into a xmlnode
   
   // judge whether this message should be delivered to local MUC server
@@ -436,9 +436,9 @@ incoming_content_presence(
     int i;
     
     ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, info->content_ccnb,
-                        info->pco->offset[CCN_PCO_B_Timestamp],
-                        info->pco->offset[CCN_PCO_E_Timestamp],
-                        &blob, &blob_size);
+        info->pco->offset[CCN_PCO_B_Timestamp],
+        info->pco->offset[CCN_PCO_E_Timestamp],
+        &blob, &blob_size);
     dt = 0.0;
     for (i = 0; i < blob_size; i++)
       dt = dt * 256.0 + (double)blob[i];
@@ -453,7 +453,7 @@ incoming_content_presence(
   }
   
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E],
-                        info->pco, (const unsigned char **)&pcontent, &len);
+      info->pco, (const unsigned char **)&pcontent, &len);
   x = xmlnode_str(pcontent, len); // translate XML string into xmlnode
   id = j_strdup(xmlnode_get_attrib(x, "from"));
   tmp = strrchr(id, '@');
@@ -549,7 +549,7 @@ incoming_interest_history(
   }
   
   ccn_name_comp_get(info->interest_ccnb, info->interest_comps,
-                    info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
+      info->interest_comps->n - 3, (const unsigned char **)&temp, &size);
   if (j_strncmp(temp, "\xC1.M.history", size) != 0)
   {
     return CCN_UPCALL_RESULT_OK;
@@ -624,10 +624,10 @@ incoming_content_history(
 
   h = calloc(1, sizeof(struct history));
   ccn_name_comp_get(info->content_ccnb, info->content_comps,
-                    info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
+      info->content_comps->n - 2, (const unsigned char **)&seq_str, &len);
   h->seq = atoi(seq_str);
   ccn_content_get_value(info->content_ccnb, info->pco->offset[CCN_PCO_E],
-                        info->pco, (const unsigned char **)&pcontent, &len);
+      info->pco, (const unsigned char **)&pcontent, &len);
   h->msg = calloc(1, sizeof(char) * (len + 1));
   strncpy(h->msg, pcontent, len);
   if (g_mutex_trylock(hlist_mutex))
@@ -723,7 +723,8 @@ deliver_history(cnr room)
   }
   g_mutex_unlock(room->history_mutex);
   hlist = g_list_first(hlist);
-  g_list_free_full(hlist, free_history);
+  g_list_foreach(hlist, free_history, NULL);
+  g_list_free(hlist);
   hlist = NULL;
   g_mutex_unlock(hlist_mutex);
 }
@@ -755,7 +756,7 @@ set_history_interest_filter(cnu user, struct ccn_closure *in_interest)
   g_static_rec_mutex_lock(&ccn_mutex);
   interest = ccn_charbuf_create();
   sprintf(interest_name, "%s/%s/%s/\xC1.M.history",
-          user->name_prefix, user->realid->user, user->room->id->user);
+      user->name_prefix, user->realid->user, user->room->id->user);
   ccn_name_from_uri(interest, interest_name);
   
   ccn_set_interest_filter(nthread->ccn, interest, in_interest);
@@ -869,9 +870,7 @@ create_presence_interest(cnr room)
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG);     // <Name>
     ccn_charbuf_append_closer(templ);
-    ccn_charbuf_append_tt(templ, CCN_DTAG_MinSuffixComponents, CCN_DTAG); // <MinSuffixComponents)
-    ccnb_append_number(templ, 1);
-    ccn_charbuf_append_closer(templ);
+    ccnb_tagged_putf(templ, CCN_DTAG_MinSuffixComponents, "%d", 1); // <MinSuffixComponents>
 /*
     ccn_charbuf_append_tt(templ, CCN_DTAG_MaxSuffixComponents, CCN_DTAG); // <MaxSuffixComponents)
     ccnb_append_number(templ, 1);
@@ -911,9 +910,7 @@ create_presence_interest(cnr room)
     ccn_charbuf_append_tt(templ, CCN_DTAG_Interest, CCN_DTAG); // <Interest>
     ccn_charbuf_append_tt(templ, CCN_DTAG_Name, CCN_DTAG); // <Name>
     ccn_charbuf_append_closer(templ); // </Name>
-    ccn_charbuf_append_tt(templ, CCN_DTAG_MinSuffixComponents, CCN_DTAG); // <MinSuffixComponents)
-    ccnb_append_number(templ, 1);
-    ccn_charbuf_append_closer(templ);
+    ccnb_tagged_putf(templ, CCN_DTAG_MinSuffixComponents, "%d", 1); // <MinSuffixComponents>
     /*
     ccn_charbuf_append_tt(templ, CCN_DTAG_MaxSuffixComponents, CCN_DTAG); // <MaxSuffixComponents)
     ccnb_append_number(templ, 1);
@@ -1015,13 +1012,13 @@ create_presence_content(cnu user, xmlnode x)
   else
     freshness = PRESENCE_FRESHNESS;
   res = ccn_signed_info_create(signed_info,
-                               /*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
-                               /*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
-                               /*datetime*/ NULL,
-                               /*type*/ CCN_CONTENT_DATA,
-                               /*freshness*/ freshness,
-                               /*finalblockid*/ NULL,
-                               /*keylocator*/ keylocator);
+      /*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+      /*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+      /*datetime*/ NULL,
+      /*type*/ CCN_CONTENT_DATA,
+      /*freshness*/ freshness,
+      /*finalblockid*/ NULL,
+      /*keylocator*/ keylocator);
   if (res < 0)
   {
     log_warn(NAME, "[%s]: Failed to create signed_info (res == %d)", FZONE, res);
@@ -1045,13 +1042,14 @@ create_presence_content(cnu user, xmlnode x)
     xmlnode_put_attrib(dup_x, "seq_reset", str_seq);
     free(str_seq);
   }
-  xmlnode_insert_cdata(xmlnode_insert_tag(dup_x, "name_prefix"), xmlnode_get_tag_data(jcr->config, "name_prefix"), -1);
+  xmlnode_insert_cdata(xmlnode_insert_tag(dup_x, "name_prefix"), 
+      xmlnode_get_tag_data(jcr->config, "name_prefix"), -1);
   data = xmlnode2str(dup_x);
   log_debug(NAME, "[%s]: encoding content %s", FZONE, data);
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
-                           data, strlen(data),
-                           NULL, ccn_keystore_private_key(keystore));
+      data, strlen(data),
+      NULL, ccn_keystore_private_key(keystore));
   
   ccn_put(nthread->ccn, content->buf, content->length);
   
@@ -1134,8 +1132,8 @@ create_message_content(cnu user, char *data)
   g_static_rec_mutex_lock(&ccn_mutex);
   // content name has the form of "<name_prefix>/<userID>/<roomID>/<seq>"
   sprintf(content_name, "%s/%s/%s/%d",
-          user->name_prefix, user->realid->user,
-          user->room->id->user, user->message_seq);
+      user->name_prefix, user->realid->user,
+      user->room->id->user, user->message_seq);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
@@ -1144,13 +1142,13 @@ create_message_content(cnu user, char *data)
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
   signed_info = ccn_charbuf_create();
   res = ccn_signed_info_create(signed_info,
-                               /*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
-                               /*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
-                               /*datetime*/ NULL,
-                               /*type*/ CCN_CONTENT_DATA,
-                               /*freshness*/ MESSAGE_FRESHNESS,
-                               /*finalblockid*/ NULL,
-                               /*keylocator*/ keylocator);
+      /*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+      /*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+      /*datetime*/ NULL,
+      /*type*/ CCN_CONTENT_DATA,
+      /*freshness*/ MESSAGE_FRESHNESS,
+      /*finalblockid*/ NULL,
+      /*keylocator*/ keylocator);
   if (res < 0)
   {
     log_warn(NAME, "[%s] failed to create signed_info (res == %d)", FZONE, res);
@@ -1165,8 +1163,8 @@ create_message_content(cnu user, char *data)
   // encode content packet
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
-                           data, strlen(data), 
-                           NULL, ccn_keystore_private_key(keystore));
+      data, strlen(data), 
+      NULL, ccn_keystore_private_key(keystore));
   
   ccn_put(nthread->ccn, content->buf, content->length);
   user->message_seq++;
@@ -1191,7 +1189,7 @@ create_history_interest(cnu user, unsigned int seq)
   
   g_static_rec_mutex_lock(&ccn_mutex);
   sprintf(name, "%s/%s/%s/\xC1.M.history/", 
-          user->name_prefix, user->realid->user, user->room->id->user);
+      user->name_prefix, user->realid->user, user->room->id->user);
   
   // append sequence number to the name
   interest = ccn_charbuf_create();
@@ -1235,7 +1233,7 @@ create_history_content(cnu user, char *data, unsigned int seq)
   g_static_rec_mutex_lock(&ccn_mutex);
   // content name has the form of "<name_prefix>/<userID>/<roomID>/%C1.M.history/<seq>"
   sprintf(content_name, "%s/%s/%s/\xC1.M.history/%u", 
-          user->name_prefix, user->realid->user, user->room->id->user, seq);
+      user->name_prefix, user->realid->user, user->room->id->user, seq);
   pname = ccn_charbuf_create();
   ccn_name_from_uri(pname, content_name);
   
@@ -1244,13 +1242,13 @@ create_history_content(cnu user, char *data, unsigned int seq)
   ccn_create_keylocator(keylocator, ccn_keystore_public_key(keystore));
   signed_info = ccn_charbuf_create();
   res = ccn_signed_info_create(signed_info,
-                               /*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
-                               /*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
-                               /*datetime*/ NULL,
-                               /*type*/ CCN_CONTENT_DATA,
-                               /*freshness*/ HISTORY_FRESHNESS,
-                               /*finalblockid*/ NULL,
-                               /*keylocator*/ keylocator);
+      /*pubkeyid*/ ccn_keystore_public_key_digest(keystore),
+      /*publisher_key_id_size*/ ccn_keystore_public_key_digest_length(keystore),
+      /*datetime*/ NULL,
+      /*type*/ CCN_CONTENT_DATA,
+      /*freshness*/ HISTORY_FRESHNESS,
+      /*finalblockid*/ NULL,
+      /*keylocator*/ keylocator);
   if (res < 0)
   {
     log_warn(NAME, "[%s] failed to create signed_info (res == %d)", FZONE, res);
@@ -1265,8 +1263,8 @@ create_history_content(cnu user, char *data, unsigned int seq)
   // encode content packet
   content = ccn_charbuf_create();
   ccn_encode_ContentObject(content, pname, signed_info,
-                           data, strlen(data), 
-                           NULL, ccn_keystore_private_key(keystore));
+      data, strlen(data), 
+      NULL, ccn_keystore_private_key(keystore));
   
   ccn_put(nthread->ccn, content->buf, content->length);
   
@@ -1354,3 +1352,4 @@ stop_ndn_thread()
   free(nthread);
   return 0;
 }
+
