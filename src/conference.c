@@ -1303,7 +1303,7 @@ void update_callback(const struct MissingDataInfoC *mdi, const int size, const S
   {
     int start = MAX(mdi[i].low, mdi[i].high - MAX_FETCH_NUM);
     int j;
-    for (j = start; j < mdi[i].high; j++)
+    for (j = start; j <= mdi[i].high; j++)
       sync_app_socket_fetch(sock, mdi[i].prefix, mdi[i].session, j, &callback, 0);
   }
 }
