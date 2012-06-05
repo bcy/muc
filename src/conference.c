@@ -382,7 +382,7 @@ static void *publish_presence(void *data)
         char *prefix = calloc(1, sizeof(char) * 100);
         strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
         strcat(prefix, user->room->id->user);
-        user->room->socket = create_sync_app_socket(prefix, &callback);
+        user->room->socket = create_sync_app_socket(prefix, &updatecallback, NULL);
         free(prefix);
       }
       
@@ -1293,6 +1293,19 @@ void conference(instance i, xmlnode x)
   g_timeout_add(60000, (GSourceFunc)con_beat_update, (void *)master);
 
   pool_free(tp);
+}
+
+void update_callback(const struct MissingDataInfoC *mdi, const int size, const SyncAppSocketStruct *sock)
+{
+  int i;
+  
+  for (i = 0; i < size; i++)
+  {
+    int start = MAX(mdi[i].low, mdi[i].high - MAX_FETCH_NUM);
+    int j;
+    for (j = start; j < mdi[i].high; j++)
+      sync_app_socket_fetch(sock, mdi[i].session, j, &callback);
+  }
 }
 
 void callback(const char *name, const char *data)
