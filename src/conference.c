@@ -382,7 +382,7 @@ static void *publish_presence(void *data)
         char *prefix = calloc(1, sizeof(char) * 100);
         strcpy(prefix, "/ndn/broadcast/sync/xmpp-muc/");
         strcat(prefix, user->room->id->user);
-        user->room->socket = create_sync_app_socket(prefix, &updatecallback, NULL);
+        user->room->socket = create_sync_app_socket(prefix, &update_callback, NULL);
         free(prefix);
       }
       
@@ -1304,7 +1304,7 @@ void update_callback(const struct MissingDataInfoC *mdi, const int size, const S
     int start = MAX(mdi[i].low, mdi[i].high - MAX_FETCH_NUM);
     int j;
     for (j = start; j < mdi[i].high; j++)
-      sync_app_socket_fetch(sock, mdi[i].session, j, &callback);
+      sync_app_socket_fetch(sock, mdi[i].prefix, mdi[i].session, j, &callback, 0);
   }
 }
 

@@ -369,6 +369,9 @@ void sql_add_affiliate(mysql sql, cnr room, char * userid, int affil);
 void sql_remove_affiliate(mysql sql, cnr room, jid userid);
 #endif
 
+void update_callback(const struct MissingDataInfoC *mdi, const int size, const SyncAppSocketStruct *sock);
 void callback(const char *name, const char *data);
 
 #define MESSAGE_FRESHNESS 10
+
+#define MAX_FETCH_NUM 15
