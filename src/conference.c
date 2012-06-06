@@ -388,8 +388,6 @@ static void *publish_presence(void *data)
       
       char *prefix = calloc(1, sizeof(char) * 100);
       sprintf(prefix, "%s/%s/%s", user->name_prefix, user->realid->user, user->room->id->user);
-      log_debug(NAME, "[%s] publish %s with prefix %s and session %d", 
-                FZONE, user->presence_message, prefix, user->session);
       sync_app_socket_publish(user->room->socket, prefix, user->session, 
                               user->presence_message, MESSAGE_FRESHNESS);
       free(prefix);
