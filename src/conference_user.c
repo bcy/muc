@@ -95,12 +95,15 @@ cnu con_user_new(cnr room, jid id, char *name_prefix, int external, int seq)
     if (room->startup == 1 && g_hash_table_size(room->remote_users) == 0)
     {
       int i;
+      extern GMutex *closure_mutex;
       
       room->in_content_history->data = room;
       for (i = 1; i <= MIN(user->room->master->history, HISTORY); i++)
 	create_history_interest(user, i);
       sleep(1);
+      g_mutex_lock(closure_mutex);
       room->in_content_history->data = NULL;
+      g_mutex_unlock(closure_mutex);
       deliver_history(user->room);
     }
   }
@@ -645,7 +648,7 @@ void con_user_zap(cnu user, xmlnode data)
   char *reason;
   char *status;
   char *nick;
-  extern GMutex *user_mutex;
+  extern GMutex *user_mutex, *closure_mutex;
 
   if(user == NULL || data == NULL)
   {
@@ -657,6 +660,7 @@ void con_user_zap(cnu user, xmlnode data)
     return;
   }
   
+  g_mutex_lock(closure_mutex);
   g_mutex_lock(user_mutex);
   
   user->leaving = 1;
@@ -787,6 +791,7 @@ void con_user_zap(cnu user, xmlnode data)
     room->in_content_presence->data = NULL;
     set_interest_filter(room, NULL);
     room->in_interest_presence->data = NULL;
+    g_mutex_unlock(closure_mutex);
     
     if (room->persistent == 0)
     {
@@ -803,4 +808,6 @@ void con_user_zap(cnu user, xmlnode data)
       room->cleaning = 0;
     }
   }
+  else
+    g_mutex_unlock(closure_mutex);
 }
