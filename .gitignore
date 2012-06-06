@@ -10,10 +10,8 @@ config.h.in
 config.log
 config.status
 configure
-mu-conference.pid
 muc.kdev4
 muc.xml.dist
-muclinker.localhost
 scripts/change_nameprefix.sh
 scripts/create_room.sh
 scripts/room.dist
@@ -64,6 +62,7 @@ src/ndn.o
 src/pool.o
 src/roles.o
 src/sha.o
+src/smuc
 src/snprintf.o
 src/str.o
 src/utils.o
@@ -71,5 +70,4 @@ src/xdata.o
 src/xdb.o
 src/xmlnode.o
 stamp-h1
-syslogs
 tags
